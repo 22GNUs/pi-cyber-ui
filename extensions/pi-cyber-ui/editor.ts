@@ -93,6 +93,7 @@ let snapOut: number | undefined;
 let snapOutEst = false;
 let snapTps: number | undefined;
 let snapTpsEst = false;
+let resetNotice: string | undefined;
 
 // ── constants ─────────────────────────────────────────────────
 const GLYPH_W = 2;
@@ -392,6 +393,7 @@ function resetAll(): void {
   firstOutMs = pausedAt = pausedTotal = toolDepth = 0;
   tps = estTps = snapOut = snapTps = undefined;
   snapOutEst = snapTpsEst = false;
+  resetNotice = undefined;
   resetMsg();
 }
 
@@ -522,7 +524,15 @@ function attachHUD(ctx: ExtensionContext): void {
         const statsText = stats.join(s);
 
         if (!promptActive && stats.length === 0) {
-          return [truncateToWidth(stylePath(theme, shortenPath(rawPath, Math.max(8, w - 2))), w)];
+          const pathLine = truncateToWidth(
+            stylePath(theme, shortenPath(rawPath, Math.max(8, w - 2))),
+            w,
+          );
+          if (resetNotice) {
+            const notice = theme.fg("dim", resetNotice);
+            return [truncateToWidth(`${pathLine}${s}${notice}`, w)];
+          }
+          return [pathLine];
         }
 
         const reserved = statsText ? visibleWidth(statsText) + visibleWidth(s) : 0;
@@ -547,8 +557,14 @@ function attach(ctx: ExtensionContext): void {
 export default function editor(pi: ExtensionAPI) {
   pi.on("session_start", async (_e, ctx) => { resetAll(); attach(ctx); });
   pi.on("session_switch", async (_e, ctx) => { resetAll(); attach(ctx); });
-  pi.on("session_compact", async () => { resetAll(); });
-  pi.on("session_tree", async () => { resetAll(); });
+  pi.on("session_compact", async () => {
+    resetAll();
+    resetNotice = "↺ reset";
+  });
+  pi.on("session_tree", async () => {
+    resetAll();
+    resetNotice = "↺ reset";
+  });
 
   pi.on("agent_start", async () => {
     resetAll();
