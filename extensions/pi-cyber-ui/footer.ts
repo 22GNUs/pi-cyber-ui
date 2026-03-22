@@ -141,10 +141,17 @@ function progressBar(theme: Theme, percent: number, width = 12): string {
 
 function contextText(
   theme: Theme,
-  usedTokens: number,
+  usedTokens: number | null,
   contextWindow: number,
 ): string {
   const icon = theme.fg("accent", ICONS.context);
+
+  if (usedTokens === null) {
+    if (contextWindow <= 0) {
+      return `${icon} ${theme.fg("dim", "?")}`;
+    }
+    return `${icon} ${theme.fg("dim", `?/${formatTokens(contextWindow)}`)}`;
+  }
 
   if (contextWindow <= 0) {
     return `${icon} ${theme.fg("dim", formatTokens(usedTokens))}`;
@@ -231,7 +238,7 @@ interface CacheKey {
   modelId: string | undefined;
   modelName: string | undefined;
   thinkingLevel: string;
-  usedTokens: number;
+  usedTokens: number | null;
   contextWindow: number;
   statusSignature: string;
   statusCount: number;
@@ -326,7 +333,7 @@ function attachFooter(
         render(width: number): string[] {
           const thinkingLevel = getThinkingLevel();
           const usage: ContextUsage | undefined = ctx.getContextUsage?.();
-          const usedTokens = usage?.tokens ?? 0;
+          const usedTokens = usage?.tokens ?? null;
           const contextWindow =
             usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
           const statusInfo = getStatusInfo(theme, footerData);

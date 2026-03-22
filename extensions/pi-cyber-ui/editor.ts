@@ -547,6 +547,8 @@ function attach(ctx: ExtensionContext): void {
 export default function editor(pi: ExtensionAPI) {
   pi.on("session_start", async (_e, ctx) => { resetAll(); attach(ctx); });
   pi.on("session_switch", async (_e, ctx) => { resetAll(); attach(ctx); });
+  pi.on("session_compact", async () => { resetAll(); });
+  pi.on("session_tree", async () => { resetAll(); });
 
   pi.on("agent_start", async () => {
     resetAll();
