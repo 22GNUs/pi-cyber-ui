@@ -1,0 +1,27 @@
+{
+  "name": "pi-cyber-ui",
+  "version": "0.1.0",
+  "description": "Standalone Pi UI package with a cyber-inspired theme, custom editor, footer, and working animation.",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "files": ["themes", "extensions", "README.md"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run typecheck"
+  },
+  "pi": {
+    "themes": ["./themes"],
+    "extensions": ["./extensions/pi-cyber-ui/index.ts"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-ai": "^0.61.1",
+    "@mariozechner/pi-coding-agent": "^0.61.1",
+    "@mariozechner/pi-tui": "^0.61.1",
+    "typescript": "^5.7.3"
+  }
+}
