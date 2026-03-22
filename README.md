@@ -22,13 +22,17 @@ npm run typecheck
 
 ## Using with Pi
 
-Install from a local path while developing:
+Install from the remote repository:
+
+```bash
+pi install git:github.com/22GNUs/pi-cyber-ui.git
+```
+
+For local development, you can also install from a path:
 
 ```bash
 pi install /Users/xinhua/Developer/pi-cyber-ui
 ```
-
-Or add the package path to your Pi settings.
 
 The package is structured to be publishable later via git or npm without changing the directory layout.
 
@@ -37,7 +41,7 @@ When it is published, install it with one of these forms:
 ```bash
 pi install npm:pi-cyber-ui
 # or
-pi install git:github.com/<owner>/pi-cyber-ui
+pi install git:github.com/22GNUs/pi-cyber-ui.git
 ```
 
 ## Notes
