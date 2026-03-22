@@ -169,7 +169,7 @@ export class CyberEditorState {
     this.resetMsg();
     this.msgActive = true;
     this.msgStartMs = Date.now();
-    this.msgUsageMode = getUsageMode(message.provider);
+    this.msgUsageMode = getUsageMode(message.api);
     this.syncMessage(message);
   }
 
