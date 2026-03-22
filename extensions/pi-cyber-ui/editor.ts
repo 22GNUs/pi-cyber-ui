@@ -93,7 +93,13 @@ let snapOut: number | undefined;
 let snapOutEst = false;
 let snapTps: number | undefined;
 let snapTpsEst = false;
-let resetNotice: string | undefined;
+type ResetNoticeKind = "compact" | "tree";
+interface ResetNotice {
+  kind: ResetNoticeKind;
+  startedAt: number;
+}
+
+let resetNotice: ResetNotice | undefined;
 
 // ── constants ─────────────────────────────────────────────────
 const GLYPH_W = 2;
@@ -397,6 +403,15 @@ function resetAll(): void {
   resetMsg();
 }
 
+function setResetNotice(kind: ResetNoticeKind): void {
+  resetNotice = { kind, startedAt: Date.now() };
+}
+
+function renderResetNotice(theme: any, notice: ResetNotice): string {
+  const label = notice.kind === "compact" ? "cmp" : "tree";
+  return theme.fg("warning", label);
+}
+
 function elapsed(): number {
   if (!firstOutMs) return 0;
   const ap = pausedAt ? Date.now() - pausedAt : 0;
@@ -529,7 +544,7 @@ function attachHUD(ctx: ExtensionContext): void {
             w,
           );
           if (resetNotice) {
-            const notice = theme.fg("dim", resetNotice);
+            const notice = renderResetNotice(theme, resetNotice);
             return [truncateToWidth(`${pathLine}${s}${notice}`, w)];
           }
           return [pathLine];
@@ -559,11 +574,11 @@ export default function editor(pi: ExtensionAPI) {
   pi.on("session_switch", async (_e, ctx) => { resetAll(); attach(ctx); });
   pi.on("session_compact", async () => {
     resetAll();
-    resetNotice = "↺ reset";
+    setResetNotice("compact");
   });
   pi.on("session_tree", async () => {
     resetAll();
-    resetNotice = "↺ reset";
+    setResetNotice("tree");
   });
 
   pi.on("agent_start", async () => {
