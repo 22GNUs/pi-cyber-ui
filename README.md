@@ -28,10 +28,10 @@ Install from the remote repository:
 pi install git:github.com/22GNUs/pi-cyber-ui.git
 ```
 
-For local development, you can also install from a path:
+For local development, you can also install from a local checkout path:
 
 ```bash
-pi install /Users/xinhua/Developer/pi-cyber-ui
+pi install /path/to/pi-cyber-ui
 ```
 
 The package is structured to be publishable later via git or npm without changing the directory layout.
