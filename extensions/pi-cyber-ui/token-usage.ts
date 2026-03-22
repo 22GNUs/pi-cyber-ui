@@ -1,15 +1,23 @@
 /**
  * Token usage helpers for the cyber HUD.
  *
- * - Anthropic can expose cumulative streaming usage, so we can display exact
- *   in-flight output tokens.
- * - Other providers generally only expose final usage, so we fall back to
- *   a lightweight streaming estimate.
+ * Exact mode is determined by the API/protocol, not the provider name.
+ * Anthropic Messages API (and any provider using the same request protocol)
+ * can expose cumulative streaming usage, so we can display exact in-flight
+ * output tokens.
  */
+import type { Api } from "@mariozechner/pi-ai";
+
 export type UsageMode = "exact" | "estimated";
 
-export function getUsageMode(provider?: string): UsageMode {
-  return provider === "anthropic" ? "exact" : "estimated";
+const EXACT_USAGE_APIS = new Set<Api | string>(["anthropic-messages"]);
+
+export function supportsExactUsage(api?: Api | string): boolean {
+  return api !== undefined && EXACT_USAGE_APIS.has(api);
+}
+
+export function getUsageMode(api?: Api | string): UsageMode {
+  return supportsExactUsage(api) ? "exact" : "estimated";
 }
 
 type TokenBuckets = {
