@@ -16,6 +16,7 @@ const state = new CyberEditorState();
 const SETTINGS_PATH = join(homedir(), ".pi", "agent", "pi-cyber-ui.json");
 let vimModeEnabled = loadVimModeSetting();
 let activeUiContext: ExtensionContext | undefined;
+let activeEditor: CyberEditor | undefined;
 
 function loadVimModeSetting(): boolean {
   try {
@@ -35,19 +36,24 @@ function saveVimModeSetting(enabled: boolean): void {
 function attach(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
   activeUiContext = ctx;
-  ctx.ui.setEditorComponent((tui, th, kb) => new CyberEditor(tui, th, kb, {
-    getHudSnapshot: () => state.snapshot(),
-    cwd: ctx.cwd ?? "",
-    vimEnabled: vimModeEnabled,
-  }));
+  ctx.ui.setEditorComponent((tui, th, kb) => {
+    const editor = new CyberEditor(tui, th, kb, {
+      getHudSnapshot: () => state.snapshot(),
+      cwd: ctx.cwd ?? "",
+      vimEnabled: vimModeEnabled,
+    });
+    activeEditor = editor;
+    return editor;
+  });
 }
 
 function applyVimMode(enabled: boolean, ctx?: ExtensionContext): void {
   vimModeEnabled = enabled;
   saveVimModeSetting(enabled);
+  activeEditor?.setVimEnabled(enabled);
+
   const target = ctx ?? activeUiContext;
   if (target?.hasUI) {
-    attach(target);
     target.ui.notify(`Cyber UI: Vim mode ${enabled ? "enabled" : "disabled"}.`, "info");
   }
 }
