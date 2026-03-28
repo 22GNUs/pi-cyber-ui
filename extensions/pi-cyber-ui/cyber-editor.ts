@@ -9,20 +9,14 @@ import type { EditorTheme, TUI } from "@mariozechner/pi-tui";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { renderHudTopBorder } from "./editor-hud.js";
-import type { AgentState, CyberHudSnapshot } from "./editor-state.js";
+import type { CyberHudSnapshot } from "./editor-state.js";
 import VimEditor from "./vim-editor.js";
 
 type RGB = [number, number, number];
 
 const SILVER: RGB = [170, 184, 202];
-const STEEL: RGB = [92, 104, 124];
-const RUNNING_SILVER: RGB = [126, 142, 164];
-const THINKING_LOW: RGB = [108, 118, 142];
-const THINKING_HIGH: RGB = [148, 160, 184];
 const NORMAL_LOW: RGB = [126, 214, 150];
 const NORMAL_HIGH: RGB = [188, 255, 172];
-const NORMAL_RUNNING: RGB = [132, 224, 156];
-const NORMAL_THINKING: RGB = [166, 240, 164];
 const WHITE: RGB = [214, 224, 236];
 const RESET = "\x1b[39m";
 const GLYPH_GAP = 1;
@@ -31,7 +25,6 @@ const BREATH_FPS = 50;
 const ANIM_MS = 60;
 
 export interface CyberEditorOptions {
-  getAgentState?: () => AgentState;
   getHudSnapshot?: () => CyberHudSnapshot;
   cwd?: string;
   vimEnabled?: boolean;
@@ -70,7 +63,6 @@ function findBorderLineIndex(lines: string[]): number {
 }
 
 export default class CyberEditor extends VimEditor {
-  private readonly getAgentState: () => AgentState;
   private readonly getHudSnapshot: () => CyberHudSnapshot | undefined;
   private readonly cwd: string;
 
@@ -86,7 +78,6 @@ export default class CyberEditor extends VimEditor {
     options: CyberEditorOptions = {},
   ) {
     super(tui, theme, kb, { enabled: options.vimEnabled });
-    this.getAgentState = options.getAgentState ?? (() => "idle");
     this.getHudSnapshot = options.getHudSnapshot ?? (() => undefined);
     this.cwd = options.cwd ?? "";
     this.setPaddingX(this.getPaddingX() + this.promptWidth());
@@ -116,19 +107,12 @@ export default class CyberEditor extends VimEditor {
   }
 
   private insertColor(): RGB {
-    const agentState = this.getAgentState();
-    if (agentState === "running") return RUNNING_SILVER;
-    if (agentState === "thinking") return THINKING_HIGH;
     if (this.anim) return mixRgb(SILVER, WHITE, Math.max(0, 1 - this.frame / 10));
-    return mixRgb(RUNNING_SILVER, WHITE, this.alpha());
+    return mixRgb(SILVER, WHITE, this.alpha());
   }
 
   private modeColor(): RGB {
     if (!this.vimEnabled || this.mode === "insert") return this.insertColor();
-
-    const agentState = this.getAgentState();
-    if (agentState === "running") return NORMAL_RUNNING;
-    if (agentState === "thinking") return NORMAL_THINKING;
     return mixRgb(NORMAL_LOW, NORMAL_HIGH, this.alpha());
   }
 
