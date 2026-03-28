@@ -1,24 +1,39 @@
-import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
-import type { CyberEditorState, CyberHudSnapshot, ResetNotice } from "./editor-state.js";
+import type { CyberHudSnapshot, ResetNotice } from "./editor-state.js";
 
 const SEP = " ∷ ";
 const TURN_ICON = "󰄉";
 const PATH_MAX_DEPTH = 3;
-const TILDE_PINK: readonly [number, number, number] = [255, 130, 184];
 const RESET = "\x1b[39m";
 const BOLD = "\x1b[1m";
 const UNBOLD = "\x1b[22m";
 
 type RGB = readonly [number, number, number];
+type BorderColorFn = (text: string) => string;
+
+const C = {
+  hotPink: [255, 130, 184] as RGB,
+  dim: [112, 124, 146] as RGB,
+  muted: [162, 176, 196] as RGB,
+  accent: [137, 219, 255] as RGB,
+  success: [122, 217, 166] as RGB,
+  warning: [255, 202, 112] as RGB,
+  error: [255, 136, 136] as RGB,
+} as const;
 
 function rgb(c: RGB): string {
   return `\x1b[38;2;${c[0]};${c[1]};${c[2]}m`;
 }
 
-function hotPink(text: string): string {
-  return `${BOLD}${rgb(TILDE_PINK)}${text}${UNBOLD}${RESET}`;
+function paint(color: RGB, text: string, bold = false): string {
+  const weight = bold ? BOLD : "";
+  const unweight = bold ? UNBOLD : "";
+  return `${weight}${rgb(color)}${text}${unweight}${RESET}`;
+}
+
+function fill(borderColor: BorderColorFn, width: number): string {
+  return width > 0 ? borderColor("─".repeat(width)) : "";
 }
 
 function fmt(n: number): string {
@@ -28,8 +43,8 @@ function fmt(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
-function tpsColor(v: number): "success" | "accent" | "warning" | "error" {
-  return v > 300 ? "success" : v > 150 ? "accent" : v > 50 ? "warning" : "error";
+function tpsColor(v: number): RGB {
+  return v > 300 ? C.success : v > 150 ? C.accent : v > 50 ? C.warning : C.error;
 }
 
 function shortenPath(raw: string, maxWidth: number): string {
@@ -87,7 +102,7 @@ function shortenPath(raw: string, maxWidth: number): string {
   return `…${full.slice(-(maxWidth - 1))}`;
 }
 
-function stylePath(theme: Theme, raw: string): string {
+function stylePath(raw: string): string {
   if (raw.length === 0) return "";
 
   let prefix = "";
@@ -97,108 +112,190 @@ function stylePath(theme: Theme, raw: string): string {
   } else if (raw === "~") {
     parts = ["~"];
   } else if (raw.startsWith("/")) {
-    prefix = theme.fg("dim", "/");
+    prefix = paint(C.dim, "/");
     parts = raw.slice(1).split("/").filter(Boolean);
   } else {
     parts = raw.split("/").filter(Boolean);
   }
 
+  const slash = paint(C.dim, "/");
   const styled = parts.map((part, index) => {
-    if (part === "…") return theme.fg("dim", part);
+    if (part === "…") return paint(C.dim, part);
     const isLast = index === parts.length - 1;
-    if (part === "~") return hotPink(part);
-    if (isLast) return theme.fg("accent", part);
-    return theme.fg("dim", part);
-  }).join(theme.fg("dim", "/"));
+    if (part === "~") return paint(C.hotPink, part, true);
+    if (isLast) return paint(C.accent, part);
+    return paint(C.dim, part);
+  }).join(slash);
 
   return `${prefix}${styled}`;
 }
 
-function renderResetNotice(theme: Theme, notice: ResetNotice): string {
+function renderResetNotice(notice: ResetNotice): string {
   const label = notice.kind === "compact" ? "cmp" : "tree";
-  return theme.fg("warning", label);
+  return paint(C.warning, label);
 }
 
-function renderHudLine(
-  theme: Theme,
+function joinParts(parts: string[]): string {
+  const filtered = parts.filter(Boolean);
+  if (filtered.length === 0) return "";
+  return filtered.join(paint(C.dim, SEP));
+}
+
+function composeBorderLine(
+  width: number,
+  borderColor: BorderColorFn,
+  leftCandidates: string[],
+  rightCandidates: string[],
+): string {
+  const lefts = leftCandidates.length > 0 ? leftCandidates : [""];
+  const rights = rightCandidates.length > 0 ? rightCandidates : [""];
+
+  for (const right of rights) {
+    for (const left of lefts) {
+      const leftWidth = visibleWidth(left);
+      const rightWidth = visibleWidth(right);
+      if (leftWidth + rightWidth > width) continue;
+
+      const gap = width - leftWidth - rightWidth;
+      if (!left && !right) return fill(borderColor, width);
+      if (!left) return `${fill(borderColor, gap)}${right}`;
+      if (!right) return `${left}${fill(borderColor, gap)}`;
+      return `${left}${fill(borderColor, gap)}${right}`;
+    }
+  }
+
+  const right = rights.find(Boolean) ?? "";
+  if (right) return truncateToWidth(right, width, "");
+
+  const left = lefts.find(Boolean) ?? "";
+  if (left) return truncateToWidth(left, width, "");
+
+  return fill(borderColor, width);
+}
+
+function renderTurn(snapshot: CyberHudSnapshot): string {
+  if (!snapshot.promptActive) return "";
+  return paint(C.dim, `${TURN_ICON}${Math.max(1, snapshot.promptTurns)}`);
+}
+
+function renderInput(snapshot: CyberHudSnapshot): string {
+  const inTk = snapshot.inputValue;
+  if (inTk !== undefined) return paint(C.muted, `↑${fmt(inTk)}`);
+  if (snapshot.promptActive && snapshot.promptIn > 0) {
+    return paint(C.dim, `↑${fmt(snapshot.promptIn)}+…`);
+  }
+  if (snapshot.promptActive) return paint(C.dim, "↑…");
+  return "";
+}
+
+function renderOutput(snapshot: CyberHudSnapshot): string {
+  const value = snapshot.output.value;
+  if (value === undefined) return "";
+
+  const label = `${snapshot.output.estimated ? "~" : ""}↓${fmt(value)}`;
+  if (snapshot.output.frozen) return paint(C.dim, label);
+  if (snapshot.output.estimated) return paint(C.muted, label);
+  return paint(C.accent, label);
+}
+
+function renderTps(snapshot: CyberHudSnapshot): string {
+  const value = snapshot.tps.value;
+  if (value === undefined || !Number.isFinite(value) || value <= 0) return "";
+
+  const label = `${snapshot.tps.estimated ? "~" : ""}${value.toFixed(0)}t/s`;
+  if (snapshot.agentState === "thinking" || snapshot.agentState === "idle") {
+    return paint(C.dim, label);
+  }
+  return paint(tpsColor(value), label);
+}
+
+function statsCandidates(snapshot: CyberHudSnapshot): string[] {
+  const turn = renderTurn(snapshot);
+  const reset = snapshot.resetNotice ? renderResetNotice(snapshot.resetNotice) : "";
+  const input = renderInput(snapshot);
+  const output = renderOutput(snapshot);
+  const tps = renderTps(snapshot);
+  const io = [input, output].filter(Boolean).join(" ");
+
+  return [
+    joinParts([turn, io, tps, reset]),
+    joinParts([turn, io, tps]),
+    joinParts([turn, io, reset]),
+    joinParts([turn, io]),
+    joinParts([io, tps, reset]),
+    joinParts([io, tps]),
+    joinParts([io, reset]),
+    io,
+    joinParts([turn, input, output, tps]),
+    joinParts([input, output, tps]),
+    joinParts([output, tps, reset]),
+    joinParts([output, tps]),
+    joinParts([input, output]),
+    output,
+    input,
+    joinParts([turn, reset]),
+    reset,
+    turn,
+    "",
+  ];
+}
+
+function pathCandidates(cwd: string, width: number): string[] {
+  const home = process.env.HOME ?? "";
+  const rawPath = home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
+  const basename = rawPath === "/"
+    ? "/"
+    : rawPath.split("/").filter(Boolean).at(-1) ?? rawPath;
+
+  return [
+    stylePath(shortenPath(rawPath, Math.max(10, width))),
+    stylePath(shortenPath(rawPath, Math.max(10, Math.floor(width * 0.66)))),
+    stylePath(shortenPath(rawPath, Math.max(8, Math.floor(width * 0.5)))),
+    stylePath(shortenPath(rawPath, 12)),
+    stylePath(shortenPath(basename, Math.max(4, Math.floor(width * 0.4)))),
+    "",
+  ];
+}
+
+function topLeftCandidates(
   cwd: string,
   snapshot: CyberHudSnapshot,
   width: number,
-): string {
-  const home = process.env.HOME ?? "";
-  const rawPath = home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
-  const s = theme.fg("dim", SEP);
+): string[] {
+  const paths = pathCandidates(cwd, width);
+  const stats = statsCandidates(snapshot);
+  const candidates: string[] = [];
 
-  const dOut = snapshot.output.value;
-  const dOutEst = snapshot.output.estimated;
-  const dTps = snapshot.tps.value;
-  const dTpsEst = snapshot.tps.estimated;
-
-  const turn = snapshot.promptActive
-    ? theme.fg("dim", `${TURN_ICON}${Math.max(1, snapshot.promptTurns)}`)
-    : "";
-
-  const inTk = snapshot.inputValue;
-  let inS: string;
-  if (inTk !== undefined) {
-    inS = theme.fg("muted", `↑${fmt(inTk)}`);
-  } else if (snapshot.promptActive && snapshot.promptIn > 0) {
-    inS = theme.fg("dim", `↑${fmt(snapshot.promptIn)}+…`);
-  } else if (snapshot.promptActive) {
-    inS = theme.fg("dim", "↑…");
-  } else {
-    inS = "";
-  }
-
-  let outS = "";
-  if (dOut !== undefined) {
-    const lbl = `${dOutEst ? "~" : ""}↓${fmt(dOut)}`;
-    outS = snapshot.output.frozen
-      ? theme.fg("dim", lbl)
-      : dOutEst
-        ? theme.fg("muted", lbl)
-        : theme.fg("accent", lbl);
-  }
-
-  let tpsS = "";
-  if (dTps !== undefined && Number.isFinite(dTps) && dTps > 0) {
-    const lbl = `${dTpsEst ? "~" : ""}${dTps.toFixed(0)}t/s`;
-    tpsS = snapshot.agentState === "thinking" || snapshot.agentState === "idle"
-      ? theme.fg("dim", lbl)
-      : theme.fg(tpsColor(dTps), lbl);
-  }
-
-  const stats = [turn, [inS, outS].filter(Boolean).join(" "), tpsS].filter(Boolean);
-  const statsText = stats.join(s);
-
-  if (!snapshot.promptActive && stats.length === 0) {
-    const pathLine = truncateToWidth(
-      stylePath(theme, shortenPath(rawPath, Math.max(8, width - 2))),
-      width,
-    );
-    if (snapshot.resetNotice) {
-      const notice = renderResetNotice(theme, snapshot.resetNotice);
-      return truncateToWidth(`${pathLine}${s}${notice}`, width);
+  for (const path of paths) {
+    for (const stat of stats) {
+      const combined = joinParts([path, stat]);
+      if (combined && !candidates.includes(combined)) candidates.push(combined);
     }
-    return pathLine;
   }
 
-  const reserved = statsText ? visibleWidth(statsText) + visibleWidth(s) : 0;
-  const pathBudget = Math.max(10, width - reserved - 1);
-  const path = stylePath(theme, shortenPath(rawPath, Math.max(6, pathBudget - 2)));
-  const line = statsText ? `${path}${s}${statsText}` : path;
-  return truncateToWidth(line, width);
+  for (const stat of stats) {
+    if (stat && !candidates.includes(stat)) candidates.push(stat);
+  }
+
+  for (const path of paths) {
+    if (path && !candidates.includes(path)) candidates.push(path);
+  }
+
+  candidates.push("");
+  return candidates;
 }
 
-export function attachCyberHud(ctx: ExtensionContext, state: CyberEditorState): void {
-  ctx.ui.setWidget(
-    "cyber-hud",
-    (_tui, theme) => ({
-      invalidate(): void {},
-      render(w: number): string[] {
-        return [renderHudLine(theme, ctx.cwd ?? "", state.snapshot(), w)];
-      },
-    }),
-    { placement: "aboveEditor" },
+export function renderHudTopBorder(
+  cwd: string,
+  snapshot: CyberHudSnapshot,
+  width: number,
+  borderColor: BorderColorFn,
+): string {
+  if (width <= 0) return "";
+  return composeBorderLine(
+    width,
+    borderColor,
+    topLeftCandidates(cwd, snapshot, width),
+    [""],
   );
 }

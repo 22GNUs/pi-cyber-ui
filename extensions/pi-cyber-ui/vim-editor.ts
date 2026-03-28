@@ -1,5 +1,9 @@
 /**
- * Cyber Vim Editor
+ * Vim Editor
+ *
+ * Standalone vim-style behavior layer for Pi's editor.
+ * This module intentionally focuses on editing semantics only so other
+ * editor shells (Cyber, minimal, future variants) can reuse it.
  *
  * Implemented vim capabilities:
  * - insert / normal modes
@@ -14,66 +18,21 @@
  * - G / Shift+G jump to last line
  * - dd delete current line
  * - D delete to end of line
- * - bottom-right mode indicator in the editor border
  */
 import { CustomEditor } from "@mariozechner/pi-coding-agent";
-import type { EditorTheme, TUI } from "@mariozechner/pi-tui";
-import { matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
+import type { EditorTheme, TUI } from "@mariozechner/pi-tui";
+import { matchesKey } from "@mariozechner/pi-tui";
 
-type RGB = [number, number, number];
-const TILDE_PINK: RGB = [255, 130, 184];
-const SILVER: RGB = [170, 184, 202];
-const STEEL: RGB = [92, 104, 124];
-const RUNNING_SILVER: RGB = [126, 142, 164];
-const THINKING_LOW: RGB = [108, 118, 142];
-const THINKING_HIGH: RGB = [148, 160, 184];
-const WHITE: RGB = [214, 224, 236];
-const RESET = "\x1b[39m";
-const BOLD = "\x1b[1m";
-const UNBOLD = "\x1b[22m";
-
-function rgb(c: RGB): string {
-  return `\x1b[38;2;${c[0]};${c[1]};${c[2]}m`;
-}
-
-function mixRgb(a: RGB, b: RGB, t: number): RGB {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-  ];
-}
-
-function hotPink(text: string): string {
-  return `${BOLD}${rgb(TILDE_PINK)}${text}${UNBOLD}${RESET}`;
-}
-
-function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*m/g, "");
-}
-
-function isBorderLine(line: string): boolean {
-  const plain = stripAnsi(line);
-  return plain.includes("─") && !/[^\s─↑↓0-9more]/i.test(plain);
-}
-
-function findBorderLineIndex(lines: string[]): number {
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (isBorderLine(lines[i]!)) return i;
-  }
-  return Math.max(0, lines.length - 1);
-}
-
-// ── constants ─────────────────────────────────────────────────
-type AgentState = "idle" | "running" | "thinking";
-const GLYPH_W = 2;
-const BREATH_MS = 3200;
-const BREATH_FPS = 50;
-const ANIM_MS = 60;
 const DOUBLE_ESCAPE_MS = 500;
 const VIM_PREFIX_MS = DOUBLE_ESCAPE_MS;
+
 type VimPrefix = "g" | "d";
+
+export interface VimEditorOptions {
+  enabled?: boolean;
+}
+
 type EditorInternals = {
   state: { lines: string[]; cursorLine: number; cursorCol: number };
   pushUndoSnapshot(): void;
@@ -84,39 +43,32 @@ type EditorInternals = {
   deleteToEndOfLine(): void;
 };
 
-// ── editor component ──────────────────────────────────────────
 export default class VimEditor extends CustomEditor {
-  // ── state ─────────────────────────────────────────────────
-  private mode: "normal" | "insert" = "insert";
+  protected mode: "normal" | "insert" = "insert";
+  protected readonly vimEnabled: boolean;
+
   private pendingNormal?: ReturnType<typeof setTimeout>;
   private pendingNormalAt = 0;
   private pendingVimPrefix?: VimPrefix;
   private pendingVimPrefixTimer?: ReturnType<typeof setTimeout>;
-  private breath?: ReturnType<typeof setInterval>;
-  private anim?: ReturnType<typeof setInterval>;
-  private breathT0 = Date.now();
-  private frame = 0;
-  private typed = false;
 
   constructor(
     tui: TUI,
     theme: EditorTheme,
     kb: KeybindingsManager,
-    private readonly getAgentState: () => AgentState = () => "idle",
+    options: VimEditorOptions = {},
   ) {
     super(tui, theme, kb);
-    this.setPaddingX(this.getPaddingX() + GLYPH_W);
-    this.breathT0 = Date.now();
-    this.breath = setInterval(() => this.tui.requestRender(), BREATH_FPS);
+    this.vimEnabled = options.enabled ?? true;
+  }
+
+  protected enterInsertMode(): void {
+    this.mode = "insert";
+    this.tui.requestRender();
   }
 
   private internals(): EditorInternals {
     return this as unknown as EditorInternals;
-  }
-
-  private alpha(): number {
-    const t = ((Date.now() - this.breathT0) % BREATH_MS) / BREATH_MS;
-    return (1 - Math.cos(2 * Math.PI * t)) / 2;
   }
 
   private clearPendingNormal(): void {
@@ -154,15 +106,6 @@ export default class VimEditor extends CustomEditor {
     }, VIM_PREFIX_MS);
   }
 
-  private syncTypedState(): void {
-    this.typed = this.getText().length > 0;
-  }
-
-  private enterInsertMode(): void {
-    this.mode = "insert";
-    this.tui.requestRender();
-  }
-
   private resolvePendingChord(data: string): boolean {
     if (this.pendingVimPrefix === undefined) return false;
 
@@ -179,14 +122,12 @@ export default class VimEditor extends CustomEditor {
     return false;
   }
 
-  // ── motion ────────────────────────────────────────────────
   private moveToBufferLine(targetLine: number): void {
     const editor = this.internals();
     const lines = editor.state.lines;
     if (lines.length === 0) {
       editor.lastAction = null;
       this.clearPendingVimPrefix();
-      this.syncTypedState();
       return;
     }
 
@@ -235,14 +176,12 @@ export default class VimEditor extends CustomEditor {
     return false;
   }
 
-  // ── delete ────────────────────────────────────────────────
   private deleteCurrentLine(): void {
     const editor = this.internals();
     const lines = editor.state.lines;
     this.clearPendingVimPrefix();
     if (lines.length === 0) {
       editor.lastAction = null;
-      this.syncTypedState();
       return;
     }
 
@@ -253,7 +192,6 @@ export default class VimEditor extends CustomEditor {
 
     if (isOnlyLine && lineText.length === 0) {
       editor.lastAction = null;
-      this.syncTypedState();
       return;
     }
 
@@ -286,19 +224,16 @@ export default class VimEditor extends CustomEditor {
     if (this.onChange) {
       this.onChange(this.getText());
     }
-    this.syncTypedState();
   }
 
   private handleDeleteKey(data: string): boolean {
     if (matchesKey(data, "shift+d") || data === "D") {
       this.internals().deleteToEndOfLine();
-      this.syncTypedState();
       return true;
     }
 
     if (data === "x") {
       super.handleInput("\x1b[3~");
-      this.syncTypedState();
       return true;
     }
 
@@ -318,7 +253,6 @@ export default class VimEditor extends CustomEditor {
     editor.setCursorCol(0);
     this.clearPendingVimPrefix();
     this.enterInsertMode();
-    this.syncTypedState();
     if (this.onChange) {
       this.onChange(this.getText());
     }
@@ -340,7 +274,6 @@ export default class VimEditor extends CustomEditor {
         this.openLine(-1);
         return true;
       case "g":
-        // Keep chord handling centralized so future chord starters are easy to add.
         this.scheduleVimPrefix("g");
         return true;
       case "d":
@@ -359,11 +292,15 @@ export default class VimEditor extends CustomEditor {
 
     if (data.length === 1 && data.charCodeAt(0) >= 32) return false;
     super.handleInput(data);
-    this.syncTypedState();
     return true;
   }
 
   override handleInput(data: string): void {
+    if (!this.vimEnabled) {
+      super.handleInput(data);
+      return;
+    }
+
     if (matchesKey(data, "escape")) {
       this.clearPendingVimPrefix();
       if (this.mode === "insert") {
@@ -404,85 +341,14 @@ export default class VimEditor extends CustomEditor {
 
       if (data.length === 1 && data.charCodeAt(0) >= 32) return;
       super.handleInput(data);
-      this.syncTypedState();
       return;
     }
 
     super.handleInput(data);
-    const t = this.getText().length > 0;
-    if (t && !this.typed) this.startAnim();
-    this.typed = t;
-  }
-
-  // ── render ────────────────────────────────────────────────
-  private startAnim(): void {
-    if (this.anim) return;
-    this.frame = 0;
-    this.anim = setInterval(() => {
-      this.frame++;
-      this.tui.requestRender();
-      if (this.frame > 10) this.stopAnim();
-    }, ANIM_MS);
-  }
-
-  private stopAnim(): void {
-    if (this.anim) {
-      clearInterval(this.anim);
-      this.anim = undefined;
-    }
-  }
-
-  private color(): RGB {
-    const agentState = this.getAgentState();
-    if (agentState === "running") return RUNNING_SILVER;
-    if (agentState === "thinking") return mixRgb(THINKING_LOW, THINKING_HIGH, this.alpha());
-    if (this.anim) return mixRgb(SILVER, WHITE, Math.max(0, 1 - this.frame / 10));
-    return mixRgb(STEEL, SILVER, this.alpha());
-  }
-
-  private modeLabel(): string {
-    const label = this.mode === "normal" ? "󰘳 NORMAL" : "󰘳 INSERT";
-    return this.mode === "normal"
-      ? `${BOLD}${rgb(TILDE_PINK)}${label}${UNBOLD}${RESET}`
-      : `${BOLD}${rgb(SILVER)}${label}${UNBOLD}${RESET}`;
-  }
-
-  private buildBottomBorderLine(line: string, w: number): string {
-    if (w <= 0) return "";
-
-    const label = ` ${this.modeLabel()} `;
-    const labelWidth = visibleWidth(label);
-    if (labelWidth >= w) {
-      return truncateToWidth(label, w, "");
-    }
-
-    const borderColor = this.borderColor;
-    const prefixWidth = Math.max(0, w - labelWidth - 1);
-    const prefix = truncateToWidth(line, prefixWidth, "");
-    const suffixWidth = Math.max(1, w - visibleWidth(prefix) - labelWidth);
-    return `${prefix}${label}${borderColor("─".repeat(suffixWidth))}`;
-  }
-
-  override render(w: number): string[] {
-    const lines = super.render(w);
-    if (lines.length <= 0) return lines;
-
-    const g = `${rgb(this.color())}❯${RESET} `;
-    for (let i = 1; i < lines.length - 1; i++) {
-      lines[i] = i === 1
-        ? g + truncateToWidth(lines[i]!, w - GLYPH_W, "")
-        : "  " + truncateToWidth(lines[i]!, w - GLYPH_W, "");
-    }
-
-    const borderIndex = findBorderLineIndex(lines);
-    lines[borderIndex] = this.buildBottomBorderLine(lines[borderIndex]!, w);
-    return lines;
   }
 
   destroy(): void {
-    if (this.breath) clearInterval(this.breath);
     this.clearPendingNormal();
     this.clearPendingVimPrefix();
-    this.stopAnim();
   }
 }

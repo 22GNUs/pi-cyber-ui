@@ -53,6 +53,7 @@ export class CyberEditorState {
   private msgOut: number | undefined;
   private estOut: number | undefined;
   private msgHasAccurateOut = false;
+  private liveTpsActive = false;
   private msgUsageMode: UsageMode = "estimated";
   private msgEstimator = new StreamingTokenEstimator();
 
@@ -110,13 +111,13 @@ export class CyberEditorState {
   onSessionStart(): void {
     this.resetAll();
     this.promptActive = true;
-    this.agentState = "running";
+    this.agentState = "idle";
   }
 
   onSessionSwitch(): void {
     this.resetAll();
     this.promptActive = true;
-    this.agentState = "running";
+    this.agentState = "idle";
   }
 
   onSessionCompact(): void {
@@ -175,6 +176,7 @@ export class CyberEditorState {
 
   onAssistantDelta(delta: string, partial: AssistantMessage): void {
     if (!this.firstOutMs) this.firstOutMs = Date.now();
+    this.liveTpsActive = true;
     this.msgEstimator.add(delta);
     this.estOut = this.msgEstimator.value();
     this.syncMessage(partial);
@@ -182,10 +184,14 @@ export class CyberEditorState {
   }
 
   onAssistantPartial(partial: AssistantMessage): void {
+    if (partial.usage.output > 0 || partial.usage.input > 0) {
+      this.liveTpsActive = true;
+    }
     this.syncMessage(partial);
   }
 
   onAssistantDone(message: AssistantMessage): void {
+    this.liveTpsActive = false;
     if (!this.firstOutMs && message.usage.output > 0) {
       this.firstOutMs = this.msgStartMs || Date.now();
     }
@@ -194,6 +200,7 @@ export class CyberEditorState {
   }
 
   onAssistantError(message: AssistantMessage): void {
+    this.liveTpsActive = false;
     if (!this.firstOutMs && message.usage.output > 0) {
       this.firstOutMs = this.msgStartMs || Date.now();
     }
@@ -203,6 +210,7 @@ export class CyberEditorState {
 
   onAssistantTurnEnd(message: AssistantMessage): void {
     if (message.role !== "assistant") return;
+    this.liveTpsActive = false;
     this.resumeClock();
     if (!this.firstOutMs && message.usage.output > 0) {
       this.firstOutMs = this.msgStartMs || Date.now();
@@ -215,10 +223,16 @@ export class CyberEditorState {
   snapshot(): CyberHudSnapshot {
     const exactIn = this.exactIn();
     const exactOut = this.exactOut();
-    const displayOut = exactOut ?? this.estDisplayOut() ?? this.snapOut;
-    const outputEstimated = exactOut === undefined && (this.estDisplayOut() !== undefined || this.snapOutEst);
-    const displayTps = this.tps ?? this.estTps ?? this.snapTps;
-    const tpsEstimated = this.tps === undefined && (this.estTps !== undefined || this.snapTpsEst);
+    const estOut = this.estDisplayOut();
+    const displayOut = exactOut ?? estOut ?? this.snapOut;
+    const outputEstimated = exactOut === undefined && (estOut !== undefined || this.snapOutEst);
+
+    const liveTps = this.liveTpsActive
+      ? this.computeLiveTps(displayOut, outputEstimated)
+      : undefined;
+    const displayTps = liveTps?.value ?? this.tps ?? this.estTps ?? this.snapTps;
+    const tpsEstimated = liveTps?.estimated
+      ?? (this.tps === undefined && (this.estTps !== undefined || this.snapTpsEst));
 
     return {
       agentState: this.agentState,
@@ -247,6 +261,7 @@ export class CyberEditorState {
     this.msgOut = undefined;
     this.estOut = undefined;
     this.msgHasAccurateOut = false;
+    this.liveTpsActive = false;
     this.msgUsageMode = "estimated";
     this.msgEstimator.reset();
   }
@@ -282,6 +297,21 @@ export class CyberEditorState {
       return this.promptIn + this.msgIn;
     }
     return this.promptIn > 0 ? this.promptIn : undefined;
+  }
+
+  private computeLiveTps(
+    output: number | undefined,
+    estimated: boolean,
+  ): DisplayValue | undefined {
+    if (output === undefined || output <= 0 || !this.firstOutMs) return undefined;
+
+    const seconds = this.elapsed() / 1000;
+    if (seconds <= 0) return undefined;
+
+    return {
+      value: output / seconds,
+      estimated,
+    };
   }
 
   private refreshTps(): void {
