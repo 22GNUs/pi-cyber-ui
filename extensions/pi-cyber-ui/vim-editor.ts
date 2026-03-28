@@ -45,7 +45,7 @@ type EditorInternals = {
 
 export default class VimEditor extends CustomEditor {
   protected mode: "normal" | "insert" = "insert";
-  protected readonly vimEnabled: boolean;
+  protected vimEnabled = true;
 
   private pendingNormal?: ReturnType<typeof setTimeout>;
   private pendingNormalAt = 0;
@@ -60,6 +60,11 @@ export default class VimEditor extends CustomEditor {
   ) {
     super(tui, theme, kb);
     this.vimEnabled = options.enabled ?? true;
+  }
+
+  setVimEnabled(enabled: boolean): void {
+    this.vimEnabled = enabled;
+    this.tui.requestRender();
   }
 
   protected enterInsertMode(): void {

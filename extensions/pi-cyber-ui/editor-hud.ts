@@ -8,9 +8,29 @@ const PATH_MAX_DEPTH = 3;
 const RESET = "\x1b[39m";
 const BOLD = "\x1b[1m";
 const UNBOLD = "\x1b[22m";
+const HUD_MIN_FRAME_WIDTH = 8;
+const HUD_MIN_TAIL_WIDTH = 8;
+
+const EMPTY_CHOICE: RailChoice = { left: "", right: "", requiredWidth: 0 };
 
 type RGB = readonly [number, number, number];
 type BorderColorFn = (text: string) => string;
+
+interface RailChoice {
+  left: string;
+  right: string;
+  requiredWidth: number;
+}
+
+export interface HudChromeOptions {
+  vimEnabled?: boolean;
+  vimMode?: "insert" | "normal";
+}
+
+export interface HudChrome {
+  topLine: string;
+  bottomLine: string;
+}
 
 const C = {
   hotPink: [255, 130, 184] as RGB,
@@ -20,6 +40,8 @@ const C = {
   success: [122, 217, 166] as RGB,
   warning: [255, 202, 112] as RGB,
   error: [255, 136, 136] as RGB,
+  vimInsert: [184, 196, 214] as RGB,
+  vimNormal: [154, 236, 170] as RGB,
 } as const;
 
 function rgb(c: RGB): string {
@@ -135,13 +157,20 @@ function renderResetNotice(notice: ResetNotice): string {
   return paint(C.warning, label);
 }
 
+function renderVimMode(options: HudChromeOptions): string {
+  if (!options.vimEnabled) return "";
+  const label = options.vimMode === "normal" ? "VIM-N" : "VIM-I";
+  const color = options.vimMode === "normal" ? C.vimNormal : C.vimInsert;
+  return paint(color, label, true);
+}
+
 function joinParts(parts: string[]): string {
   const filtered = parts.filter(Boolean);
   if (filtered.length === 0) return "";
   return filtered.join(paint(C.dim, SEP));
 }
 
-function composeBorderLine(
+function composeRail(
   width: number,
   borderColor: BorderColorFn,
   leftCandidates: string[],
@@ -160,6 +189,7 @@ function composeBorderLine(
       if (!left && !right) return fill(borderColor, width);
       if (!left) return `${fill(borderColor, gap)}${right}`;
       if (!right) return `${left}${fill(borderColor, gap)}`;
+      if (gap < 1) continue;
       return `${left}${fill(borderColor, gap)}${right}`;
     }
   }
@@ -171,6 +201,72 @@ function composeBorderLine(
   if (left) return truncateToWidth(left, width, "");
 
   return fill(borderColor, width);
+}
+
+function requiredRailWidth(left: string, right: string): number {
+  const leftWidth = visibleWidth(left);
+  const rightWidth = visibleWidth(right);
+  if (!left && !right) return 0;
+  if (!left || !right) return leftWidth + rightWidth;
+  return leftWidth + rightWidth + 1;
+}
+
+function makeChoice(left: string, right = ""): RailChoice {
+  return { left, right, requiredWidth: requiredRailWidth(left, right) };
+}
+
+function pushUniqueChoice(choices: RailChoice[], seen: Set<string>, left: string, right = ""): void {
+  const key = left + "\0" + right;
+  if (seen.has(key)) return;
+  seen.add(key);
+  choices.push(makeChoice(left, right));
+}
+
+function chooseRailLayout(topChoices: RailChoice[], bottomChoices: RailChoice[], maxWidth: number) {
+  const maxPenalty = Math.max(0, topChoices.length + bottomChoices.length - 2);
+
+  for (let penalty = 0; penalty <= maxPenalty; penalty++) {
+    for (let topIndex = 0; topIndex < topChoices.length; topIndex++) {
+      const bottomIndex = penalty - topIndex;
+      if (bottomIndex < 0 || bottomIndex >= bottomChoices.length) continue;
+
+      const top = topChoices[topIndex]!;
+      const bottom = bottomChoices[bottomIndex]!;
+      const innerWidth = Math.max(top.requiredWidth, bottom.requiredWidth);
+      if (innerWidth <= maxWidth) {
+        return { top, bottom, innerWidth };
+      }
+    }
+  }
+
+  const fallbackTop = topChoices[topChoices.length - 1] ?? makeChoice("");
+  const fallbackBottom = bottomChoices[bottomChoices.length - 1] ?? makeChoice("");
+  return {
+    top: fallbackTop,
+    bottom: fallbackBottom,
+    innerWidth: Math.min(maxWidth, Math.max(fallbackTop.requiredWidth, fallbackBottom.requiredWidth)),
+  };
+}
+
+function renderCapsuleTopLine(
+  width: number,
+  borderColor: BorderColorFn,
+  innerWidth: number,
+  left: string,
+  right: string,
+): string {
+  const line = `${borderColor("╭─ ")}${composeRail(innerWidth, borderColor, [left], [right])}${borderColor("─╮")}`;
+  return `${line}${" ".repeat(Math.max(0, width - visibleWidth(line)))}`;
+}
+
+function renderCapsuleBottomLine(
+  width: number,
+  borderColor: BorderColorFn,
+  innerWidth: number,
+  left: string,
+): string {
+  const line = `${borderColor("╰─ ")}${composeRail(innerWidth, borderColor, [left], [""])}${borderColor("─╯")}`;
+  return `${line}${fill(borderColor, Math.max(0, width - visibleWidth(line)))}`;
 }
 
 function renderTurn(snapshot: CyberHudSnapshot): string {
@@ -209,35 +305,30 @@ function renderTps(snapshot: CyberHudSnapshot): string {
   return paint(tpsColor(value), label);
 }
 
-function statsCandidates(snapshot: CyberHudSnapshot): string[] {
+const RUNTIME_CHOICE_PATTERNS: Array<(t: string, i: string, o: string, p: string) => string[]> = [
+  (t, i, o, p) => [t, i ? `${i} ${o}` : o, p],
+  (t, i, o, p) => [i ? `${i} ${o}` : o, p],
+  (t, i, o, p) => [t, i ? `${i} ${o}` : o],
+  (t, i, o, p) => [t, o, p],
+  (t, i, o, p) => [i, o, p],
+  (t, i, o, p) => [o, p],
+  (t, i, o, p) => [i, o],
+  (t, i, o, p) => [t, o],
+  (t, i, o, p) => [t, i],
+  (t, i, o, p) => [o],
+  (t, i, o, p) => [i],
+  (t, i, o, p) => [p],
+  (t, i, o, p) => [t],
+  () => [],
+];
+
+function runtimeChoices(snapshot: CyberHudSnapshot): RailChoice[] {
   const turn = renderTurn(snapshot);
-  const reset = snapshot.resetNotice ? renderResetNotice(snapshot.resetNotice) : "";
   const input = renderInput(snapshot);
   const output = renderOutput(snapshot);
   const tps = renderTps(snapshot);
-  const io = [input, output].filter(Boolean).join(" ");
 
-  return [
-    joinParts([turn, io, tps, reset]),
-    joinParts([turn, io, tps]),
-    joinParts([turn, io, reset]),
-    joinParts([turn, io]),
-    joinParts([io, tps, reset]),
-    joinParts([io, tps]),
-    joinParts([io, reset]),
-    io,
-    joinParts([turn, input, output, tps]),
-    joinParts([input, output, tps]),
-    joinParts([output, tps, reset]),
-    joinParts([output, tps]),
-    joinParts([input, output]),
-    output,
-    input,
-    joinParts([turn, reset]),
-    reset,
-    turn,
-    "",
-  ];
+  return RUNTIME_CHOICE_PATTERNS.map((fn) => makeChoice(joinParts(fn(turn, input, output, tps))));
 }
 
 function pathCandidates(cwd: string, width: number): string[] {
@@ -257,45 +348,78 @@ function pathCandidates(cwd: string, width: number): string[] {
   ];
 }
 
-function topLeftCandidates(
+function topChoices(
   cwd: string,
   snapshot: CyberHudSnapshot,
   width: number,
-): string[] {
+  options: HudChromeOptions,
+): RailChoice[] {
+  const choices: RailChoice[] = [];
+  const seen = new Set<string>();
   const paths = pathCandidates(cwd, width);
-  const stats = statsCandidates(snapshot);
-  const candidates: string[] = [];
+  const vim = renderVimMode(options);
+  const resetNotice = snapshot.resetNotice ? renderResetNotice(snapshot.resetNotice) : "";
 
   for (const path of paths) {
-    for (const stat of stats) {
-      const combined = joinParts([path, stat]);
-      if (combined && !candidates.includes(combined)) candidates.push(combined);
+    if (vim && resetNotice) {
+      pushUniqueChoice(choices, seen, joinParts([path, vim, resetNotice]));
     }
+    if (vim) {
+      pushUniqueChoice(choices, seen, joinParts([path, vim]));
+    }
+    if (resetNotice) {
+      pushUniqueChoice(choices, seen, joinParts([path, resetNotice]));
+    }
+    pushUniqueChoice(choices, seen, path);
   }
 
-  for (const stat of stats) {
-    if (stat && !candidates.includes(stat)) candidates.push(stat);
+  if (vim && resetNotice) {
+    pushUniqueChoice(choices, seen, joinParts([vim, resetNotice]));
+  }
+  if (vim) {
+    pushUniqueChoice(choices, seen, vim);
+  }
+  if (resetNotice) {
+    pushUniqueChoice(choices, seen, resetNotice);
   }
 
-  for (const path of paths) {
-    if (path && !candidates.includes(path)) candidates.push(path);
-  }
-
-  candidates.push("");
-  return candidates;
+  if (choices.length === 0) choices.push(EMPTY_CHOICE);
+  return choices;
 }
 
-export function renderHudTopBorder(
+export function renderHudChrome(
   cwd: string,
   snapshot: CyberHudSnapshot,
   width: number,
   borderColor: BorderColorFn,
-): string {
-  if (width <= 0) return "";
-  return composeBorderLine(
-    width,
-    borderColor,
-    topLeftCandidates(cwd, snapshot, width),
-    [""],
+  options: HudChromeOptions = {},
+): HudChrome {
+  if (width <= 0) {
+    return { topLine: "", bottomLine: "" };
+  }
+
+  if (width < HUD_MIN_FRAME_WIDTH) {
+    const flat = fill(borderColor, width);
+    return { topLine: flat, bottomLine: " ".repeat(width) };
+  }
+
+  const capWidth = visibleWidth("╭─ ") + visibleWidth("─┬");
+  let layout = chooseRailLayout(
+    topChoices(cwd, snapshot, width, options),
+    runtimeChoices(snapshot),
+    Math.max(0, width - capWidth - HUD_MIN_TAIL_WIDTH),
   );
+
+  if (layout.innerWidth <= 0 && HUD_MIN_TAIL_WIDTH > 0) {
+    layout = chooseRailLayout(
+      topChoices(cwd, snapshot, width, options),
+      runtimeChoices(snapshot),
+      Math.max(0, width - capWidth),
+    );
+  }
+
+  return {
+    topLine: renderCapsuleTopLine(width, borderColor, layout.innerWidth, layout.top.left, layout.top.right),
+    bottomLine: renderCapsuleBottomLine(width, borderColor, layout.innerWidth, layout.bottom.left),
+  };
 }
