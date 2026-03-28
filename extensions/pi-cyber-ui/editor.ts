@@ -36,7 +36,6 @@ function attach(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
   activeUiContext = ctx;
   ctx.ui.setEditorComponent((tui, th, kb) => new CyberEditor(tui, th, kb, {
-    getAgentState: () => state.getAgentState(),
     getHudSnapshot: () => state.snapshot(),
     cwd: ctx.cwd ?? "",
     vimEnabled: vimModeEnabled,
