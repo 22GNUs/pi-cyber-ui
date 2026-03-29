@@ -61,7 +61,18 @@ pi install git:github.com/22GNUs/pi-cyber-ui.git
 
 - `/cyber-vim` — toggle Vim mode on/off inside the cyber editor
 - `/cyber-vim status` — show current Vim mode state
-- Vim mode preference is persisted to `~/.pi/agent/pi-cyber-ui.json`
+- Cyber UI settings are persisted to `~/.pi/agent/pi-cyber-ui.json`
+
+Example settings:
+
+```json
+{
+  "vimModeEnabled": true,
+  "jjEscapeTimeoutMs": 250
+}
+```
+
+- `jjEscapeTimeoutMs` controls the insert-mode `jj` window in milliseconds
 
 ## Notes
 

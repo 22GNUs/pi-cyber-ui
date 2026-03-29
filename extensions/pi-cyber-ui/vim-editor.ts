@@ -7,7 +7,7 @@
  *
  * Implemented vim capabilities:
  * - insert / normal modes
- * - Esc switches to normal mode; double-Esc still reaches the app handler
+ * - insert-mode `jj` switches to normal mode; Escape is passed to the app unchanged
  * - h/j/k/l cursor movement
  * - w / b word motion
  * - 0 / $ line start/end
@@ -24,31 +24,40 @@ import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
 import type { EditorTheme, TUI } from "@mariozechner/pi-tui";
 import { matchesKey } from "@mariozechner/pi-tui";
 
-const DOUBLE_ESCAPE_MS = 500;
-const VIM_PREFIX_MS = DOUBLE_ESCAPE_MS;
+export const DEFAULT_JJ_ESCAPE_TIMEOUT_MS = 250;
+const VIM_PREFIX_MS = 500;
 
 type VimPrefix = "g" | "d";
 
 export interface VimEditorOptions {
   enabled?: boolean;
+  jjEscapeTimeoutMs?: number;
 }
 
 type EditorInternals = {
   state: { lines: string[]; cursorLine: number; cursorCol: number };
   pushUndoSnapshot(): void;
   setCursorCol(col: number): void;
+  handleBackspace(): void;
   killRing: { push(text: string, opts: { prepend: boolean; accumulate: boolean }): void };
   lastAction: string | null;
   historyIndex: number;
   deleteToEndOfLine(): void;
 };
 
+function normalizeJjEscapeTimeoutMs(value?: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_JJ_ESCAPE_TIMEOUT_MS;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
 export default class VimEditor extends CustomEditor {
   protected mode: "normal" | "insert" = "insert";
   protected vimEnabled = true;
 
-  private pendingNormal?: ReturnType<typeof setTimeout>;
-  private pendingNormalAt = 0;
+  private readonly jjEscapeTimeoutMs: number;
+  private pendingInsertJAt = 0;
   private pendingVimPrefix?: VimPrefix;
   private pendingVimPrefixTimer?: ReturnType<typeof setTimeout>;
 
@@ -60,14 +69,21 @@ export default class VimEditor extends CustomEditor {
   ) {
     super(tui, theme, kb);
     this.vimEnabled = options.enabled ?? true;
+    this.jjEscapeTimeoutMs = normalizeJjEscapeTimeoutMs(options.jjEscapeTimeoutMs);
   }
 
   setVimEnabled(enabled: boolean): void {
     this.vimEnabled = enabled;
+    if (!enabled) {
+      this.clearPendingInsertJ();
+      this.clearPendingVimPrefix();
+      this.mode = "insert";
+    }
     this.tui.requestRender();
   }
 
   protected enterInsertMode(): void {
+    this.clearPendingInsertJ();
     this.mode = "insert";
     this.tui.requestRender();
   }
@@ -76,12 +92,8 @@ export default class VimEditor extends CustomEditor {
     return this as unknown as EditorInternals;
   }
 
-  private clearPendingNormal(): void {
-    if (this.pendingNormal) {
-      clearTimeout(this.pendingNormal);
-      this.pendingNormal = undefined;
-    }
-    this.pendingNormalAt = 0;
+  private clearPendingInsertJ(): void {
+    this.pendingInsertJAt = 0;
   }
 
   private clearPendingVimPrefix(): void {
@@ -90,17 +102,6 @@ export default class VimEditor extends CustomEditor {
       this.pendingVimPrefixTimer = undefined;
     }
     this.pendingVimPrefix = undefined;
-  }
-
-  private scheduleNormalMode(): void {
-    this.clearPendingNormal();
-    this.pendingNormalAt = Date.now();
-    this.pendingNormal = setTimeout(() => {
-      if (!this.pendingNormalAt) return;
-      this.mode = "normal";
-      this.clearPendingNormal();
-      this.tui.requestRender();
-    }, DOUBLE_ESCAPE_MS);
   }
 
   private scheduleVimPrefix(prefix: VimPrefix): void {
@@ -289,6 +290,29 @@ export default class VimEditor extends CustomEditor {
     return false;
   }
 
+  private handleInsertModeInput(data: string): boolean {
+    if (data !== "j") {
+      this.clearPendingInsertJ();
+      return false;
+    }
+
+    const now = Date.now();
+    const isDoubleJ = this.pendingInsertJAt > 0 && now - this.pendingInsertJAt <= this.jjEscapeTimeoutMs;
+
+    if (isDoubleJ) {
+      this.clearPendingInsertJ();
+      this.internals().handleBackspace();
+      this.mode = "normal";
+      this.clearPendingVimPrefix();
+      this.tui.requestRender();
+      return true;
+    }
+
+    this.pendingInsertJAt = now;
+    super.handleInput(data);
+    return true;
+  }
+
   private handleNormalModeInput(data: string): boolean {
     if (this.resolvePendingChord(data)) return true;
     if (this.handleStateKey(data)) return true;
@@ -302,45 +326,20 @@ export default class VimEditor extends CustomEditor {
 
   override handleInput(data: string): void {
     if (!this.vimEnabled) {
+      this.clearPendingInsertJ();
       super.handleInput(data);
       return;
     }
 
     if (matchesKey(data, "escape")) {
+      this.clearPendingInsertJ();
       this.clearPendingVimPrefix();
-      if (this.mode === "insert") {
-        const hasText = this.getText().trim().length > 0;
-        if (hasText) {
-          this.clearPendingNormal();
-          this.mode = "normal";
-          this.tui.requestRender();
-          return;
-        }
-
-        const now = Date.now();
-        const isDoubleEscape =
-          this.pendingNormalAt > 0 && now - this.pendingNormalAt <= DOUBLE_ESCAPE_MS;
-
-        if (isDoubleEscape) {
-          this.clearPendingNormal();
-          super.handleInput(data);
-          super.handleInput(data);
-          return;
-        }
-
-        this.scheduleNormalMode();
-        return;
-      }
-
       super.handleInput(data);
       return;
     }
 
-    if (this.pendingNormalAt > 0) {
-      this.clearPendingNormal();
-    }
-
     if (this.mode === "normal") {
+      this.clearPendingInsertJ();
       const handled = this.handleNormalModeInput(data);
       if (handled) return;
 
@@ -349,11 +348,14 @@ export default class VimEditor extends CustomEditor {
       return;
     }
 
+    if (this.handleInsertModeInput(data)) return;
+
+    this.clearPendingInsertJ();
     super.handleInput(data);
   }
 
   destroy(): void {
-    this.clearPendingNormal();
+    this.clearPendingInsertJ();
     this.clearPendingVimPrefix();
   }
 }

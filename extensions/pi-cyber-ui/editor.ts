@@ -11,26 +11,57 @@ import { type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-codin
 
 import CyberEditor from "./cyber-editor.js";
 import { CyberEditorState } from "./editor-state.js";
+import { DEFAULT_JJ_ESCAPE_TIMEOUT_MS } from "./vim-editor.js";
+
+interface CyberUiSettings {
+  vimModeEnabled: boolean;
+  jjEscapeTimeoutMs: number;
+}
 
 const state = new CyberEditorState();
 const SETTINGS_PATH = join(homedir(), ".pi", "agent", "pi-cyber-ui.json");
-let vimModeEnabled = loadVimModeSetting();
+let settings = loadSettings();
+let vimModeEnabled = settings.vimModeEnabled;
+let jjEscapeTimeoutMs = settings.jjEscapeTimeoutMs;
 let activeUiContext: ExtensionContext | undefined;
 let activeEditor: CyberEditor | undefined;
 
-function loadVimModeSetting(): boolean {
+function normalizeJjEscapeTimeoutMs(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_JJ_ESCAPE_TIMEOUT_MS;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function loadSettings(): CyberUiSettings {
   try {
     const raw = readFileSync(SETTINGS_PATH, "utf8");
-    const parsed = JSON.parse(raw) as { vimModeEnabled?: boolean };
-    return parsed.vimModeEnabled ?? true;
+    const parsed = JSON.parse(raw) as {
+      vimModeEnabled?: unknown;
+      jjEscapeTimeoutMs?: unknown;
+    };
+    return {
+      vimModeEnabled: typeof parsed.vimModeEnabled === "boolean" ? parsed.vimModeEnabled : true,
+      jjEscapeTimeoutMs: normalizeJjEscapeTimeoutMs(parsed.jjEscapeTimeoutMs),
+    };
   } catch {
-    return true;
+    return {
+      vimModeEnabled: true,
+      jjEscapeTimeoutMs: DEFAULT_JJ_ESCAPE_TIMEOUT_MS,
+    };
   }
 }
 
-function saveVimModeSetting(enabled: boolean): void {
+function saveSettings(patch: Partial<CyberUiSettings>): void {
+  settings = {
+    ...settings,
+    ...patch,
+    jjEscapeTimeoutMs: normalizeJjEscapeTimeoutMs(patch.jjEscapeTimeoutMs ?? settings.jjEscapeTimeoutMs),
+  };
+  vimModeEnabled = settings.vimModeEnabled;
+  jjEscapeTimeoutMs = settings.jjEscapeTimeoutMs;
   mkdirSync(dirname(SETTINGS_PATH), { recursive: true });
-  writeFileSync(SETTINGS_PATH, JSON.stringify({ vimModeEnabled: enabled }, null, 2) + "\n", "utf8");
+  writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n", "utf8");
 }
 
 function attach(ctx: ExtensionContext): void {
@@ -41,6 +72,7 @@ function attach(ctx: ExtensionContext): void {
       getHudSnapshot: () => state.snapshot(),
       cwd: ctx.cwd ?? "",
       vimEnabled: vimModeEnabled,
+      jjEscapeTimeoutMs,
     });
     activeEditor = editor;
     return editor;
@@ -48,8 +80,7 @@ function attach(ctx: ExtensionContext): void {
 }
 
 function applyVimMode(enabled: boolean, ctx?: ExtensionContext): void {
-  vimModeEnabled = enabled;
-  saveVimModeSetting(enabled);
+  saveSettings({ vimModeEnabled: enabled });
   activeEditor?.setVimEnabled(enabled);
 
   const target = ctx ?? activeUiContext;
