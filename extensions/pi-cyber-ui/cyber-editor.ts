@@ -26,6 +26,7 @@ export interface CyberEditorOptions {
   getHudSnapshot?: () => CyberHudSnapshot;
   cwd?: string;
   vimEnabled?: boolean;
+  jjEscapeTimeoutMs?: number;
 }
 
 function rgb(c: RGB): string {
@@ -85,7 +86,10 @@ export default class CyberEditor extends VimEditor {
     kb: KeybindingsManager,
     options: CyberEditorOptions = {},
   ) {
-    super(tui, theme, kb, { enabled: options.vimEnabled });
+    super(tui, theme, kb, {
+      enabled: options.vimEnabled,
+      jjEscapeTimeoutMs: options.jjEscapeTimeoutMs,
+    });
     this.getHudSnapshot = options.getHudSnapshot ?? (() => undefined);
     this.cwd = options.cwd ?? "";
     this.setPaddingX(this.getPaddingX() + this.promptWidth());
