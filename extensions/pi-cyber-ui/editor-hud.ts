@@ -298,7 +298,7 @@ function renderTps(snapshot: CyberHudSnapshot): string {
   const value = snapshot.tps.value;
   if (value === undefined || !Number.isFinite(value) || value <= 0) return "";
 
-  const label = `${snapshot.tps.estimated ? "~" : ""}${value.toFixed(0)}t/s`;
+  const label = `${snapshot.tps.estimated ? "~" : ""}${value < 1 ? value.toFixed(1) : value.toFixed(0)}t/s`;
   if (snapshot.agentState === "thinking" || snapshot.agentState === "idle") {
     return paint(C.dim, label);
   }
