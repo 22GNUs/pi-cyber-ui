@@ -10,7 +10,6 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 const ICONS = {
   model: "🐱",
-  context: "",
 };
 
 const THINKING_HIGH_COLORS: readonly ThemeColor[] = [
@@ -139,22 +138,33 @@ function progressBar(theme: Theme, percent: number, width = 12): string {
   return `${left}${full}${part}${empty}${right}`;
 }
 
+function compactBar(theme: Theme, width = 12): string {
+  const label = "SYNC";
+  const pad = Math.max(0, width - label.length);
+  const leftPad = Math.floor(pad / 2);
+  const rightPad = Math.ceil(pad / 2);
+  const left = theme.fg("dim", "░".repeat(leftPad));
+  const center = theme.fg("accent", label);
+  const right = theme.fg("dim", "░".repeat(rightPad));
+  return `${theme.fg("dim", "[")}${left}${center}${right}${theme.fg("dim", "]")}`;
+}
+
 function contextText(
   theme: Theme,
   usedTokens: number | null,
   contextWindow: number,
 ): string {
-  const icon = theme.fg("accent", ICONS.context);
-
   if (usedTokens === null) {
     if (contextWindow <= 0) {
-      return `${icon} ${theme.fg("dim", "?")}`;
+      return theme.fg("dim", "?");
     }
-    return `${icon} ${theme.fg("dim", `?/${formatTokens(contextWindow)}`)}`;
+    const bar = compactBar(theme);
+    const size = theme.fg("dim", formatTokens(contextWindow));
+    return `${bar} ${size}`;
   }
 
   if (contextWindow <= 0) {
-    return `${icon} ${theme.fg("dim", formatTokens(usedTokens))}`;
+    return theme.fg("dim", formatTokens(usedTokens));
   }
 
   const percent = (usedTokens / contextWindow) * 100;
@@ -167,7 +177,7 @@ function contextText(
   const percentNumber = theme.fg(percentColor, formatContextPercent(percent));
   const percentSign = theme.fg("dim", "%");
 
-  return `${icon} ${bar} ${percentNumber}${percentSign} ${usage}`;
+  return `${bar} ${percentNumber}${percentSign} ${usage}`;
 }
 
 function getStatusInfo(
@@ -272,7 +282,7 @@ function renderLine(
   const thinking = thinkingText(theme, thinkingLevel);
 
   const usage: ContextUsage | undefined = ctx.getContextUsage?.();
-  const usedTokens = usage?.tokens ?? 0;
+  const usedTokens = usage?.tokens ?? null;
   const contextWindow = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
   const context = contextText(theme, usedTokens, contextWindow);
 
