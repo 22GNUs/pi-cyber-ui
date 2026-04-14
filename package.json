@@ -1,6 +1,6 @@
 {
   "name": "pi-cyber-ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Standalone Pi UI package with a cyber-inspired theme, custom editor, footer, and working animation.",
   "type": "module",
   "keywords": ["pi-package"],
