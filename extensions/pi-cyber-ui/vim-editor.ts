@@ -19,10 +19,10 @@
  * - dd delete current line
  * - D delete to end of line
  */
-import { CustomEditor } from "@mariozechner/pi-coding-agent";
-import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
-import type { EditorTheme, TUI } from "@mariozechner/pi-tui";
-import { matchesKey } from "@mariozechner/pi-tui";
+import { CustomEditor } from "@earendil-works/pi-coding-agent";
+import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
+import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
+import { matchesKey } from "@earendil-works/pi-tui";
 
 export const DEFAULT_JJ_ESCAPE_TIMEOUT_MS = 250;
 const VIM_PREFIX_MS = 500;

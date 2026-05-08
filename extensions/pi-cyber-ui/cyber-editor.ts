@@ -4,9 +4,9 @@
  * Cyber shell around the standalone Vim editor behavior module.
  * Owns HUD chrome, animated prompt glyph, and mode styling.
  */
-import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
-import type { EditorTheme, TUI } from "@mariozechner/pi-tui";
-import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
+import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import { renderHudChrome } from "./editor-hud.js";
 import type { CyberHudSnapshot } from "./editor-state.js";
