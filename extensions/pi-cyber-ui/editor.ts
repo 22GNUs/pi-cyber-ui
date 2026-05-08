@@ -7,7 +7,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import { type ExtensionAPI, type ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import CyberEditor from "./cyber-editor.js";
 import { CyberEditorState } from "./editor-state.js";
@@ -123,7 +123,7 @@ export default function editor(pi: ExtensionAPI) {
     attach(ctx);
   });
 
-  pi.on("session_switch", async (_e, ctx) => {
+  pi.on("session_before_switch", async (_e, ctx) => {
     state.onSessionSwitch();
     attach(ctx);
   });

@@ -5,8 +5,8 @@ import type {
   ReadonlyFooterDataProvider,
   Theme,
   ThemeColor,
-} from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 const ICONS = {
   model: "🐱",
@@ -385,7 +385,7 @@ export default function footer(pi: ExtensionAPI) {
     attachFooter(ctx, getThinkingLevel);
   });
 
-  pi.on("session_switch", async (_event, ctx) => {
+  pi.on("session_before_switch", async (_event, ctx) => {
     if (!ctx.hasUI) return;
     attachFooter(ctx, getThinkingLevel);
   });

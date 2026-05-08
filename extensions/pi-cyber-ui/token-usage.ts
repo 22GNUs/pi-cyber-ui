@@ -22,7 +22,7 @@
  * Accumulated counts are stored as raw character counts so the final
  * formula can be applied once, keeping per-delta cost to O(n) char scans.
  */
-import type { Api } from "@mariozechner/pi-ai";
+import type { Api } from "@earendil-works/pi-ai";
 
 export type UsageMode = "exact" | "estimated";
 

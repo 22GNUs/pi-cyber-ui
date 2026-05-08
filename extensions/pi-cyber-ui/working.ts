@@ -9,7 +9,7 @@ import type {
   ExtensionAPI,
   ExtensionContext,
   Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 // ─── Timing ────────────────────────────────────────────────────
 const FRAME_MS = 70;
@@ -291,5 +291,5 @@ export default function working(pi: ExtensionAPI) {
   pi.on("agent_start", (_event, ctx) => startAnimation(ctx));
   pi.on("agent_end", (_event, ctx) => stopAnimation(ctx));
   pi.on("session_shutdown", (_event, ctx) => stopAnimation(ctx));
-  pi.on("session_switch", (_event, ctx) => stopAnimation(ctx));
+  pi.on("session_before_switch", (_event, ctx) => stopAnimation(ctx));
 }

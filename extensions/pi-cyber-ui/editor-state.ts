@@ -1,4 +1,4 @@
-import type { AssistantMessage } from "@mariozechner/pi-ai";
+import type { AssistantMessage } from "@earendil-works/pi-ai";
 
 import { getUsageMode, type UsageMode, StreamingTokenEstimator } from "./token-usage.js";
 
