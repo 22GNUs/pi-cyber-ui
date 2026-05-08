@@ -385,8 +385,4 @@ export default function footer(pi: ExtensionAPI) {
     attachFooter(ctx, getThinkingLevel);
   });
 
-  pi.on("session_before_switch", async (_event, ctx) => {
-    if (!ctx.hasUI) return;
-    attachFooter(ctx, getThinkingLevel);
-  });
 }
