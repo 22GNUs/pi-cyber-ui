@@ -162,9 +162,4 @@ export default class CyberEditor extends CustomEditor {
     return lines;
   }
 
-  destroy(): void {}
-
-  dispose(): void {
-    this.destroy();
-  }
 }
