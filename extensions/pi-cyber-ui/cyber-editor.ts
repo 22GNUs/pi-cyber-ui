@@ -2,7 +2,7 @@
  * Cyber Editor
  *
  * Cyber shell around Pi's CustomEditor.
- * Owns HUD chrome and animated prompt glyph.
+ * Owns HUD chrome and prompt glyph.
  */
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
@@ -15,28 +15,17 @@ import type { CyberHudSnapshot } from "./editor-state.js";
 type RGB = [number, number, number];
 
 const SILVER: RGB = [170, 184, 202];
-const WHITE: RGB = [214, 224, 236];
 const RESET = "\x1b[39m";
 const GLYPH_GAP = 1;
-const BREATH_MS = 3200;
-const BREATH_INTERVAL_MS = 120;
-const ANIM_MS = 90;
 
 export interface CyberEditorOptions {
   getHudSnapshot?: () => CyberHudSnapshot;
+  getBorderColor?: (text: string) => ((value: string) => string) | undefined;
   cwd?: string;
 }
 
 function rgb(c: RGB): string {
   return `\x1b[38;2;${c[0]};${c[1]};${c[2]}m`;
-}
-
-function mixRgb(a: RGB, b: RGB, t: number): RGB {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-  ];
 }
 
 function stripAnsi(text: string): string {
@@ -79,18 +68,16 @@ function snapshotKey(snapshot: CyberHudSnapshot): string {
 interface HudCache {
   cwd: string;
   width: number;
+  borderKey: string;
   snapshotKey: string;
   result: { topLine: string; bottomLine: string };
 }
 
 export default class CyberEditor extends CustomEditor {
   private readonly getHudSnapshot: () => CyberHudSnapshot | undefined;
+  private readonly getBorderColor: (text: string) => ((value: string) => string) | undefined;
   private readonly cwd: string;
 
-  private breath?: ReturnType<typeof setInterval>;
-  private anim?: ReturnType<typeof setInterval>;
-  private breathT0 = Date.now();
-  private frame = 0;
   private hudCache?: HudCache;
 
   constructor(
@@ -101,66 +88,27 @@ export default class CyberEditor extends CustomEditor {
   ) {
     super(tui, theme, kb);
     this.getHudSnapshot = options.getHudSnapshot ?? (() => undefined);
+    this.getBorderColor = options.getBorderColor ?? (() => undefined);
     this.cwd = options.cwd ?? "";
-    this.setPaddingX(this.getPaddingX() + this.promptWidth());
-    this.breathT0 = Date.now();
-    this.breath = setInterval(() => this.tui.requestRender(), BREATH_INTERVAL_MS);
-  }
-
-  private alpha(): number {
-    const t = ((Date.now() - this.breathT0) % BREATH_MS) / BREATH_MS;
-    return (1 - Math.cos(2 * Math.PI * t)) / 2;
-  }
-
-  private startAnim(): void {
-    if (this.anim) return;
-    this.frame = 0;
-    this.anim = setInterval(() => {
-      this.frame += 1;
-      this.tui.requestRender();
-      if (this.frame > 10) this.stopAnim();
-    }, ANIM_MS);
-  }
-
-  private stopAnim(): void {
-    if (!this.anim) return;
-    clearInterval(this.anim);
-    this.anim = undefined;
-  }
-
-  private insertColor(): RGB {
-    if (this.anim) return mixRgb(SILVER, WHITE, Math.max(0, 1 - this.frame / 10));
-    return mixRgb(SILVER, WHITE, this.alpha());
   }
 
   private promptColor(): RGB {
-    return this.insertColor();
+    return SILVER;
   }
 
   private modeMarker(): string {
     return "❯";
   }
 
-  private promptWidth(): number {
-    return visibleWidth(`${this.modeMarker()}${" ".repeat(GLYPH_GAP)}`);
-  }
-
-  override handleInput(data: string): void {
-    const hadText = this.getText().length > 0;
-    super.handleInput(data);
-    const hasText = this.getText().length > 0;
-    if (hasText && !hadText) {
-      this.startAnim();
-    }
-  }
-
   private getHudChrome(width: number, snapshot: CyberHudSnapshot): { topLine: string; bottomLine: string } {
     const cache = this.hudCache;
     const key = snapshotKey(snapshot);
+    const borderKey = this.borderColor("─");
     if (
       cache &&
       cache.cwd === this.cwd &&
       cache.width === width &&
+      cache.borderKey === borderKey &&
       cache.snapshotKey === key
     ) {
       return cache.result;
@@ -171,6 +119,7 @@ export default class CyberEditor extends CustomEditor {
     this.hudCache = {
       cwd: this.cwd,
       width,
+      borderKey,
       snapshotKey: key,
       result,
     };
@@ -179,6 +128,7 @@ export default class CyberEditor extends CustomEditor {
   }
 
   override render(width: number): string[] {
+    this.borderColor = this.getBorderColor(this.getText()) ?? this.borderColor;
     const lines = super.render(width);
     if (lines.length <= 0) return lines;
 
@@ -212,13 +162,7 @@ export default class CyberEditor extends CustomEditor {
     return lines;
   }
 
-  destroy(): void {
-    if (this.breath) {
-      clearInterval(this.breath);
-      this.breath = undefined;
-    }
-    this.stopAnim();
-  }
+  destroy(): void {}
 
   dispose(): void {
     this.destroy();

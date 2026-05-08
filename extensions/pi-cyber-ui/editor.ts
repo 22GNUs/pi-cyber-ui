@@ -1,7 +1,7 @@
 /**
  * Cyber Editor — cyberpunk HUD + ❯ glyph
  *
- * ❯  idle=silver breath · running=steel silver · thinking=steel pulse
+ * ❯  silver prompt marker
  * HUD  cwd ∷ turn ∷ ↑in ↓out ∷ Nt/s
  */
 import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -18,13 +18,16 @@ function disposeActiveEditor(): void {
   activeEditor = undefined;
 }
 
-function attach(ctx: ExtensionContext): void {
+function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
   disposeActiveEditor();
   activeUiContext = ctx;
   ctx.ui.setEditorComponent((tui, th, kb) => {
     const editor = new CyberEditor(tui, th, kb, {
       getHudSnapshot: () => state.snapshot(),
+      getBorderColor: (text) => text.trimStart().startsWith("!")
+        ? ctx.ui.theme.getBashModeBorderColor()
+        : ctx.ui.theme.getThinkingBorderColor(pi.getThinkingLevel()),
       cwd: ctx.cwd ?? "",
     });
     activeEditor = editor;
@@ -35,7 +38,7 @@ function attach(ctx: ExtensionContext): void {
 export default function editor(pi: ExtensionAPI) {
   pi.on("session_start", async (_e, ctx) => {
     state.onSessionStart();
-    attach(ctx);
+    attach(pi, ctx);
   });
 
   pi.on("session_before_switch", async () => {
