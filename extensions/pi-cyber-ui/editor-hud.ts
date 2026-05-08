@@ -22,10 +22,7 @@ interface RailChoice {
   requiredWidth: number;
 }
 
-export interface HudChromeOptions {
-  vimEnabled?: boolean;
-  vimMode?: "insert" | "normal";
-}
+export interface HudChromeOptions {}
 
 export interface HudChrome {
   topLine: string;
@@ -40,8 +37,7 @@ const C = {
   success: [122, 217, 166] as RGB,
   warning: [255, 202, 112] as RGB,
   error: [255, 136, 136] as RGB,
-  vimInsert: [184, 196, 214] as RGB,
-  vimNormal: [154, 236, 170] as RGB,
+
 } as const;
 
 function rgb(c: RGB): string {
@@ -155,13 +151,6 @@ function stylePath(raw: string): string {
 function renderResetNotice(notice: ResetNotice): string {
   const label = notice.kind === "compact" ? "cmp" : "tree";
   return paint(C.warning, label);
-}
-
-function renderVimMode(options: HudChromeOptions): string {
-  if (!options.vimEnabled) return "";
-  const label = options.vimMode === "normal" ? "VIM-N" : "VIM-I";
-  const color = options.vimMode === "normal" ? C.vimNormal : C.vimInsert;
-  return paint(color, label, true);
 }
 
 function joinParts(parts: string[]): string {
@@ -357,28 +346,15 @@ function topChoices(
   const choices: RailChoice[] = [];
   const seen = new Set<string>();
   const paths = pathCandidates(cwd, width);
-  const vim = renderVimMode(options);
   const resetNotice = snapshot.resetNotice ? renderResetNotice(snapshot.resetNotice) : "";
 
   for (const path of paths) {
-    if (vim && resetNotice) {
-      pushUniqueChoice(choices, seen, joinParts([path, vim, resetNotice]));
-    }
-    if (vim) {
-      pushUniqueChoice(choices, seen, joinParts([path, vim]));
-    }
     if (resetNotice) {
       pushUniqueChoice(choices, seen, joinParts([path, resetNotice]));
     }
     pushUniqueChoice(choices, seen, path);
   }
 
-  if (vim && resetNotice) {
-    pushUniqueChoice(choices, seen, joinParts([vim, resetNotice]));
-  }
-  if (vim) {
-    pushUniqueChoice(choices, seen, vim);
-  }
   if (resetNotice) {
     pushUniqueChoice(choices, seen, resetNotice);
   }

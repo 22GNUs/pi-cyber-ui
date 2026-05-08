@@ -1,16 +1,16 @@
 /**
  * Cyber Editor
  *
- * Cyber shell around the standalone Vim editor behavior module.
- * Owns HUD chrome, animated prompt glyph, and mode styling.
+ * Cyber shell around Pi's CustomEditor.
+ * Owns HUD chrome and animated prompt glyph.
  */
+import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import { renderHudChrome } from "./editor-hud.js";
 import type { CyberHudSnapshot } from "./editor-state.js";
-import VimEditor from "./vim-editor.js";
 
 type RGB = [number, number, number];
 
@@ -19,14 +19,12 @@ const WHITE: RGB = [214, 224, 236];
 const RESET = "\x1b[39m";
 const GLYPH_GAP = 1;
 const BREATH_MS = 3200;
-const BREATH_FPS = 30;
-const ANIM_MS = 60;
+const BREATH_INTERVAL_MS = 120;
+const ANIM_MS = 90;
 
 export interface CyberEditorOptions {
   getHudSnapshot?: () => CyberHudSnapshot;
   cwd?: string;
-  vimEnabled?: boolean;
-  jjEscapeTimeoutMs?: number;
 }
 
 function rgb(c: RGB): string {
@@ -61,16 +59,31 @@ function findBorderLineIndex(lines: string[]): number {
   return Math.max(0, lines.length - 1);
 }
 
+function snapshotKey(snapshot: CyberHudSnapshot): string {
+  return [
+    snapshot.agentState,
+    snapshot.promptActive ? 1 : 0,
+    snapshot.promptTurns,
+    snapshot.promptIn,
+    snapshot.inputValue ?? "",
+    snapshot.output.value ?? "",
+    snapshot.output.estimated ? 1 : 0,
+    snapshot.output.frozen ? 1 : 0,
+    snapshot.tps.value?.toFixed(1) ?? "",
+    snapshot.tps.estimated ? 1 : 0,
+    snapshot.toolDepth,
+    snapshot.resetNotice?.kind ?? "",
+  ].join("|");
+}
+
 interface HudCache {
   cwd: string;
   width: number;
-  vimEnabled: boolean;
-  vimMode: "insert" | "normal";
-  snapshot: CyberHudSnapshot;
+  snapshotKey: string;
   result: { topLine: string; bottomLine: string };
 }
 
-export default class CyberEditor extends VimEditor {
+export default class CyberEditor extends CustomEditor {
   private readonly getHudSnapshot: () => CyberHudSnapshot | undefined;
   private readonly cwd: string;
 
@@ -86,15 +99,12 @@ export default class CyberEditor extends VimEditor {
     kb: KeybindingsManager,
     options: CyberEditorOptions = {},
   ) {
-    super(tui, theme, kb, {
-      enabled: options.vimEnabled,
-      jjEscapeTimeoutMs: options.jjEscapeTimeoutMs,
-    });
+    super(tui, theme, kb);
     this.getHudSnapshot = options.getHudSnapshot ?? (() => undefined);
     this.cwd = options.cwd ?? "";
     this.setPaddingX(this.getPaddingX() + this.promptWidth());
     this.breathT0 = Date.now();
-    this.breath = setInterval(() => this.tui.requestRender(), BREATH_FPS);
+    this.breath = setInterval(() => this.tui.requestRender(), BREATH_INTERVAL_MS);
   }
 
   private alpha(): number {
@@ -135,11 +145,6 @@ export default class CyberEditor extends VimEditor {
     return visibleWidth(`${this.modeMarker()}${" ".repeat(GLYPH_GAP)}`);
   }
 
-  override setVimEnabled(enabled: boolean): void {
-    super.setVimEnabled(enabled);
-    this.hudCache = undefined;
-  }
-
   override handleInput(data: string): void {
     const hadText = this.getText().length > 0;
     super.handleInput(data);
@@ -151,28 +156,22 @@ export default class CyberEditor extends VimEditor {
 
   private getHudChrome(width: number, snapshot: CyberHudSnapshot): { topLine: string; bottomLine: string } {
     const cache = this.hudCache;
+    const key = snapshotKey(snapshot);
     if (
       cache &&
       cache.cwd === this.cwd &&
       cache.width === width &&
-      cache.vimEnabled === this.vimEnabled &&
-      cache.vimMode === this.mode &&
-      cache.snapshot === snapshot
+      cache.snapshotKey === key
     ) {
       return cache.result;
     }
 
-    const result = renderHudChrome(this.cwd, snapshot, width, this.borderColor, {
-      vimEnabled: this.vimEnabled,
-      vimMode: this.mode,
-    });
+    const result = renderHudChrome(this.cwd, snapshot, width, this.borderColor);
 
     this.hudCache = {
       cwd: this.cwd,
       width,
-      vimEnabled: this.vimEnabled,
-      vimMode: this.mode,
-      snapshot,
+      snapshotKey: key,
       result,
     };
 
@@ -213,9 +212,15 @@ export default class CyberEditor extends VimEditor {
     return lines;
   }
 
-  override destroy(): void {
-    if (this.breath) clearInterval(this.breath);
+  destroy(): void {
+    if (this.breath) {
+      clearInterval(this.breath);
+      this.breath = undefined;
+    }
     this.stopAnim();
-    super.destroy();
+  }
+
+  dispose(): void {
+    this.destroy();
   }
 }

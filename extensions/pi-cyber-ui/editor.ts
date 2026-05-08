@@ -4,128 +4,48 @@
  * ❯  idle=silver breath · running=steel silver · thinking=steel pulse
  * HUD  cwd ∷ turn ∷ ↑in ↓out ∷ Nt/s
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { homedir } from "node:os";
 import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import CyberEditor from "./cyber-editor.js";
 import { CyberEditorState } from "./editor-state.js";
-import { DEFAULT_JJ_ESCAPE_TIMEOUT_MS } from "./vim-editor.js";
-
-interface CyberUiSettings {
-  vimModeEnabled: boolean;
-  jjEscapeTimeoutMs: number;
-}
 
 const state = new CyberEditorState();
-const SETTINGS_PATH = join(homedir(), ".pi", "agent", "pi-cyber-ui.json");
-let settings = loadSettings();
-let vimModeEnabled = settings.vimModeEnabled;
-let jjEscapeTimeoutMs = settings.jjEscapeTimeoutMs;
 let activeUiContext: ExtensionContext | undefined;
 let activeEditor: CyberEditor | undefined;
 
-function normalizeJjEscapeTimeoutMs(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return DEFAULT_JJ_ESCAPE_TIMEOUT_MS;
-  }
-  return Math.max(0, Math.floor(value));
-}
-
-function loadSettings(): CyberUiSettings {
-  try {
-    const raw = readFileSync(SETTINGS_PATH, "utf8");
-    const parsed = JSON.parse(raw) as {
-      vimModeEnabled?: unknown;
-      jjEscapeTimeoutMs?: unknown;
-    };
-    return {
-      vimModeEnabled: typeof parsed.vimModeEnabled === "boolean" ? parsed.vimModeEnabled : true,
-      jjEscapeTimeoutMs: normalizeJjEscapeTimeoutMs(parsed.jjEscapeTimeoutMs),
-    };
-  } catch {
-    return {
-      vimModeEnabled: true,
-      jjEscapeTimeoutMs: DEFAULT_JJ_ESCAPE_TIMEOUT_MS,
-    };
-  }
-}
-
-function saveSettings(patch: Partial<CyberUiSettings>): void {
-  settings = {
-    ...settings,
-    ...patch,
-    jjEscapeTimeoutMs: normalizeJjEscapeTimeoutMs(patch.jjEscapeTimeoutMs ?? settings.jjEscapeTimeoutMs),
-  };
-  vimModeEnabled = settings.vimModeEnabled;
-  jjEscapeTimeoutMs = settings.jjEscapeTimeoutMs;
-  mkdirSync(dirname(SETTINGS_PATH), { recursive: true });
-  writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n", "utf8");
+function disposeActiveEditor(): void {
+  activeEditor?.destroy();
+  activeEditor = undefined;
 }
 
 function attach(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
+  disposeActiveEditor();
   activeUiContext = ctx;
   ctx.ui.setEditorComponent((tui, th, kb) => {
     const editor = new CyberEditor(tui, th, kb, {
       getHudSnapshot: () => state.snapshot(),
       cwd: ctx.cwd ?? "",
-      vimEnabled: vimModeEnabled,
-      jjEscapeTimeoutMs,
     });
     activeEditor = editor;
     return editor;
   });
 }
 
-function applyVimMode(enabled: boolean, ctx?: ExtensionContext): void {
-  saveSettings({ vimModeEnabled: enabled });
-  activeEditor?.setVimEnabled(enabled);
-
-  const target = ctx ?? activeUiContext;
-  if (target?.hasUI) {
-    target.ui.notify(`Cyber UI: Vim mode ${enabled ? "enabled" : "disabled"}.`, "info");
-  }
-}
-
 export default function editor(pi: ExtensionAPI) {
-  pi.registerCommand("cyber-vim", {
-    description: "Toggle Cyber UI Vim mode (on/off/status)",
-    handler: async (args, ctx) => {
-      const value = args.trim().toLowerCase();
-      if (!value || value === "toggle") {
-        applyVimMode(!vimModeEnabled, ctx);
-        return;
-      }
-
-      if (value === "on" || value === "enable" || value === "enabled") {
-        applyVimMode(true, ctx);
-        return;
-      }
-
-      if (value === "off" || value === "disable" || value === "disabled") {
-        applyVimMode(false, ctx);
-        return;
-      }
-
-      if (value === "status") {
-        ctx.ui.notify(`Cyber UI: Vim mode is ${vimModeEnabled ? "enabled" : "disabled"}.`, "info");
-        return;
-      }
-
-      ctx.ui.notify("Usage: /cyber-vim [on|off|toggle|status]", "error");
-    },
-  });
-
   pi.on("session_start", async (_e, ctx) => {
     state.onSessionStart();
     attach(ctx);
   });
 
-  pi.on("session_before_switch", async (_e, ctx) => {
+  pi.on("session_before_switch", async () => {
     state.onSessionSwitch();
-    attach(ctx);
+  });
+
+  pi.on("session_shutdown", async (_e, ctx) => {
+    disposeActiveEditor();
+    if (ctx.hasUI) ctx.ui.setEditorComponent(undefined);
+    if (activeUiContext === ctx) activeUiContext = undefined;
   });
 
   pi.on("session_compact", async () => {
