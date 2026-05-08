@@ -10,18 +10,9 @@ import CyberEditor from "./cyber-editor.js";
 import { CyberEditorState } from "./editor-state.js";
 
 const state = new CyberEditorState();
-let activeUiContext: ExtensionContext | undefined;
-let activeEditor: CyberEditor | undefined;
-
-function disposeActiveEditor(): void {
-  activeEditor?.destroy();
-  activeEditor = undefined;
-}
 
 function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
-  disposeActiveEditor();
-  activeUiContext = ctx;
   ctx.ui.setEditorComponent((tui, th, kb) => {
     const editor = new CyberEditor(tui, th, kb, {
       getHudSnapshot: () => state.snapshot(),
@@ -30,7 +21,6 @@ function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
         : ctx.ui.theme.getThinkingBorderColor(pi.getThinkingLevel()),
       cwd: ctx.cwd ?? "",
     });
-    activeEditor = editor;
     return editor;
   });
 }
@@ -46,9 +36,7 @@ export default function editor(pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async (_e, ctx) => {
-    disposeActiveEditor();
     if (ctx.hasUI) ctx.ui.setEditorComponent(undefined);
-    if (activeUiContext === ctx) activeUiContext = undefined;
   });
 
   pi.on("session_compact", async () => {
