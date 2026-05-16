@@ -46,6 +46,7 @@ const KNOWN_THINKING_LEVELS = new Set([
 const SEP = " ∷ ";
 const DIRTY_REFRESH_MS = 10_000;
 const DIRTY_TIMEOUT_MS = 800;
+const FOOTER_REFRESH_STATUS_KEY = "cyber-ui:footer-refresh";
 
 // ---------------------------------------------------------------------------
 // Tiny helpers reused from v1 footer
@@ -265,10 +266,10 @@ function getCachedDirty(cwd: string): number | undefined {
   return dirtyCache.get(cwd)?.count;
 }
 
-function refreshDirty(cwd: string, onUpdate?: () => void): void {
+function refreshDirty(cwd: string, onUpdate?: () => void, force = false): void {
   const existing = dirtyCache.get(cwd);
   if (existing?.inFlight) return;
-  if (existing && Date.now() - existing.at < DIRTY_REFRESH_MS / 2) return;
+  if (!force && existing && Date.now() - existing.at < DIRTY_REFRESH_MS / 2) return;
 
   const entry: DirtyCacheEntry = {
     count: existing?.count ?? 0,
@@ -284,8 +285,9 @@ function refreshDirty(cwd: string, onUpdate?: () => void): void {
       const count = err
         ? entry.count
         : stdout.split("\n").filter((line) => line.trim().length > 0).length;
+      const changed = existing?.count !== count;
       dirtyCache.set(cwd, { count, at: Date.now() });
-      onUpdate?.();
+      if (changed || force) onUpdate?.();
     },
   );
 }
@@ -416,12 +418,14 @@ function attachFooter(
     (_tui, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
       let cachedKey: CacheKey | undefined;
       let cachedLines: string[] | undefined;
-      let invalidator: (() => void) | undefined;
 
       const invalidate = () => {
         cachedKey = undefined;
         cachedLines = undefined;
-        invalidator?.();
+        // Footer render cache is internal to the custom component. Poking an
+        // empty status key triggers pi's requestRender() without adding visible
+        // content, so async git updates are reflected while idle.
+        ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
       };
 
       // Prime + watch git
@@ -442,14 +446,6 @@ function attachFooter(
           cachedLines = undefined;
         },
         render(width: number): string[] {
-          // We can't actually request a re-render from inside render(), but
-          // we can capture the current invalidator path by keeping the cache
-          // disabled when we know background data is in flight.
-          invalidator = invalidator ?? (() => {
-            cachedKey = undefined;
-            cachedLines = undefined;
-          });
-
           const branch = footerData.getGitBranch();
           const dirty = getCachedDirty(ctx.cwd);
           const thinkingLevel = getThinkingLevel();
@@ -521,8 +517,11 @@ export default function footer(pi: ExtensionAPI) {
     attachFooter(ctx, getThinkingLevel);
   });
 
-  // Refresh dirty count after agent_end (likely files just changed).
+  // Refresh dirty count after agent_end (likely files just changed). Force so
+  // commits/checkout performed by tools update immediately even inside the
+  // normal debounce window.
   pi.on("agent_end", async (_event, ctx) => {
-    refreshDirty(ctx.cwd);
+    if (!ctx.hasUI) return;
+    refreshDirty(ctx.cwd, () => ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined), true);
   });
 }

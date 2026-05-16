@@ -39,6 +39,8 @@ const TICK_INTERVAL_MS = 250;
 
 class ToolRegistry {
   private entries = new Map<string, ToolEntry>();
+  /** Running tool IDs only; keeps spinner ticks O(running) instead of O(history). */
+  private runningIds = new Set<string>();
   /** Insertion order of entries since registry started. */
   private order: string[] = [];
   /** Index in `order` where the current turn begins; entries before it are excluded from tally. */
@@ -54,6 +56,7 @@ class ToolRegistry {
       startedAt: Date.now(),
     };
     this.entries.set(toolCallId, entry);
+    this.runningIds.add(toolCallId);
     this.order.push(toolCallId);
     this.ensureTicker();
     this.notify();
@@ -65,7 +68,9 @@ class ToolRegistry {
     if (entry.endedAt !== undefined) return;
     entry.endedAt = Date.now();
     entry.isError = isError;
-    if (this.runningCount() === 0) this.stopTicker();
+    entry.invalidate = undefined;
+    this.runningIds.delete(toolCallId);
+    if (this.runningIds.size === 0) this.stopTicker();
     this.notify();
   }
 
@@ -77,6 +82,7 @@ class ToolRegistry {
 
   resetAll(): void {
     this.entries.clear();
+    this.runningIds.clear();
     this.order = [];
     this.turnFloor = 0;
     this.stopTicker();
@@ -161,26 +167,17 @@ class ToolRegistry {
     }
   }
 
-  private runningCount(): number {
-    let n = 0;
-    for (const e of this.entries.values()) {
-      if (e.endedAt === undefined) n += 1;
-    }
-    return n;
-  }
-
   private ensureTicker(): void {
     if (this.tickInterval) return;
     this.tickInterval = setInterval(() => {
-      let any = false;
-      for (const e of this.entries.values()) {
-        if (e.endedAt === undefined) {
-          any = true;
-          e.invalidate?.();
-        }
+      if (this.runningIds.size === 0) {
+        this.stopTicker();
+        return;
       }
-      if (any) this.notify();
-      else this.stopTicker();
+      for (const id of this.runningIds) {
+        this.entries.get(id)?.invalidate?.();
+      }
+      this.notify();
     }, TICK_INTERVAL_MS);
     // Don't keep the event loop alive just for ticking.
     if (typeof this.tickInterval.unref === "function") {

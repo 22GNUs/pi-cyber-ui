@@ -8,8 +8,9 @@ import working from "./working.js";
 
 export default function piCyberUi(pi: ExtensionAPI) {
   wireToolRegistry(pi);
+  // cyberState producer must register before consumers (working/footer).
+  editor(pi);
   toolRender(pi);
   footer(pi);
   working(pi);
-  editor(pi);
 }
