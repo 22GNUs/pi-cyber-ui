@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>pi-cyber-ui · Minimal Tools 设计稿 v2</title>
+<style>
+  /* === cyber-ui-dark.json 调色板 === */
+  :root {
+    --bg:           #0a0a0d;
+    --bgAlt:        #1f2335;
+    --bgSelection:  #33467c;
+    --fg:           #c0caf5;
+    --fgMuted:      #a9b1d6;
+    --fgDim:        #565f89;
+    --red:          #f7768e;
+    --redBright:    #ff899d;
+    --orange:       #e0af68;
+    --green:        #9ece6a;
+    --teal:         #4fd6be;
+    --tealDark:     #41a6b5;
+    --blue:         #7aa2f7;
+    --blueDark:    #3d59a1;
+    --cyan:         #7dcfff;
+    --cyanBright:   #b4f9f8;
+    --purple:       #bb9af7;
+    --purpleDark:   #9d7cd8;
+    --pink:         #f7768e;
+    --toolSuccessBg:#0b1020;
+    --toolPendingBg:#0d1b2e;
+    --toolErrorBg:  #1a0d12;
+  }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: linear-gradient(135deg, #06060a 0%, #0d0a14 50%, #0a0a0d 100%);
+    color: var(--fg);
+    font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "SFMono-Regular",
+                 ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  body { padding: 28px 36px 80px; }
+
+  h1, h2, h3 { color: var(--cyan); font-weight: 600; letter-spacing: 0.5px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h1 .accent { color: var(--purple); }
+  h1 .dim { color: var(--fgDim); font-weight: 400; }
+  .lead { color: var(--fgMuted); margin: 0 0 24px; font-size: 13px; }
+  .lead code { color: var(--teal); }
+
+  h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 28px 0 10px;
+    color: var(--purple);
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2::before {
+    content: "";
+    width: 18px; height: 1px;
+    background: linear-gradient(90deg, var(--purple), transparent);
+  }
+  h2 .num {
+    color: var(--bg);
+    background: var(--purple);
+    padding: 1px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 12px;
+    color: var(--fgMuted);
+    margin: 16px 0 6px;
+    letter-spacing: 0.5px;
+  }
+  h3 .pill {
+    color: var(--bg);
+    background: var(--cyan);
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 6px;
+    letter-spacing: 1px;
+  }
+  h3 .pill-b {
+    background: var(--purple);
+  }
+
+  /* === 终端容器 === */
+  .terminal {
+    background: var(--bg);
+    border: 1px solid var(--blueDark);
+    border-radius: 10px;
+    padding: 14px 18px 16px;
+    box-shadow:
+      0 0 0 1px rgba(125, 207, 255, 0.04),
+      0 18px 50px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(192, 202, 245, 0.03);
+    overflow: hidden;
+    position: relative;
+  }
+  .terminal::before {
+    content: "● ● ●";
+    position: absolute;
+    top: 8px; left: 14px;
+    color: var(--fgDim);
+    font-size: 10px;
+    letter-spacing: 4px;
+  }
+  .terminal::after {
+    content: attr(data-title);
+    position: absolute;
+    top: 7px; left: 0; right: 0;
+    text-align: center;
+    color: var(--fgDim);
+    font-size: 11px;
+  }
+  .terminal > .body { margin-top: 18px; }
+
+  pre, .row {
+    margin: 0;
+    white-space: pre;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--fg);
+  }
+
+  /* === 颜色工具类 === */
+  .c-cyan   { color: var(--cyan); }
+  .c-blue   { color: var(--blue); }
+  .c-green  { color: var(--green); }
+  .c-teal   { color: var(--teal); }
+  .c-purple { color: var(--purple); }
+  .c-pink   { color: var(--pink); }
+  .c-red    { color: var(--red); }
+  .c-orange { color: var(--orange); }
+  .c-fg     { color: var(--fg); }
+  .c-muted  { color: var(--fgMuted); }
+  .c-dim    { color: var(--fgDim); }
+  .b        { font-weight: 700; }
+
+  /* === Working 区域 === */
+  .working {
+    padding: 6px 0;
+    border-left: 2px solid var(--cyan);
+    padding-left: 14px;
+    margin: 6px 0 8px;
+    background: linear-gradient(90deg, rgba(125,207,255,0.06), transparent 60%);
+  }
+  .working.idle {
+    border-left-color: var(--green);
+    background: linear-gradient(90deg, rgba(158,206,106,0.05), transparent 60%);
+    opacity: 0.85;
+  }
+  .working .head { display: block; }
+  .working .sub  { display: block; padding-top: 2px; color: var(--fgMuted); }
+
+  /* === Editor 区域（无 HUD，纯净） === */
+  .editor {
+    border: 1px solid var(--blueDark);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    background: rgba(31,35,53,0.25);
+  }
+  .editor .prompt::before { content: "❯ "; color: #aab8ca; font-weight: 700; }
+  .editor .placeholder { color: var(--fgDim); }
+
+  /* === Footer === */
+  .footer {
+    color: var(--fgDim);
+    font-size: 12px;
+    padding: 6px 0 0;
+    border-top: 1px solid var(--blueDark);
+    margin-top: 6px;
+    display: block;
+    white-space: pre;
+  }
+  .footer .b { color: var(--cyan); }
+  .footer .pink { color: var(--pink); }
+  .footer .grn { color: var(--green); }
+  .footer .blu { color: var(--blue); }
+  .footer .org { color: var(--orange); }
+  .footer .pur { color: var(--purple); }
+  .footer .sep { color: var(--fgDim); }
+
+  /* === Spinner === */
+  .spin::before {
+    content: "●";
+    color: var(--cyan);
+    animation: pulse 1s steps(1) infinite;
+  }
+  @keyframes pulse {
+    0%   { content: "·"; opacity: 0.3; }
+    12%  { content: "·"; opacity: 0.4; }
+    25%  { content: "•"; opacity: 0.6; }
+    37%  { content: "●"; opacity: 0.9; }
+    50%  { content: "◆"; opacity: 1; }
+    62%  { content: "●"; opacity: 0.9; }
+    75%  { content: "•"; opacity: 0.6; }
+    87%  { content: "·"; opacity: 0.4; }
+    100% { content: "·"; opacity: 0.3; }
+  }
+  .spin-frame::before {
+    content: "⠋";
+    animation: spin-frames 0.8s steps(1) infinite;
+  }
+  @keyframes spin-frames {
+    0%   { content: "⠋"; }
+    11%  { content: "⠙"; }
+    22%  { content: "⠹"; }
+    33%  { content: "⠸"; }
+    44%  { content: "⠼"; }
+    55%  { content: "⠴"; }
+    66%  { content: "⠦"; }
+    77%  { content: "⠧"; }
+    88%  { content: "⠇"; }
+    100% { content: "⠏"; }
+  }
+
+  /* === Tool 行 === */
+  .tool {
+    border-left: 2px solid var(--blueDark);
+    padding: 4px 0 4px 12px;
+    margin: 2px 0;
+  }
+  .tool.success  { border-color: var(--green);  background: var(--toolSuccessBg); }
+  .tool.error    { border-color: var(--red);    background: var(--toolErrorBg); }
+  .tool.running  { border-color: var(--cyan);   background: var(--toolPendingBg); }
+
+  .badge {
+    display: inline-block;
+    padding: 0 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-left: 6px;
+  }
+  .badge.dur   { background: rgba(125,207,255,0.08); color: var(--cyan); }
+  .badge.bytes { background: rgba(158,206,106,0.08); color: var(--green); }
+
+  /* === 用户消息 === */
+  .user {
+    background: var(--bgAlt);
+    color: var(--fg);
+    padding: 6px 12px;
+    border-radius: 4px;
+    margin: 8px 0;
+    border-left: 2px solid var(--purple);
+  }
+  .user::before { content: "› "; color: var(--purple); font-weight: 700; }
+
+  /* === 比较网格 === */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    margin-top: 12px;
+  }
+  @media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* === Spec 表格 === */
+  .spec {
+    margin-top: 22px;
+    border: 1px solid var(--blueDark);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(15, 18, 32, 0.5);
+  }
+  .spec table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .spec th, .spec td {
+    text-align: left;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(86, 95, 137, 0.25);
+    vertical-align: top;
+  }
+  .spec th { color: var(--cyan); font-weight: 600; background: rgba(125,207,255,0.04); }
+  .spec td.k { color: var(--purple); white-space: nowrap; }
+  .spec code { color: var(--teal); background: rgba(79, 214, 190, 0.06); padding: 0 4px; border-radius: 3px; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 14px;
+    color: var(--fgDim);
+    font-size: 12px;
+    margin: 6px 0 14px;
+  }
+  .legend .sw {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 2px; vertical-align: middle;
+    margin-right: 5px;
+    box-shadow: 0 0 4px currentColor;
+  }
+
+  .key {
+    background: var(--bgAlt);
+    border: 1px solid var(--fgDim);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-size: 11px;
+    color: var(--cyan);
+  }
+
+  hr {
+    border: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--blueDark), transparent);
+    margin: 36px 0 24px;
+  }
+  .note {
+    color: var(--fgMuted);
+    font-size: 12.5px;
+    line-height: 1.7;
+    margin: 8px 0 4px;
+  }
+  ul.compact { margin: 6px 0 0 18px; padding: 0; color: var(--fgMuted); font-size: 12.5px; line-height: 1.65; }
+  ul.compact li { margin: 2px 0; }
+  .recommend {
+    display: inline-block;
+    background: var(--purple);
+    color: var(--bg);
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>pi-cyber-ui <span class="dim">·</span> <span class="accent">Minimal Tools</span> <span class="dim">设计稿 v2 — Pure Editor</span></h1>
+<p class="lead">
+  v2 调整：HUD 全部下沉到 <code>working</code>（动态信息）和 <code>footer</code>（环境信息），
+  <code>editor</code> 完全纯粹只剩输入。Idle 态 working 保留 last summary。
+</p>
+
+<div class="legend">
+  <span><span class="sw" style="color: var(--cyan); background: var(--cyan)"></span>cyan 运行中</span>
+  <span><span class="sw" style="color: var(--green); background: var(--green)"></span>green 成功 / idle</span>
+  <span><span class="sw" style="color: var(--red); background: var(--red)"></span>red 错误</span>
+  <span><span class="sw" style="color: var(--purple); background: var(--purple)"></span>purple thinking</span>
+  <span><span class="sw" style="color: var(--orange); background: var(--orange)"></span>orange warning</span>
+  <span><span class="sw" style="color: var(--fgDim); background: var(--fgDim)"></span>fgDim 折叠/历史</span>
+</div>
+
+<!-- =============================================================== -->
+<h2><span class="num">1</span> 三栏职责重划</h2>
+
+<div class="spec">
+  <table>
+    <thead>
+      <tr><th style="width: 16%">区域</th><th style="width: 28%">职责</th><th>包含</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="k">working</td>
+        <td>AI 执行的动态信号</td>
+        <td>spinner · verb · prompt 计时 · turn · 当前 tool · token ↑↓ · tps · esc 提示</td>
+      </tr>
+      <tr>
+        <td class="k">editor</td>
+        <td>纯粹输入</td>
+        <td>仅 <code>❯</code> + 边框 + 文本，无 HUD</td>
+      </tr>
+      <tr>
+        <td class="k">footer</td>
+        <td>静态/慢变环境</td>
+        <td>cwd 路径 · git 分支+脏状态 · 模型 · 上下文 % · thinking 等级</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- =============================================================== -->
+<h2><span class="num">2</span> Working 密度对比 <span class="recommend">需选择</span></h2>
+
+<div class="grid-2">
+
+  <!-- ============ 方案 A — 单行 ============ -->
+  <div>
+    <h3><span class="pill">方案 A</span> 全塞单行 · 紧凑</h3>
+
+    <div class="terminal" data-title="A — running · 单行">
+      <div class="body">
+        <div class="working">
+          <span class="head">
+            <span class="spin c-cyan b"></span>&nbsp;
+            <span class="c-cyan b">Compiling</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">12s</span>
+            <span class="c-dim"> · </span>
+            <span class="c-purple">t3</span>
+            <span class="c-dim"> </span>
+            <span class="c-cyan"><span class="spin-frame"></span> edit</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">↑1.2k ↓340</span>
+            <span class="c-dim"> · </span>
+            <span class="c-cyan">218t/s</span>
+            <span class="c-dim">   esc to cancel</span>
+          </span>
+        </div>
+
+        <div class="editor">
+          <div class="prompt"><span class="placeholder">Type a message…</span></div>
+        </div>
+
+        <div class="footer">
+<span class="grn">~/Developer/dotfiles</span>  <span class="sep">∷</span>  <span class="blu"> main</span> <span class="org">✚3</span>  <span class="sep">∷</span>  <span class="pur">🐱 gpt-5.5</span>  <span class="sep">∷</span>  <span class="b">ctx 32%</span>  <span class="sep">∷</span>  <span class="pink">high</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="note" style="font-size: 12px;">
+      <span class="c-green">优</span> 占行少、节奏快<br/>
+      <span class="c-orange">劣</span> 窄屏(&lt; 100 列)塞不下，需按优先级丢弃 token/tps<br/>
+      <span class="c-orange">劣</span> 信息长度不一致时左右晃动
+    </p>
+  </div>
+
+  <!-- ============ 方案 B — 双行 ============ -->
+  <div>
+    <h3><span class="pill pill-b">方案 B</span> 双行结构化 · 优雅</h3>
+
+    <div class="terminal" data-title="B — running · 双行">
+      <div class="body">
+        <div class="working">
+          <span class="head">
+            <span class="spin c-cyan b"></span>&nbsp;
+            <span class="c-cyan b">Compiling</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">12s</span>
+            <span class="c-dim">   esc to cancel</span>
+          </span>
+          <span class="sub">
+            <span class="c-purple">t3</span>
+            <span class="c-dim"> · </span>
+            <span class="c-cyan"><span class="spin-frame"></span> edit</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">↑1.2k ↓340</span>
+            <span class="c-dim"> · </span>
+            <span class="c-cyan">218t/s</span>
+          </span>
+        </div>
+
+        <div class="editor">
+          <div class="prompt"><span class="placeholder">Type a message…</span></div>
+        </div>
+
+        <div class="footer">
+<span class="grn">~/Developer/dotfiles</span>  <span class="sep">∷</span>  <span class="blu"> main</span> <span class="org">✚3</span>  <span class="sep">∷</span>  <span class="pur">🐱 gpt-5.5</span>  <span class="sep">∷</span>  <span class="b">ctx 32%</span>  <span class="sep">∷</span>  <span class="pink">high</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="note" style="font-size: 12px;">
+      <span class="c-green">优</span> 主层级稳定（spinner+verb+timer 在第一行）<br/>
+      <span class="c-green">优</span> 第二行可空（无 tool 时只显示 token），不挤<br/>
+      <span class="c-orange">劣</span> 多占 1 行
+    </p>
+  </div>
+
+</div>
+
+<!-- =============================================================== -->
+<h2><span class="num">3</span> Idle 态 — 保留 Last Summary</h2>
+
+<div class="grid-2">
+
+  <div>
+    <h3><span class="pill">A</span> idle · 单行 summary</h3>
+    <div class="terminal" data-title="A — idle (last summary 保留至下次 prompt)">
+      <div class="body">
+        <div class="working idle">
+          <span class="head">
+            <span class="c-green b">✓</span>
+            <span class="c-green"> done</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">1:12</span>
+            <span class="c-dim"> · </span>
+            <span class="c-purple">t8</span>
+            <span class="c-dim"> · </span>
+            <span class="c-green">✓6 ✗1</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">↑3.4k ↓1.1k</span>
+            <span class="c-dim"> · </span>
+            <span class="c-cyan">198t/s</span>
+          </span>
+        </div>
+
+        <div class="editor">
+          <div class="prompt"><span class="placeholder">Type a message…</span></div>
+        </div>
+
+        <div class="footer">
+<span class="grn">~/Developer/dotfiles</span>  <span class="sep">∷</span>  <span class="blu"> main</span> <span class="org">✚3</span>  <span class="sep">∷</span>  <span class="pur">🐱 gpt-5.5</span>  <span class="sep">∷</span>  <span class="b">ctx 32%</span>  <span class="sep">∷</span>  <span class="pink">high</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <h3><span class="pill pill-b">B</span> idle · 双行 summary</h3>
+    <div class="terminal" data-title="B — idle (last summary 保留至下次 prompt)">
+      <div class="body">
+        <div class="working idle">
+          <span class="head">
+            <span class="c-green b">✓</span>
+            <span class="c-green"> done</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">1:12</span>
+          </span>
+          <span class="sub">
+            <span class="c-purple">t8</span>
+            <span class="c-dim"> · </span>
+            <span class="c-green">✓6 ✗1</span>
+            <span class="c-dim"> · </span>
+            <span class="c-muted">↑3.4k ↓1.1k</span>
+            <span class="c-dim"> · </span>
+            <span class="c-cyan">198t/s</span>
+          </span>
+        </div>
+
+        <div class="editor">
+          <div class="prompt"><span class="placeholder">Type a message…</span></div>
+        </div>
+
+        <div class="footer">
+<span class="grn">~/Developer/dotfiles</span>  <span class="sep">∷</span>  <span class="blu"> main</span> <span class="org">✚3</span>  <span class="sep">∷</span>  <span class="pur">🐱 gpt-5.5</span>  <span class="sep">∷</span>  <span class="b">ctx 32%</span>  <span class="sep">∷</span>  <span class="pink">high</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="note">
+  Idle 态左侧条改用 <code>green</code>（区别于运行中的 cyan），背景渐变同步降饱和，
+  造成"上次跑完了，等你"的视觉提示。<span class="key">enter</span> 提交新 prompt 即被运行态覆盖。
+</p>
+
+<!-- =============================================================== -->
+<h2><span class="num">4</span> 完整 Session 流程示意</h2>
+
+<div class="terminal" data-title="完整流 · 方案 B（推荐）">
+  <div class="body">
+
+    <!-- 上次结束的 idle summary -->
+    <div class="working idle">
+      <span class="head">
+        <span class="c-green b">✓</span>
+        <span class="c-green"> done</span>
+        <span class="c-dim"> · </span>
+        <span class="c-muted">42s</span>
+      </span>
+      <span class="sub">
+        <span class="c-purple">t5</span>
+        <span class="c-dim"> · </span>
+        <span class="c-green">✓4</span>
+        <span class="c-dim"> · </span>
+        <span class="c-muted">↑1.8k ↓520</span>
+        <span class="c-dim"> · </span>
+        <span class="c-cyan">186t/s</span>
+      </span>
+    </div>
+
+    <!-- 用户输入 -->
+    <div class="user">把 working 区域加上 last summary 状态</div>
+
+    <!-- 运行态 working -->
+    <div class="working">
+      <span class="head">
+        <span class="spin c-cyan b"></span>&nbsp;
+        <span class="c-cyan b">Synthesizing</span>
+        <span class="c-dim"> · </span>
+        <span class="c-muted">8s</span>
+      </span>
+      <span class="sub">
+        <span class="c-purple">t1</span>
+        <span class="c-dim"> · </span>
+        <span class="c-cyan"><span class="spin-frame"></span> read</span>
+        <span class="c-dim"> · </span>
+        <span class="c-muted">↑1.4k ↓180</span>
+        <span class="c-dim"> · </span>
+        <span class="c-cyan">232t/s</span>
+      </span>
+    </div>
+
+    <!-- 实际 tool 调用 -->
+    <div class="tool success">
+      <span class="c-green b">✓</span>
+      <span class="c-blue b"> read</span>
+      <span class="c-cyan"> extensions/pi-cyber-ui/working.ts</span>
+      <span class="badge bytes">99 lines · 3.1KB</span>
+      <span class="badge dur">42ms</span>
+    </div>
+
+    <div class="tool running">
+      <span class="c-cyan b"><span class="spin-frame"></span></span>
+      <span class="c-blue b"> edit</span>
+      <span class="c-cyan"> extensions/pi-cyber-ui/working.ts</span>
+      <span class="badge dur">1.4s</span>
+    </div>
+
+    <!-- editor + footer -->
+    <div class="editor" style="margin-top: 14px;">
+      <div class="prompt"><span class="placeholder">Type a message…</span></div>
+    </div>
+
+    <div class="footer">
+<span class="grn">~/Developer/dotfiles</span>  <span class="sep">∷</span>  <span class="blu"> main</span> <span class="org">✚3</span>  <span class="sep">∷</span>  <span class="pur">🐱 gpt-5.5</span>  <span class="sep">∷</span>  <span class="b">ctx 38%</span>  <span class="sep">∷</span>  <span class="pink">high</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- =============================================================== -->
+<h2><span class="num">5</span> 实现改动锚点</h2>
+
+<div class="spec">
+  <table>
+    <thead>
+      <tr><th style="width: 30%">模块</th><th style="width: 16%">改动</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="k">cyber-editor.ts</td>
+        <td>大改</td>
+        <td>移除 <code>renderHudChrome</code> 调用 + 顶部/底部 rail 拼接逻辑；保留 <code>❯</code> 与 border。</td>
+      </tr>
+      <tr>
+        <td class="k">editor-hud.ts</td>
+        <td>删除/迁移</td>
+        <td>核心拼装逻辑（path / turn / token / tps）拆出去：path 给 footer，turn/token/tps 给 working。</td>
+      </tr>
+      <tr>
+        <td class="k">working.ts</td>
+        <td>大改</td>
+        <td>双行 message：第一行 spinner+verb+timer+esc；第二行 turn + tool tally + ↑↓ + tps。<br/>
+            新增 <em>idle summary</em>：<code>agent_end</code> 后保留 last summary 直到下次 <code>agent_start</code>。</td>
+      </tr>
+      <tr>
+        <td class="k">footer.ts</td>
+        <td>扩展</td>
+        <td>当前显示 model / ctx / thinking。新增：<br/>
+            • cwd（来自 <code>ctx.cwd</code>，复用现有 shortenPath）<br/>
+            • git 分支 + 脏文件计数（来自 <code>FooterDataProvider</code>，pi 已暴露 branch）</td>
+      </tr>
+      <tr>
+        <td class="k">editor-state.ts</td>
+        <td>不变</td>
+        <td>snapshot 仍生产 turn/token/tps/toolStats，由 working 消费而非 HUD。</td>
+      </tr>
+      <tr>
+        <td class="k">tool-render.ts</td>
+        <td>不变</td>
+        <td>tool 行渲染独立于 HUD 重组。</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- =============================================================== -->
+<h2><span class="num">6</span> 行为细节</h2>
+
+<ul class="compact">
+  <li><b>working 第一行</b>：<code>&lt;spinner&gt; &lt;verb&gt; · &lt;elapsed&gt;</code>，elapsed ≥ 10s 追加 <code>esc to cancel</code>。</li>
+  <li><b>working 第二行</b>：<code>t&lt;n&gt; · &lt;tool spinner+name&gt; · ↑in ↓out · tps</code>。无 tool 跑时省略 tool 段。</li>
+  <li><b>idle summary</b>：<code>agent_end</code> 后切换为 <code>✓ done · &lt;total elapsed&gt;</code> + 第二行 <code>t&lt;total&gt; · ✓N ✗M · ↑in ↓out · avg tps</code>，左侧 border 切 green。</li>
+  <li><b>下一次 prompt</b>：<code>agent_start</code> 立即覆盖 last summary 进入运行态。</li>
+  <li><b>窄屏</b>：单行宽度不足时优先丢弃 tps → ↑↓ → tool name，保留 spinner+verb+timer。</li>
+  <li><b>footer git</b>：异步取 branch + 脏文件数；脏数为 0 时不显示 <code>✚n</code>。</li>
+</ul>
+
+<hr/>
+
+<p class="note" style="text-align: center; color: var(--fgDim);">
+  <span class="c-cyan">cyber-ui</span> · v2 Pure Editor 设计稿 ·
+  调色板对齐 <code>themes/cyber-ui-dark.json</code>
+</p>
+
+</body>
+</html>
