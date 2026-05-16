@@ -325,26 +325,16 @@ function renderLine(width: number, theme: Theme, parts: LineParts): string {
 
   const countIfVisible = (text: string): number => (visibleWidth(text) > 0 ? 1 : 0);
 
-  const compose = (
-    leftParts: string[],
-    rightParts: string[],
-    middle: string,
-  ): string | undefined => {
+  const compose = (leftParts: string[], rightParts: string[]): string | undefined => {
     const left = joinNonEmpty(theme, leftParts, SEP);
     const right = joinNonEmpty(theme, rightParts, SEP);
     const leftWidth = visibleWidth(left);
     const rightWidth = visibleWidth(right);
-    const middleWidth = visibleWidth(middle);
-    const needsMiddleSep = leftWidth > 0 && middleWidth > 0;
-    const leftMiddleWidth = leftWidth + (needsMiddleSep ? sepWidth : 0) + middleWidth;
 
-    if (leftMiddleWidth + minGap + rightWidth > width) return undefined;
+    if (leftWidth + minGap + rightWidth > width) return undefined;
 
-    const leftMiddle = middleWidth > 0
-      ? `${left}${needsMiddleSep ? sepStyled : ""}${middle}`
-      : left;
-    const pad = " ".repeat(Math.max(minGap, width - leftMiddleWidth - rightWidth));
-    return truncateToWidth(`${leftMiddle}${pad}${right}`, width);
+    const pad = " ".repeat(Math.max(minGap, width - leftWidth - rightWidth));
+    return truncateToWidth(`${left}${pad}${right}`, width);
   };
 
   const tryLayout = (
@@ -352,28 +342,25 @@ function renderLine(width: number, theme: Theme, parts: LineParts): string {
     rightParts: string[],
     hiddenFixed: number,
   ): string | undefined => {
-    const left = joinNonEmpty(theme, leftParts, SEP);
-    const right = joinNonEmpty(theme, rightParts, SEP);
-    const leftWidth = visibleWidth(left);
-    const rightWidth = visibleWidth(right);
-    const available = width - leftWidth - rightWidth - sepWidth - minGap;
-
     // If fixed footer parts were dropped, prefer one combined "+N" marker.
     // This avoids showing detailed extension statuses while hiding core fields.
     if (hiddenFixed > 0) {
       const hiddenTotal = hiddenFixed + parts.statusTexts.length;
-      const marker = collapsedStatusText(theme, hiddenTotal);
-      if (visibleWidth(marker) <= available) return compose(leftParts, rightParts, marker);
-      return undefined;
+      return compose(leftParts, [...rightParts, collapsedStatusText(theme, hiddenTotal)]);
     }
 
     if (parts.statusTexts.length > 0) {
+      const left = joinNonEmpty(theme, leftParts, SEP);
+      const right = joinNonEmpty(theme, rightParts, SEP);
+      const leftWidth = visibleWidth(left);
+      const rightWidth = visibleWidth(right);
+      const available = width - leftWidth - rightWidth - sepWidth - minGap;
       const statusText = fitStatusText(theme, parts.statusTexts, available);
-      if (statusText) return compose(leftParts, rightParts, statusText);
+      if (statusText) return compose(leftParts, [...rightParts, statusText]);
       return undefined;
     }
 
-    return compose(leftParts, rightParts, "");
+    return compose(leftParts, rightParts);
   };
 
   const contextHidden = countIfVisible(parts.context);
