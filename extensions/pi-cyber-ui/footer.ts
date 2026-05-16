@@ -1,3 +1,5 @@
+import { exec } from "node:child_process";
+
 import type {
   ContextUsage,
   ExtensionAPI,
@@ -8,8 +10,13 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
+import { homeRelative, shortenPathToWidth, stylePath } from "./path-utils.js";
+
 const ICONS = {
   model: "🐱",
+  // Nerd Font: nf-fa-code-branch (U+F126). Encoded via \u escape so it
+  // survives source-edit round-trips that may strip non-ASCII glyphs.
+  branch: "\uf126",
 };
 
 const THINKING_HIGH_COLORS: readonly ThemeColor[] = [
@@ -36,22 +43,26 @@ const KNOWN_THINKING_LEVELS = new Set([
   "xhigh",
 ]);
 
+const SEP = " ∷ ";
+const DIRTY_REFRESH_MS = 10_000;
+const DIRTY_TIMEOUT_MS = 800;
+
+// ---------------------------------------------------------------------------
+// Tiny helpers reused from v1 footer
+// ---------------------------------------------------------------------------
+
 function rainbow(theme: Theme, text: string): string {
   let out = "";
   let i = 0;
-
   for (const ch of text) {
     if (ch.trim().length === 0 || ch === ":") {
       out += ch;
       continue;
     }
-
-    const color =
-      THINKING_HIGH_COLORS[i % THINKING_HIGH_COLORS.length] ?? "accent";
+    const color = THINKING_HIGH_COLORS[i % THINKING_HIGH_COLORS.length] ?? "accent";
     out += theme.fg(color, ch);
     i += 1;
   }
-
   return out;
 }
 
@@ -67,9 +78,7 @@ function normalizeThinkingLevel(level: string): string {
   return KNOWN_THINKING_LEVELS.has(level) ? level : "off";
 }
 
-function formatModelLabel(
-  model: { name?: string; id: string } | undefined,
-): string {
+function formatModelLabel(model: { name?: string; id: string } | undefined): string {
   if (!model) return "no-model";
   const name = model.name?.trim();
   if (name && name.length > 0) return name.replace(/^Claude\s+/i, "");
@@ -79,11 +88,9 @@ function formatModelLabel(
 
 function thinkingText(theme: Theme, level: string): string {
   const normalized = normalizeThinkingLevel(level);
-
   if (normalized === "high" || normalized === "xhigh") {
     return rainbow(theme, normalized);
   }
-
   switch (normalized) {
     case "off":
       return theme.fg("dim", normalized);
@@ -107,7 +114,6 @@ function colorForContextPercent(percent: number): ThemeColor {
 
 function formatContextPercent(percent: number): string {
   if (!Number.isFinite(percent)) return "0.00";
-
   const abs = Math.abs(percent);
   if (abs < 10) return percent.toFixed(2);
   if (abs < 100) return percent.toFixed(1);
@@ -117,14 +123,11 @@ function formatContextPercent(percent: number): string {
 function progressBar(theme: Theme, percent: number, width = 12): string {
   const clamped = Math.max(0, Math.min(100, percent));
   const color = colorForContextPercent(clamped);
-
-  // Use 1/8 block steps to make progress changes smoother.
   const totalUnits = width * 8;
   const filledUnits = Math.round((clamped / 100) * totalUnits);
   const fullBlocks = Math.floor(filledUnits / 8);
   const partialIndex = filledUnits % 8;
   const partials = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"];
-
   const partial = partials[partialIndex] ?? "";
   const occupiedCells = fullBlocks + (partial ? 1 : 0);
   const emptyCells = Math.max(0, width - occupiedCells);
@@ -134,7 +137,6 @@ function progressBar(theme: Theme, percent: number, width = 12): string {
   const part = partial ? theme.fg(color, partial) : "";
   const empty = emptyCells > 0 ? theme.fg("dim", "░".repeat(emptyCells)) : "";
   const right = theme.fg("dim", "]");
-
   return `${left}${full}${part}${empty}${right}`;
 }
 
@@ -149,23 +151,15 @@ function compactBar(theme: Theme, width = 12): string {
   return `${theme.fg("dim", "[")}${left}${center}${right}${theme.fg("dim", "]")}`;
 }
 
-function contextText(
-  theme: Theme,
-  usedTokens: number | null,
-  contextWindow: number,
-): string {
+function contextText(theme: Theme, usedTokens: number | null, contextWindow: number): string {
   if (usedTokens === null) {
-    if (contextWindow <= 0) {
-      return theme.fg("dim", "?");
-    }
+    if (contextWindow <= 0) return theme.fg("dim", "?");
     const bar = compactBar(theme);
     const size = theme.fg("dim", formatTokens(contextWindow));
     return `${bar} ${size}`;
   }
 
-  if (contextWindow <= 0) {
-    return theme.fg("dim", formatTokens(usedTokens));
-  }
+  if (contextWindow <= 0) return theme.fg("dim", formatTokens(usedTokens));
 
   const percent = (usedTokens / contextWindow) * 100;
   const percentColor = colorForContextPercent(percent);
@@ -176,7 +170,6 @@ function contextText(
   );
   const percentNumber = theme.fg(percentColor, formatContextPercent(percent));
   const percentSign = theme.fg("dim", "%");
-
   return `${bar} ${percentNumber}${percentSign} ${usage}`;
 }
 
@@ -198,17 +191,9 @@ function getStatusInfo(
   };
 }
 
-/**
- * 根据可用宽度，尽量展示更多状态，放不下时折叠为 +N。
- */
-function fitStatusText(
-  theme: Theme,
-  texts: string[],
-  availableWidth: number,
-): string {
+function fitStatusText(theme: Theme, texts: string[], availableWidth: number): string {
   if (texts.length === 0) return "";
-
-  const sep = theme.fg("dim", " · ");
+  const sep = theme.fg("dim", SEP);
   const sepWidth = visibleWidth(sep);
 
   let result = "";
@@ -217,34 +202,182 @@ function fitStatusText(
   for (let i = 0; i < texts.length; i++) {
     const candidate = texts[i]!;
     const remaining = texts.length - i - 1;
-    const suffix =
-      remaining > 0 ? theme.fg("dim", ` +${remaining}`) : "";
+    const suffix = remaining > 0 ? theme.fg("dim", ` +${remaining}`) : "";
     const suffixWidth = remaining > 0 ? visibleWidth(suffix) : 0;
-
-    const needed =
-      (shown > 0 ? sepWidth : 0) +
-      visibleWidth(candidate) +
-      suffixWidth;
+    const needed = (shown > 0 ? sepWidth : 0) + visibleWidth(candidate) + suffixWidth;
 
     if (visibleWidth(result) + needed <= availableWidth) {
       result += (shown > 0 ? sep : "") + candidate;
-      shown++;
+      shown += 1;
     } else {
-      // 放不下当前项，折叠剩余
       const collapse = texts.length - shown;
-      if (collapse > 0) {
-        result += theme.fg("dim", ` +${collapse}`);
-      }
+      if (collapse > 0) result += theme.fg("dim", ` +${collapse}`);
       return result;
     }
   }
-
   return result;
 }
 
-/** Cache key components to avoid re-rendering when nothing changed. */
+// ---------------------------------------------------------------------------
+// Path + Git rendering
+// ---------------------------------------------------------------------------
+
+function renderPath(theme: Theme, cwd: string, maxWidth: number): string {
+  if (!cwd || maxWidth <= 0) return "";
+  const home = homeRelative(cwd);
+  const text = shortenPathToWidth(home, Math.max(8, maxWidth));
+  return stylePath(text);
+}
+
+/**
+ * Show the git branch icon plus the dirty-file count. Branch name itself is
+ * omitted to keep the footer compact — the shell prompt already shows the
+ * branch, and what changes turn-to-turn is the dirty count. Clean trees
+ * render nothing.
+ *
+ * `~N` mirrors the `~` symbol used in `edit` tool diff stats for modified
+ * lines, keeping the visual language consistent across the UI.
+ */
+function renderGit(
+  theme: Theme,
+  branch: string | null,
+  dirty: number | undefined,
+): string {
+  if (!branch || !dirty || dirty <= 0) return "";
+  const icon = theme.fg("dim", ICONS.branch);
+  const count = theme.fg("warning", `~${dirty}`);
+  return `${icon} ${count}`;
+}
+
+// ---------------------------------------------------------------------------
+// Async git dirty count (cached)
+// ---------------------------------------------------------------------------
+
+interface DirtyCacheEntry {
+  count: number;
+  at: number;
+  inFlight?: boolean;
+}
+
+const dirtyCache = new Map<string, DirtyCacheEntry>();
+
+function getCachedDirty(cwd: string): number | undefined {
+  return dirtyCache.get(cwd)?.count;
+}
+
+function refreshDirty(cwd: string, onUpdate?: () => void): void {
+  const existing = dirtyCache.get(cwd);
+  if (existing?.inFlight) return;
+  if (existing && Date.now() - existing.at < DIRTY_REFRESH_MS / 2) return;
+
+  const entry: DirtyCacheEntry = {
+    count: existing?.count ?? 0,
+    at: existing?.at ?? 0,
+    inFlight: true,
+  };
+  dirtyCache.set(cwd, entry);
+
+  exec(
+    "git status --porcelain",
+    { cwd, timeout: DIRTY_TIMEOUT_MS, maxBuffer: 256 * 1024 },
+    (err, stdout) => {
+      const count = err
+        ? entry.count
+        : stdout.split("\n").filter((line) => line.trim().length > 0).length;
+      dirtyCache.set(cwd, { count, at: Date.now() });
+      onUpdate?.();
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+interface LineParts {
+  path: string;
+  git: string;
+  modelLabel: string;
+  thinking: string;
+  context: string;
+  statusTexts: string[];
+}
+
+function joinNonEmpty(theme: Theme, parts: string[], sep: string): string {
+  const sepStyled = theme.fg("dim", sep);
+  return parts.filter((p) => p && visibleWidth(p) > 0).join(sepStyled);
+}
+
+function renderLine(width: number, theme: Theme, parts: LineParts): string {
+  const sepStyled = theme.fg("dim", SEP);
+  const sepWidth = visibleWidth(sepStyled);
+
+  const pathLeft = parts.path;
+  const gitLeft = parts.git;
+  const left = joinNonEmpty(theme, [pathLeft, gitLeft], SEP);
+
+  const right = joinNonEmpty(
+    theme,
+    [parts.modelLabel, parts.thinking, parts.context],
+    SEP,
+  );
+
+  const leftWidth = visibleWidth(left);
+  const rightWidth = visibleWidth(right);
+  const minGap = 2;
+
+  // Try fitting status between left and right
+  if (parts.statusTexts.length > 0) {
+    const available = width - leftWidth - rightWidth - sepWidth - minGap;
+    if (available > 6) {
+      const statusText = fitStatusText(theme, parts.statusTexts, available);
+      if (statusText) {
+        const middle = `${sepStyled}${statusText}`;
+        const used = leftWidth + visibleWidth(middle) + rightWidth;
+        const pad = " ".repeat(Math.max(minGap, width - used));
+        return truncateToWidth(`${left}${middle}${pad}${right}`, width);
+      }
+    }
+  }
+
+  // Just left + right
+  if (leftWidth + minGap + rightWidth <= width) {
+    const pad = " ".repeat(Math.max(minGap, width - leftWidth - rightWidth));
+    return truncateToWidth(`${left}${pad}${right}`, width);
+  }
+
+  // Drop git from left
+  const leftSlim = pathLeft;
+  const leftSlimWidth = visibleWidth(leftSlim);
+  if (leftSlimWidth + minGap + rightWidth <= width) {
+    const pad = " ".repeat(Math.max(minGap, width - leftSlimWidth - rightWidth));
+    return truncateToWidth(`${leftSlim}${pad}${right}`, width);
+  }
+
+  // Drop thinking from right
+  const rightSlim = joinNonEmpty(theme, [parts.modelLabel, parts.context], SEP);
+  const rightSlimWidth = visibleWidth(rightSlim);
+  if (leftSlimWidth + minGap + rightSlimWidth <= width) {
+    const pad = " ".repeat(Math.max(minGap, width - leftSlimWidth - rightSlimWidth));
+    return truncateToWidth(`${leftSlim}${pad}${rightSlim}`, width);
+  }
+
+  // Final fallback: model + context only
+  return truncateToWidth(
+    joinNonEmpty(theme, [parts.modelLabel, parts.context], SEP),
+    width,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cache key
+// ---------------------------------------------------------------------------
+
 interface CacheKey {
   width: number;
+  cwd: string;
+  branch: string | null;
+  dirty: number | undefined;
   modelId: string | undefined;
   modelName: string | undefined;
   thinkingLevel: string;
@@ -258,6 +391,9 @@ function cacheKeyEquals(a: CacheKey | undefined, b: CacheKey): boolean {
   if (!a) return false;
   return (
     a.width === b.width &&
+    a.cwd === b.cwd &&
+    a.branch === b.branch &&
+    a.dirty === b.dirty &&
     a.modelId === b.modelId &&
     a.modelName === b.modelName &&
     a.thinkingLevel === b.thinkingLevel &&
@@ -268,63 +404,9 @@ function cacheKeyEquals(a: CacheKey | undefined, b: CacheKey): boolean {
   );
 }
 
-function renderLine(
-  width: number,
-  theme: Theme,
-  ctx: ExtensionContext,
-  thinkingLevel: string,
-  statusTexts: string[],
-): string {
-  const model = theme.fg(
-    "accent",
-    `${ICONS.model} ${formatModelLabel(ctx.model)}`,
-  );
-  const thinking = thinkingText(theme, thinkingLevel);
-
-  const usage: ContextUsage | undefined = ctx.getContextUsage?.();
-  const usedTokens = usage?.tokens ?? null;
-  const contextWindow = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-  const context = contextText(theme, usedTokens, contextWindow);
-
-  const sep = theme.fg("dim", " · ");
-  const left = `${model}${sep}${thinking}`;
-  const leftWidth = visibleWidth(left);
-  const contextWidth = visibleWidth(context);
-  const sepWidth = visibleWidth(sep);
-
-  if (statusTexts.length > 0) {
-    // 计算 status 可用宽度：总宽 - left - sep - sep - context - 至少1个空格
-    const availableForStatus =
-      width - leftWidth - sepWidth - sepWidth - contextWidth - 1;
-    const statusText =
-      availableForStatus > 0
-        ? fitStatusText(theme, statusTexts, availableForStatus)
-        : "";
-
-    if (statusText) {
-      const right = `${statusText}${sep}${context}`;
-      const pad = " ".repeat(
-        Math.max(1, width - leftWidth - visibleWidth(right)),
-      );
-      return truncateToWidth(left + pad + right, width);
-    }
-  }
-
-  // 没有 status 或放不下：只保留 model + thinking + context
-  const right = context;
-  if (leftWidth + 1 + contextWidth <= width) {
-    const pad = " ".repeat(Math.max(1, width - leftWidth - contextWidth));
-    return truncateToWidth(left + pad + right, width);
-  }
-
-  // 再降级：去掉 thinking
-  const compact = `${left}${sep}${context}`;
-  if (visibleWidth(compact) <= width) {
-    return compact;
-  }
-
-  return truncateToWidth(`${model} ${context}`, width);
-}
+// ---------------------------------------------------------------------------
+// Footer factory
+// ---------------------------------------------------------------------------
 
 function attachFooter(
   ctx: ExtensionContext,
@@ -334,6 +416,25 @@ function attachFooter(
     (_tui, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
       let cachedKey: CacheKey | undefined;
       let cachedLines: string[] | undefined;
+      let invalidator: (() => void) | undefined;
+
+      const invalidate = () => {
+        cachedKey = undefined;
+        cachedLines = undefined;
+        invalidator?.();
+      };
+
+      // Prime + watch git
+      refreshDirty(ctx.cwd, invalidate);
+      const dirtyTimer = setInterval(() => refreshDirty(ctx.cwd, invalidate), DIRTY_REFRESH_MS);
+      if (typeof dirtyTimer.unref === "function") dirtyTimer.unref();
+
+      const unsubBranch = footerData.onBranchChange(() => {
+        // Branch changed → dirty count likely stale.
+        dirtyCache.delete(ctx.cwd);
+        refreshDirty(ctx.cwd, invalidate);
+        invalidate();
+      });
 
       return {
         invalidate() {
@@ -341,6 +442,16 @@ function attachFooter(
           cachedLines = undefined;
         },
         render(width: number): string[] {
+          // We can't actually request a re-render from inside render(), but
+          // we can capture the current invalidator path by keeping the cache
+          // disabled when we know background data is in flight.
+          invalidator = invalidator ?? (() => {
+            cachedKey = undefined;
+            cachedLines = undefined;
+          });
+
+          const branch = footerData.getGitBranch();
+          const dirty = getCachedDirty(ctx.cwd);
           const thinkingLevel = getThinkingLevel();
           const usage: ContextUsage | undefined = ctx.getContextUsage?.();
           const usedTokens = usage?.tokens ?? null;
@@ -350,6 +461,9 @@ function attachFooter(
 
           const key: CacheKey = {
             width,
+            cwd: ctx.cwd,
+            branch,
+            dirty,
             modelId: ctx.model?.id,
             modelName: ctx.model?.name,
             thinkingLevel,
@@ -363,11 +477,33 @@ function attachFooter(
             return cachedLines;
           }
 
+          // Path budget: roughly a third of the width when long, never less than 12.
+          const pathBudget = Math.max(12, Math.floor(width * 0.34));
+          const path = renderPath(theme, ctx.cwd, pathBudget);
+          const git = renderGit(theme, branch, dirty);
+          const modelLabel = theme.fg(
+            "accent",
+            `${ICONS.model} ${formatModelLabel(ctx.model)}`,
+          );
+          const thinking = thinkingText(theme, thinkingLevel);
+          const context = contextText(theme, usedTokens, contextWindow);
+
           cachedLines = [
-            renderLine(width, theme, ctx, thinkingLevel, statusInfo.texts),
+            renderLine(width, theme, {
+              path,
+              git,
+              modelLabel,
+              thinking,
+              context,
+              statusTexts: statusInfo.texts,
+            }),
           ];
           cachedKey = key;
           return cachedLines;
+        },
+        dispose() {
+          unsubBranch();
+          clearInterval(dirtyTimer);
         },
       };
     },
@@ -385,4 +521,8 @@ export default function footer(pi: ExtensionAPI) {
     attachFooter(ctx, getThinkingLevel);
   });
 
+  // Refresh dirty count after agent_end (likely files just changed).
+  pi.on("agent_end", async (_event, ctx) => {
+    refreshDirty(ctx.cwd);
+  });
 }

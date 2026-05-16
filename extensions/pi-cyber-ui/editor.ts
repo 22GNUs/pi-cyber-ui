@@ -7,19 +7,15 @@
 import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import CyberEditor from "./cyber-editor.js";
-import { CyberEditorState } from "./editor-state.js";
-
-const state = new CyberEditorState();
+import { cyberState as state } from "./editor-state.js";
 
 function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
   ctx.ui.setEditorComponent((tui, th, kb) => {
     const editor = new CyberEditor(tui, th, kb, {
-      getHudSnapshot: () => state.snapshot(),
       getBorderColor: (text) => text.trimStart().startsWith("!")
         ? ctx.ui.theme.getBashModeBorderColor()
         : ctx.ui.theme.getThinkingBorderColor(pi.getThinkingLevel()),
-      cwd: ctx.cwd ?? "",
     });
     return editor;
   });
