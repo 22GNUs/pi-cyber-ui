@@ -192,10 +192,17 @@ function getStatusInfo(
   };
 }
 
+function collapsedStatusText(theme: Theme, count: number): string {
+  return theme.fg("dim", `+${count}`);
+}
+
 function fitStatusText(theme: Theme, texts: string[], availableWidth: number): string {
-  if (texts.length === 0) return "";
+  if (texts.length === 0 || availableWidth <= 0) return "";
   const sep = theme.fg("dim", SEP);
   const sepWidth = visibleWidth(sep);
+  const collapseAll = collapsedStatusText(theme, texts.length);
+
+  if (visibleWidth(collapseAll) > availableWidth) return "";
 
   let result = "";
   let shown = 0;
@@ -212,8 +219,9 @@ function fitStatusText(theme: Theme, texts: string[], availableWidth: number): s
       shown += 1;
     } else {
       const collapse = texts.length - shown;
-      if (collapse > 0) result += theme.fg("dim", ` +${collapse}`);
-      return result;
+      if (collapse <= 0) return result;
+      if (shown === 0) return collapsedStatusText(theme, collapse);
+      return `${result}${theme.fg("dim", ` +${collapse}`)}`;
     }
   }
   return result;
@@ -313,61 +321,72 @@ function joinNonEmpty(theme: Theme, parts: string[], sep: string): string {
 function renderLine(width: number, theme: Theme, parts: LineParts): string {
   const sepStyled = theme.fg("dim", SEP);
   const sepWidth = visibleWidth(sepStyled);
-
-  const pathLeft = parts.path;
-  const gitLeft = parts.git;
-  const left = joinNonEmpty(theme, [pathLeft, gitLeft], SEP);
-
-  const right = joinNonEmpty(
-    theme,
-    [parts.modelLabel, parts.thinking, parts.context],
-    SEP,
-  );
-
-  const leftWidth = visibleWidth(left);
-  const rightWidth = visibleWidth(right);
   const minGap = 2;
 
-  // Try fitting status between left and right
-  if (parts.statusTexts.length > 0) {
+  const countIfVisible = (text: string): number => (visibleWidth(text) > 0 ? 1 : 0);
+
+  const compose = (
+    leftParts: string[],
+    rightParts: string[],
+    middle: string,
+  ): string | undefined => {
+    const left = joinNonEmpty(theme, leftParts, SEP);
+    const right = joinNonEmpty(theme, rightParts, SEP);
+    const leftWidth = visibleWidth(left);
+    const rightWidth = visibleWidth(right);
+    const middleWidth = visibleWidth(middle);
+    const needsMiddleSep = leftWidth > 0 && middleWidth > 0;
+    const leftMiddleWidth = leftWidth + (needsMiddleSep ? sepWidth : 0) + middleWidth;
+
+    if (leftMiddleWidth + minGap + rightWidth > width) return undefined;
+
+    const leftMiddle = middleWidth > 0
+      ? `${left}${needsMiddleSep ? sepStyled : ""}${middle}`
+      : left;
+    const pad = " ".repeat(Math.max(minGap, width - leftMiddleWidth - rightWidth));
+    return truncateToWidth(`${leftMiddle}${pad}${right}`, width);
+  };
+
+  const tryLayout = (
+    leftParts: string[],
+    rightParts: string[],
+    hiddenFixed: number,
+  ): string | undefined => {
+    const left = joinNonEmpty(theme, leftParts, SEP);
+    const right = joinNonEmpty(theme, rightParts, SEP);
+    const leftWidth = visibleWidth(left);
+    const rightWidth = visibleWidth(right);
     const available = width - leftWidth - rightWidth - sepWidth - minGap;
-    if (available > 6) {
-      const statusText = fitStatusText(theme, parts.statusTexts, available);
-      if (statusText) {
-        const middle = `${sepStyled}${statusText}`;
-        const used = leftWidth + visibleWidth(middle) + rightWidth;
-        const pad = " ".repeat(Math.max(minGap, width - used));
-        return truncateToWidth(`${left}${middle}${pad}${right}`, width);
-      }
+
+    // If fixed footer parts were dropped, prefer one combined "+N" marker.
+    // This avoids showing detailed extension statuses while hiding core fields.
+    if (hiddenFixed > 0) {
+      const hiddenTotal = hiddenFixed + parts.statusTexts.length;
+      const marker = collapsedStatusText(theme, hiddenTotal);
+      if (visibleWidth(marker) <= available) return compose(leftParts, rightParts, marker);
+      return undefined;
     }
-  }
 
-  // Just left + right
-  if (leftWidth + minGap + rightWidth <= width) {
-    const pad = " ".repeat(Math.max(minGap, width - leftWidth - rightWidth));
-    return truncateToWidth(`${left}${pad}${right}`, width);
-  }
+    if (parts.statusTexts.length > 0) {
+      const statusText = fitStatusText(theme, parts.statusTexts, available);
+      if (statusText) return compose(leftParts, rightParts, statusText);
+      return undefined;
+    }
 
-  // Drop git from left
-  const leftSlim = pathLeft;
-  const leftSlimWidth = visibleWidth(leftSlim);
-  if (leftSlimWidth + minGap + rightWidth <= width) {
-    const pad = " ".repeat(Math.max(minGap, width - leftSlimWidth - rightWidth));
-    return truncateToWidth(`${leftSlim}${pad}${right}`, width);
-  }
+    return compose(leftParts, rightParts, "");
+  };
 
-  // Drop thinking from right
-  const rightSlim = joinNonEmpty(theme, [parts.modelLabel, parts.context], SEP);
-  const rightSlimWidth = visibleWidth(rightSlim);
-  if (leftSlimWidth + minGap + rightSlimWidth <= width) {
-    const pad = " ".repeat(Math.max(minGap, width - leftSlimWidth - rightSlimWidth));
-    return truncateToWidth(`${leftSlim}${pad}${rightSlim}`, width);
-  }
+  const gitHidden = countIfVisible(parts.git);
+  const thinkingHidden = countIfVisible(parts.thinking);
+  const pathHidden = countIfVisible(parts.path);
 
-  // Final fallback: model + context only
-  return truncateToWidth(
-    joinNonEmpty(theme, [parts.modelLabel, parts.context], SEP),
-    width,
+  return (
+    tryLayout([parts.path, parts.git], [parts.modelLabel, parts.thinking, parts.context], 0) ??
+    tryLayout([parts.path], [parts.modelLabel, parts.thinking, parts.context], gitHidden) ??
+    tryLayout([parts.path], [parts.modelLabel, parts.context], gitHidden + thinkingHidden) ??
+    tryLayout([parts.path], [parts.modelLabel], gitHidden + thinkingHidden + countIfVisible(parts.context)) ??
+    tryLayout([], [parts.modelLabel, parts.context], pathHidden + gitHidden + thinkingHidden) ??
+    truncateToWidth(joinNonEmpty(theme, [parts.modelLabel, parts.context], SEP), width)
   );
 }
 
