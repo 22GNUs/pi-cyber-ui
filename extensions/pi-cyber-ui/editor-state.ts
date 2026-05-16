@@ -1,6 +1,9 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 
+import { toolRegistry, type ToolTally } from "./tool-registry.js";
 import { getUsageMode, type UsageMode, StreamingTokenEstimator } from "./token-usage.js";
+
+export type CyberEditorStateApi = CyberEditorState;
 
 export type AgentState = "idle" | "running" | "thinking";
 export type ResetNoticeKind = "compact" | "tree";
@@ -28,6 +31,7 @@ export interface CyberHudSnapshot {
   output: OutputDisplayValue;
   tps: DisplayValue;
   toolDepth: number;
+  toolStats: ToolTally;
   resetNotice?: ResetNotice;
 }
 
@@ -250,6 +254,7 @@ export class CyberEditorState {
         estimated: tpsEstimated,
       },
       toolDepth: this.toolDepth,
+      toolStats: toolRegistry.getTally(),
       resetNotice: this.resetNotice,
     };
   }
@@ -369,3 +374,9 @@ export class CyberEditorState {
     this.refreshTps();
   }
 }
+
+/**
+ * Shared session-scoped state singleton. Consumed by editor.ts (lifecycle
+ * hooks) and working.ts (snapshot for the working message + idle summary).
+ */
+export const cyberState = new CyberEditorState();

@@ -1,16 +1,16 @@
 /**
  * Cyber Editor
  *
- * Cyber shell around Pi's CustomEditor.
- * Owns HUD chrome and prompt glyph.
+ * Cyber shell around Pi's CustomEditor. Owns only the silver ❯ prompt glyph
+ * and the dynamic border colour. All dynamic info (turn / tokens / tps /
+ * tools) now lives in the working area (above editor), and static
+ * environment info (cwd / git / model / context / thinking) lives in the
+ * footer. The editor itself is kept visually pure.
  */
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-
-import { renderHudChrome } from "./editor-hud.js";
-import type { CyberHudSnapshot } from "./editor-state.js";
 
 type RGB = [number, number, number];
 
@@ -19,9 +19,7 @@ const RESET = "\x1b[39m";
 const GLYPH_GAP = 1;
 
 export interface CyberEditorOptions {
-  getHudSnapshot?: () => CyberHudSnapshot;
   getBorderColor?: (text: string) => ((value: string) => string) | undefined;
-  cwd?: string;
 }
 
 function rgb(c: RGB): string {
@@ -37,10 +35,6 @@ function isBorderLine(line: string): boolean {
   return plain.includes("─") && !/[^\s─↑↓0-9more]/i.test(plain);
 }
 
-function hasScrollIndicator(line: string): boolean {
-  return stripAnsi(line).includes("more");
-}
-
 function findBorderLineIndex(lines: string[]): number {
   for (let i = lines.length - 1; i >= 0; i--) {
     if (isBorderLine(lines[i]!)) return i;
@@ -48,37 +42,8 @@ function findBorderLineIndex(lines: string[]): number {
   return Math.max(0, lines.length - 1);
 }
 
-function snapshotKey(snapshot: CyberHudSnapshot): string {
-  return [
-    snapshot.agentState,
-    snapshot.promptActive ? 1 : 0,
-    snapshot.promptTurns,
-    snapshot.promptIn,
-    snapshot.inputValue ?? "",
-    snapshot.output.value ?? "",
-    snapshot.output.estimated ? 1 : 0,
-    snapshot.output.frozen ? 1 : 0,
-    snapshot.tps.value?.toFixed(1) ?? "",
-    snapshot.tps.estimated ? 1 : 0,
-    snapshot.toolDepth,
-    snapshot.resetNotice?.kind ?? "",
-  ].join("|");
-}
-
-interface HudCache {
-  cwd: string;
-  width: number;
-  borderKey: string;
-  snapshotKey: string;
-  result: { topLine: string; bottomLine: string };
-}
-
 export default class CyberEditor extends CustomEditor {
-  private readonly getHudSnapshot: () => CyberHudSnapshot | undefined;
   private readonly getBorderColor: (text: string) => ((value: string) => string) | undefined;
-  private readonly cwd: string;
-
-  private hudCache?: HudCache;
 
   constructor(
     tui: TUI,
@@ -87,9 +52,7 @@ export default class CyberEditor extends CustomEditor {
     options: CyberEditorOptions = {},
   ) {
     super(tui, theme, kb);
-    this.getHudSnapshot = options.getHudSnapshot ?? (() => undefined);
     this.getBorderColor = options.getBorderColor ?? (() => undefined);
-    this.cwd = options.cwd ?? "";
   }
 
   private promptColor(): RGB {
@@ -100,47 +63,10 @@ export default class CyberEditor extends CustomEditor {
     return "❯";
   }
 
-  private getHudChrome(width: number, snapshot: CyberHudSnapshot): { topLine: string; bottomLine: string } {
-    const cache = this.hudCache;
-    const key = snapshotKey(snapshot);
-    const borderKey = this.borderColor("─");
-    if (
-      cache &&
-      cache.cwd === this.cwd &&
-      cache.width === width &&
-      cache.borderKey === borderKey &&
-      cache.snapshotKey === key
-    ) {
-      return cache.result;
-    }
-
-    const result = renderHudChrome(this.cwd, snapshot, width, this.borderColor);
-
-    this.hudCache = {
-      cwd: this.cwd,
-      width,
-      borderKey,
-      snapshotKey: key,
-      result,
-    };
-
-    return result;
-  }
-
   override render(width: number): string[] {
     this.borderColor = this.getBorderColor(this.getText()) ?? this.borderColor;
     const lines = super.render(width);
     if (lines.length <= 0) return lines;
-
-    const snapshot = this.getHudSnapshot();
-    let contentStart = 1;
-
-    if (snapshot && !hasScrollIndicator(lines[0]!)) {
-      const chrome = this.getHudChrome(width, snapshot);
-      lines[0] = chrome.topLine;
-      lines.splice(1, 0, chrome.bottomLine);
-      contentStart = 2;
-    }
 
     const borderIndex = findBorderLineIndex(lines);
     const marker = this.modeMarker();
@@ -149,6 +75,9 @@ export default class CyberEditor extends CustomEditor {
     const glyph = `${rgb(promptColor)}${marker}${RESET}${" ".repeat(GLYPH_GAP)}`;
     const promptWidth = visibleWidth(promptStr);
     const innerWidth = Math.max(0, width - promptWidth);
+
+    // Skip leading top border line (kept by CustomEditor) before applying ❯.
+    const contentStart = 1;
 
     for (let i = contentStart; i < lines.length; i++) {
       if (i === borderIndex) continue;
@@ -161,5 +90,4 @@ export default class CyberEditor extends CustomEditor {
 
     return lines;
   }
-
 }
