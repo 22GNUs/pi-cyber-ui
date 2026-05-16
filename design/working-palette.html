@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>pi-cyber-ui · Working 区配色重设计</title>
+<style>
+  :root {
+    --bg:           #0a0a0d;
+    --bgAlt:        #1f2335;
+    --bgSelection:  #33467c;
+    --fg:           #c0caf5;
+    --fgMuted:      #a9b1d6;
+    --fgDim:        #565f89;
+    --red:          #f7768e;
+    --redBright:    #ff899d;
+    --orange:       #e0af68;
+    --yellow:       #e0af68;
+    --green:        #9ece6a;
+    --teal:         #4fd6be;
+    --tealDark:     #41a6b5;
+    --blue:         #7aa2f7;
+    --blueDark:     #3d59a1;
+    --cyan:         #7dcfff;
+    --cyanBright:   #b4f9f8;
+    --purple:       #bb9af7;
+    --purpleDark:   #9d7cd8;
+    --pink:         #f7768e;
+    --hotPink:      #ff82b8;
+  }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: linear-gradient(135deg, #06060a 0%, #0d0a14 50%, #0a0a0d 100%);
+    color: var(--fg);
+    font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "SFMono-Regular",
+                 ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  body { padding: 28px 36px 80px; }
+
+  h1 { color: var(--cyan); font-size: 18px; margin: 0 0 4px; }
+  h1 .accent { color: var(--purple); }
+  h1 .dim { color: var(--fgDim); font-weight: 400; }
+  .lead { color: var(--fgMuted); margin: 0 0 24px; font-size: 13px; }
+  .lead code { color: var(--teal); }
+
+  h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 32px 0 12px;
+    color: var(--purple);
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2::before {
+    content: "";
+    width: 18px; height: 1px;
+    background: linear-gradient(90deg, var(--purple), transparent);
+  }
+  h2 .num {
+    color: var(--bg);
+    background: var(--purple);
+    padding: 1px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  h3 {
+    font-size: 11px;
+    color: var(--fgMuted);
+    margin: 14px 0 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  h3 .pill {
+    color: var(--bg);
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 6px;
+    letter-spacing: 1px;
+  }
+  .pill-old { background: var(--fgDim); }
+  .pill-new { background: var(--purple); }
+
+  /* === 终端容器 === */
+  .terminal {
+    background: var(--bg);
+    border: 1px solid var(--blueDark);
+    border-radius: 10px;
+    padding: 22px 22px 20px;
+    box-shadow:
+      0 0 0 1px rgba(125, 207, 255, 0.04),
+      0 18px 50px rgba(0,0,0,0.55);
+    position: relative;
+    margin-bottom: 6px;
+  }
+  .terminal::before {
+    content: "● ● ●";
+    position: absolute;
+    top: 8px; left: 14px;
+    color: var(--fgDim);
+    font-size: 10px;
+    letter-spacing: 4px;
+  }
+
+  pre, .row {
+    margin: 0;
+    white-space: pre;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--fg);
+  }
+
+  .b { font-weight: 700; }
+  .dim { color: var(--fgDim); }
+
+  /* spinner placeholder colors */
+  .pulse { color: var(--accent); }
+
+  /* === Color legend table === */
+  .matrix {
+    border: 1px solid var(--blueDark);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 16px 0;
+    background: rgba(15, 18, 32, 0.5);
+  }
+  .matrix table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .matrix th, .matrix td {
+    text-align: left;
+    padding: 6px 14px;
+    border-bottom: 1px solid rgba(86, 95, 137, 0.20);
+    vertical-align: middle;
+  }
+  .matrix th {
+    color: var(--cyan);
+    font-weight: 600;
+    background: rgba(125,207,255,0.04);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .matrix td.k { color: var(--purple); white-space: nowrap; font-weight: 500; }
+  .matrix .swatch {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-right: 6px;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .matrix .arrow {
+    color: var(--fgDim);
+    font-weight: 700;
+  }
+
+  /* === Annotation + sample === */
+  .sample-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+  }
+  .annotation {
+    margin: 8px 0 16px 24px;
+    color: var(--fgDim);
+    font-size: 11.5px;
+    line-height: 1.7;
+  }
+  .annotation .tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.04);
+    padding: 0 6px;
+    border-radius: 3px;
+    color: var(--fgMuted);
+    margin-right: 4px;
+  }
+
+  hr {
+    border: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--blueDark), transparent);
+    margin: 32px 0 24px;
+  }
+
+  .note {
+    color: var(--fgMuted);
+    font-size: 12.5px;
+    line-height: 1.7;
+    margin: 8px 0 4px;
+  }
+  .note code, p code, li code { color: var(--teal); background: rgba(79,214,190,0.06); padding: 0 4px; border-radius: 3px; }
+
+  ul.compact { margin: 6px 0 0 18px; padding: 0; color: var(--fgMuted); font-size: 12.5px; line-height: 1.7; }
+  ul.compact li { margin: 2px 0; }
+
+  /* swatches */
+  .sw-cyan       { color: var(--cyan); }
+  .sw-cyanBright { color: var(--cyanBright); }
+  .sw-blue       { color: var(--blue); }
+  .sw-teal       { color: var(--teal); }
+  .sw-tealDark   { color: var(--tealDark); }
+  .sw-purple     { color: var(--purple); }
+  .sw-purpleDark { color: var(--purpleDark); }
+  .sw-green      { color: var(--green); }
+  .sw-orange     { color: var(--orange); }
+  .sw-red        { color: var(--red); }
+  .sw-hotPink    { color: var(--hotPink); }
+  .sw-pink       { color: var(--pink); }
+  .sw-muted      { color: var(--fgMuted); }
+  .sw-dim        { color: var(--fgDim); }
+
+  /* === 大示例渲染 === */
+  .demo {
+    font-size: 14px;
+    padding: 4px 0;
+  }
+  .demo + .demo { margin-top: 4px; }
+  .demo .pulse  { color: var(--cyan); font-weight: 700; }
+  .demo .verb   { font-weight: 700; }
+  .demo .timer  { }
+  .demo .ts     { color: var(--fgDim); }
+  .demo .tool   { }
+  .demo .tdur   { color: var(--fgDim); }
+  .demo .in     { }
+  .demo .out    { }
+  .demo .tps    { }
+  .demo .turn   { }
+  .demo .esc    { color: var(--fgDim); }
+
+  /* ============ palette: OLD ============ */
+  .demo.palette-old .verb  { color: var(--cyan); }
+  .demo.palette-old .timer { color: var(--fgMuted); }
+  .demo.palette-old .tool  { color: var(--cyan); }
+  .demo.palette-old .in    { color: var(--fgMuted); }
+  .demo.palette-old .out   { color: var(--cyan); }
+  .demo.palette-old .tps   { color: var(--orange); }   /* 75 → warning band */
+  .demo.palette-old .turn  { color: var(--fgDim); }
+
+  /* ============ palette: NEW (cyber-rainbow) ============ */
+  .demo.palette-new .verb  { color: var(--purple); }
+  .demo.palette-new .timer { color: var(--cyanBright); }
+  .demo.palette-new .tool  { color: var(--blue); }
+  .demo.palette-new .tspin { color: var(--teal); }
+  .demo.palette-new .in    { color: var(--tealDark); }
+  .demo.palette-new .out   { color: var(--green); }
+  .demo.palette-new .tps   { color: var(--orange); }   /* 75 still warning band */
+  .demo.palette-new .turn  { color: var(--hotPink); }
+
+  /* ============ idle summary ============ */
+  .demo .check  { color: var(--green); font-weight: 700; }
+  .demo .done   { color: var(--green); }
+  .demo .ok     { color: var(--green); }
+  .demo .err    { color: var(--red); }
+
+  /* sample widths */
+  .terminal .demo:first-child { margin-top: 10px; }
+
+  .recommend {
+    display: inline-block;
+    background: var(--purple);
+    color: var(--bg);
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>pi-cyber-ui <span class="dim">·</span> <span class="accent">Working</span> <span class="dim">区配色重设计</span></h1>
+<p class="lead">
+  当前 working 行大量元素都是 <code>accent</code>（cyan）+ <code>muted</code>（lavender），
+  视觉单调。新方案按 <em>元素语义</em> 分配色相，既保持 cyber 风又显著拉开层次。
+</p>
+
+<!-- =============================================================== -->
+<h2><span class="num">1</span> 对比 — 同一行，前后两套配色</h2>
+
+<h3><span class="pill pill-old">v 当前</span>主色 cyan + 低饱和辅色</h3>
+
+<div class="terminal">
+  <div class="demo palette-old">
+    <span class="pulse">●</span>  <span class="verb">Distilling</span><span class="ts"> · </span><span class="timer">21s</span>   <span class="tool">⠋ edit</span> <span class="tdur">1.4s</span>   <span class="in">↑1.2k</span> <span class="out">↓340</span>   <span class="tps">75t/s</span>   <span class="turn">󰄉3</span>   <span class="esc">esc to cancel</span>
+  </div>
+  <div class="demo palette-old">
+    <span class="check">✓</span> <span class="done">done</span><span class="ts"> · </span><span class="timer">1:23</span>   <span class="ok">✓6</span> <span class="err">✗1</span>   <span class="in">↑3.4k</span> <span class="out">↓1.1k</span>   <span class="dim">198t/s</span>   <span class="dim">󰄉8</span>
+  </div>
+</div>
+
+<div class="annotation">
+  <span class="tag">观察</span> 七个段位有五个落在 cyan/lavender 区，verb · timer · tool · output · tps 视觉重量几乎一致 → 大脑无法快速分类。
+</div>
+
+<h3><span class="pill pill-new">v 提案</span>cyber-rainbow · 元素语义着色 <span class="recommend">RECOMMENDED</span></h3>
+
+<div class="terminal">
+  <div class="demo palette-new">
+    <span class="pulse">●</span>  <span class="verb">Distilling</span><span class="ts"> · </span><span class="timer">21s</span>   <span class="tspin">⠋</span> <span class="tool">edit</span> <span class="tdur">1.4s</span>   <span class="in">↑1.2k</span> <span class="out">↓340</span>   <span class="tps">75t/s</span>   <span class="turn">󰄉3</span>   <span class="esc">esc to cancel</span>
+  </div>
+  <div class="demo palette-new">
+    <span class="check">✓</span> <span class="done">done</span><span class="ts"> · </span><span class="timer">1:23</span>   <span class="ok">✓6</span> <span class="err">✗1</span>   <span class="in">↑3.4k</span> <span class="out">↓1.1k</span>   <span class="dim">198t/s</span>   <span class="turn">󰄉8</span>
+  </div>
+</div>
+
+<div class="annotation">
+  <span class="tag">效果</span> verb 紫 / timer 青蓝 / tool 蓝 / 输入 teal / 输出 绿 / tps 速度分级 / turn 桃粉 — 每段独立色相，扫一眼分辨段位，整体仍在 cyber 调色板里。
+</div>
+
+<!-- =============================================================== -->
+<h2><span class="num">2</span> 元素 → 颜色映射表</h2>
+
+<div class="matrix">
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 22%">元素</th>
+        <th style="width: 28%">v 当前</th>
+        <th style="width: 8%"></th>
+        <th style="width: 28%">v 提案</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="k">spinner ●</td>
+        <td><span class="swatch sw-cyan"></span>cyan pulse</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-cyan"></span>cyan pulse</td>
+        <td>保持 — 已经是 working 入口的色锚</td>
+      </tr>
+      <tr>
+        <td class="k">verb (Distilling)</td>
+        <td><span class="swatch sw-cyan"></span>accent + bold</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-purple"></span>purple + bold</td>
+        <td>动作语义 → 紫色（cyberpunk 标配，最强吸睛）</td>
+      </tr>
+      <tr>
+        <td class="k">elapsed timer</td>
+        <td><span class="swatch sw-muted"></span>muted</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-cyanBright"></span>cyanBright</td>
+        <td>主时间数字应该亮起来 → 高饱和青</td>
+      </tr>
+      <tr>
+        <td class="k">tool spinner ⠋</td>
+        <td><span class="swatch sw-cyan"></span>accent</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-teal"></span>teal</td>
+        <td>区分主 spinner（cyan） vs tool spinner（teal）</td>
+      </tr>
+      <tr>
+        <td class="k">tool name</td>
+        <td><span class="swatch sw-cyan"></span>accent</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-blue"></span>blue</td>
+        <td>tool 行属信息层 → 蓝色（VSCode/git 风格）</td>
+      </tr>
+      <tr>
+        <td class="k">tool dur</td>
+        <td><span class="swatch sw-dim"></span>dim</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-dim"></span>dim</td>
+        <td>保持 — 次要修饰</td>
+      </tr>
+      <tr>
+        <td class="k">↑input</td>
+        <td><span class="swatch sw-muted"></span>muted</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-tealDark"></span>tealDark</td>
+        <td>输入流向 → 深 teal（与 output 区分）</td>
+      </tr>
+      <tr>
+        <td class="k">↓output (exact)</td>
+        <td><span class="swatch sw-cyan"></span>accent</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-green"></span>green</td>
+        <td>输出 = 收益 → 绿色（财务/成长语义）</td>
+      </tr>
+      <tr>
+        <td class="k">↓output (estimated)</td>
+        <td><span class="swatch sw-muted"></span>muted</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-muted"></span>muted</td>
+        <td>不确定 → 保持低饱和</td>
+      </tr>
+      <tr>
+        <td class="k">↓output (frozen)</td>
+        <td><span class="swatch sw-dim"></span>dim</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-dim"></span>dim</td>
+        <td>tool 暂停期 → 保持 dim</td>
+      </tr>
+      <tr>
+        <td class="k">tps &gt; 300</td>
+        <td><span class="swatch sw-green"></span>success</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-green"></span>green</td>
+        <td>速度分级保持，仅微调到饱和 green</td>
+      </tr>
+      <tr>
+        <td class="k">tps &gt; 150</td>
+        <td><span class="swatch sw-cyan"></span>accent</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-cyan"></span>cyan</td>
+        <td>保持</td>
+      </tr>
+      <tr>
+        <td class="k">tps &gt; 50</td>
+        <td><span class="swatch sw-orange"></span>warning</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-orange"></span>orange</td>
+        <td>保持</td>
+      </tr>
+      <tr>
+        <td class="k">tps ≤ 50</td>
+        <td><span class="swatch sw-red"></span>error</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-red"></span>red</td>
+        <td>保持</td>
+      </tr>
+      <tr>
+        <td class="k">󰄉 turn</td>
+        <td><span class="swatch sw-dim"></span>dim</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-hotPink"></span>hotPink</td>
+        <td>turn 是结构标记 → 桃粉点缀（最具个性）</td>
+      </tr>
+      <tr>
+        <td class="k">esc to cancel</td>
+        <td><span class="swatch sw-dim"></span>dim</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-dim"></span>dim</td>
+        <td>提示 → 保持低调</td>
+      </tr>
+      <tr>
+        <td class="k">idle ✓ done</td>
+        <td><span class="swatch sw-green"></span>success bold</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-green"></span>green bold</td>
+        <td>保持</td>
+      </tr>
+      <tr>
+        <td class="k">idle ✓N tally</td>
+        <td><span class="swatch sw-green"></span>success</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-green"></span>green</td>
+        <td>保持</td>
+      </tr>
+      <tr>
+        <td class="k">idle ✗N tally</td>
+        <td><span class="swatch sw-red"></span>error</td>
+        <td class="arrow">→</td>
+        <td><span class="swatch sw-red"></span>red</td>
+        <td>保持</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- =============================================================== -->
+<h2><span class="num">3</span> 设计原则</h2>
+
+<ul class="compact">
+  <li><b>信息分层</b> — verb（紫）&gt; timer（亮青）&gt; tool（蓝） &gt; 数字（teal/绿）&gt; 装饰（hotPink） &gt; 提示（dim）。每层有明确视觉权重。</li>
+  <li><b>语义对齐</b> — 输入 teal vs 输出 green（流向区分）；tool 蓝（信息层）；turn 桃粉（结构点缀）。</li>
+  <li><b>留住 cyber 调性</b> — 全部色相已存在于 <code>cyber-ui-dark.json</code> 调色板，只是过去未被 working 调用。</li>
+  <li><b>tps 不动</b> — 速度分级是用户已有肌肉记忆，保持 success/cyan/warning/error 四档。</li>
+  <li><b>idle summary 不动</b> — 已经层次合理，绿色 done 是结束信号，红色错误清晰。</li>
+  <li><b>对低视觉负担留底</b> — separator <code>·</code>、tool dur、esc hint 全部 dim，不会因新增色相变嘈杂。</li>
+</ul>
+
+<!-- =============================================================== -->
+<h2><span class="num">4</span> 不同 tps 档位的视觉对照</h2>
+
+<div class="terminal">
+  <div class="demo palette-new"><span class="pulse">●</span>  <span class="verb">Synthesizing</span><span class="ts"> · </span><span class="timer">3.2s</span>   <span class="tspin">⠋</span> <span class="tool">read</span> <span class="tdur">42ms</span>   <span class="in">↑890</span> <span class="out">↓120</span>   <span class="ok b">412t/s</span>   <span class="turn">󰄉1</span></div>
+  <div class="demo palette-new"><span class="pulse">●</span>  <span class="verb">Compiling</span><span class="ts"> · </span><span class="timer">8.4s</span>   <span class="tspin">⠋</span> <span class="tool">grep</span> <span class="tdur">120ms</span>   <span class="in">↑1.2k</span> <span class="out">↓340</span>   <span style="color: var(--cyan); font-weight: 700">218t/s</span>   <span class="turn">󰄉2</span></div>
+  <div class="demo palette-new"><span class="pulse">●</span>  <span class="verb">Distilling</span><span class="ts"> · </span><span class="timer">21s</span>   <span class="tspin">⠋</span> <span class="tool">edit</span> <span class="tdur">1.4s</span>   <span class="in">↑1.2k</span> <span class="out">↓340</span>   <span class="tps b">75t/s</span>   <span class="turn">󰄉3</span>   <span class="esc">esc to cancel</span></div>
+  <div class="demo palette-new"><span class="pulse">●</span>  <span class="verb">Pondering</span><span class="ts"> · </span><span class="timer">42s</span>   <span class="tspin">⠋</span> <span class="tool">bash</span> <span class="tdur">8.2s</span>   <span class="in">↑3.1k</span> <span class="out">↓180</span>   <span class="err b">22t/s</span>   <span class="turn">󰄉5</span>   <span class="esc">esc to cancel</span></div>
+</div>
+
+<p class="note">
+  四档 tps 在同一布局下的呈现：<span class="sw-green">412t/s 绿</span> ＞ <span class="sw-cyan">218t/s 青</span> ＞ <span class="sw-orange">75t/s 橙</span> ＞ <span class="sw-red">22t/s 红</span>，
+  其余颜色不变，节奏感来自 verb 紫 + timer 亮青 + 输入 teal + 输出 绿 的稳定结构。
+</p>
+
+<!-- =============================================================== -->
+<h2><span class="num">5</span> Footer 不动</h2>
+
+<p class="note">
+  本次只改 working 区。footer 已经是路径粉/cyan + dirty 橙 + model 青 + thinking 彩虹 + ctx 速率分级，色相分布已合理，不再叠加。
+</p>
+
+<hr/>
+
+<p class="note" style="text-align: center; color: var(--fgDim);">
+  <span class="sw-cyan">cyber-ui</span> · working palette v3 ·
+  调色板对齐 <code>themes/cyber-ui-dark.json</code> · 仅改 <code>working.ts</code>
+</p>
+
+</body>
+</html>
