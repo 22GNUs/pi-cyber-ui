@@ -35,7 +35,7 @@ export interface ToolTally {
   active: boolean;
 }
 
-const TICK_INTERVAL_MS = 250;
+const TICK_INTERVAL_MS = 120;
 
 class ToolRegistry {
   private entries = new Map<string, ToolEntry>();

@@ -50,10 +50,12 @@ const BOLD = "\x1b[1m";
 const UNBOLD = "\x1b[22m";
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
-const SPINNER_INTERVAL_MS = 80;
+const SPINNER_INTERVAL_MS = 120;
 
-function spinnerFrame(): string {
-  return SPINNER_FRAMES[Math.floor(Date.now() / SPINNER_INTERVAL_MS) % SPINNER_FRAMES.length]!;
+function spinnerFrame(toolCallId: string): string {
+  const startedAt = toolRegistry.getEntry(toolCallId)?.startedAt ?? Date.now();
+  const frameIndex = Math.floor((Date.now() - startedAt) / SPINNER_INTERVAL_MS);
+  return SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length]!;
 }
 
 function paint(color: string, text: string, bold = false): string {
@@ -121,7 +123,7 @@ interface StatusOptions {
 
 function statusIcon({ isPartial, isError, toolCallId }: StatusOptions): string {
   if (isPartial || toolRegistry.isRunning(toolCallId)) {
-    return paint(ICON_CYAN, spinnerFrame(), true);
+    return paint(ICON_CYAN, spinnerFrame(toolCallId), true);
   }
   if (isError) return paint(ICON_RED, "✗", true);
   return paint(ICON_GREEN, "✓", true);
