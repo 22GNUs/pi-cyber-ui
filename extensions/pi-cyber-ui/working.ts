@@ -170,6 +170,14 @@ function formatElapsed(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function formatWorkingElapsed(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "0s";
+  if (ms < 60_000) return `${Math.floor(ms / 1000)}s`;
+  const m = Math.floor(ms / 60_000);
+  const s = Math.floor((ms % 60_000) / 1000);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 function formatTokens(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value) || value <= 0) return "";
   if (value < 1_000) return `${value}`;
@@ -233,7 +241,7 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   // separator added by fitSegments(), so the whole line reads with a
   // consistent middle-dot rhythm.
   const verb = paintCyberSilver(args.verb);
-  const time = paint(C.fgMuted, formatElapsed(args.elapsedMs));
+  const time = paint(C.fgMuted, formatWorkingElapsed(args.elapsedMs));
   segments.push(seg(`${verb}${paint(C.fgDim, " · ")}${time}`, 100));
 
   // 70 — tokens
