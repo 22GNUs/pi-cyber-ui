@@ -437,14 +437,27 @@ function attachFooter(
     (_tui, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
       let cachedKey: CacheKey | undefined;
       let cachedLines: string[] | undefined;
+      let disposed = false;
+
+      const pokeRender = () => {
+        if (disposed) return;
+        try {
+          // Footer render cache is internal to the custom component. Poking an
+          // empty status key triggers pi's requestRender() without adding visible
+          // content, so async git updates are reflected while idle.
+          ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
+        } catch {
+          // Session reload/replacement can stale captured ctx before async git
+          // callbacks settle. Ignore: next session attaches a fresh footer.
+          disposed = true;
+        }
+      };
 
       const invalidate = () => {
+        if (disposed) return;
         cachedKey = undefined;
         cachedLines = undefined;
-        // Footer render cache is internal to the custom component. Poking an
-        // empty status key triggers pi's requestRender() without adding visible
-        // content, so async git updates are reflected while idle.
-        ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
+        pokeRender();
       };
 
       // Prime + watch git
@@ -453,6 +466,7 @@ function attachFooter(
       if (typeof dirtyTimer.unref === "function") dirtyTimer.unref();
 
       const unsubBranch = footerData.onBranchChange(() => {
+        if (disposed) return;
         // Branch changed → dirty count likely stale.
         dirtyCache.delete(ctx.cwd);
         refreshDirty(ctx.cwd, invalidate);
@@ -517,6 +531,7 @@ function attachFooter(
           return cachedLines;
         },
         dispose() {
+          disposed = true;
           unsubBranch();
           clearInterval(dirtyTimer);
         },
@@ -541,6 +556,17 @@ export default function footer(pi: ExtensionAPI) {
   // normal debounce window.
   pi.on("agent_end", async (_event, ctx) => {
     if (!ctx.hasUI) return;
-    refreshDirty(ctx.cwd, () => ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined), true);
+    refreshDirty(
+      ctx.cwd,
+      () => {
+        try {
+          ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
+        } catch {
+          // ctx may be stale if session was reloaded/replaced while git status
+          // command was in flight. Fresh session will refresh its own footer.
+        }
+      },
+      true,
+    );
   });
 }
