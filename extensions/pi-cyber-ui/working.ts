@@ -5,7 +5,7 @@
  *
  *   running — pi's built-in working Loader is active. We feed it a single
  *     line via `setWorkingMessage`:
- *       <verb> · <prompt-elapsed> · <tool spinner+name+dur> · ↑in ↓out · <tps>
+ *       <verb> · <prompt-elapsed> · ↑in ↓out · <tps>
  *     followed by a soft "esc to cancel" hint after 10s.
  *     Segments are ordered by priority and dropped right-to-left when the
  *     terminal is too narrow.
@@ -23,7 +23,6 @@ import type {
 import { Text, visibleWidth } from "@earendil-works/pi-tui";
 
 import { cyberState, type CyberHudSnapshot } from "./editor-state.js";
-import { toolRegistry, type ToolTally } from "./tool-registry.js";
 
 // ---------------------------------------------------------------------------
 // Cyber palette — working-specific UI colours. Pure presentation layer; token
@@ -39,7 +38,6 @@ const C = {
   cyan: [125, 207, 255] as RGB,
   cyanBright: [180, 249, 248] as RGB,
   blue: [122, 162, 247] as RGB,
-  tealDark: [65, 166, 181] as RGB,
   green: [158, 206, 106] as RGB,
   orange: [224, 175, 104] as RGB,
   red: [247, 118, 142] as RGB,
@@ -117,17 +115,6 @@ function applyWorkingIndicator(ctx: ExtensionContext): void {
     }),
     intervalMs: FRAME_INTERVAL_MS,
   });
-}
-
-// ---------------------------------------------------------------------------
-// Inline spinner for tool name (rendered inside line 2)
-// ---------------------------------------------------------------------------
-
-const TOOL_SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
-const TOOL_SPINNER_INTERVAL_MS = 80;
-
-function toolSpinnerFrame(): string {
-  return TOOL_SPINNER[Math.floor(Date.now() / TOOL_SPINNER_INTERVAL_MS) % TOOL_SPINNER.length]!;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,7 +196,6 @@ interface RunningLineArgs {
   verb: string;
   elapsedMs: number;
   snapshot: CyberHudSnapshot;
-  tally: ToolTally;
 }
 
 const ESC_HINT_AFTER_MS = 10_000;
@@ -223,7 +209,6 @@ const TURN_ICON = "󰄉";
  *
  * Importance scale (higher = keep longer):
  *   100 verb + elapsed (always kept)
- *    80 current tool spinner+name+dur
  *    70 tokens ↑/↓
  *    60 tps
  *    50 turn marker (≥2)
@@ -241,7 +226,7 @@ function seg(text: string, importance: number): Segment {
 }
 
 function collectRunningSegments(args: RunningLineArgs): Segment[] {
-  const { snapshot, tally } = args;
+  const { snapshot } = args;
   const segments: Segment[] = [];
 
   // 100 — verb + elapsed (anchor). Internal " · " matches the inter-segment
@@ -250,19 +235,6 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   const verb = paintCyberSilver(args.verb);
   const time = paint(C.fgMuted, formatElapsed(args.elapsedMs));
   segments.push(seg(`${verb}${paint(C.fgDim, " · ")}${time}`, 100));
-
-  // 80 — current tool spinner+name+dur (only while a tool is actively
-  // running; between-tool tallies are intentionally omitted so the loading
-  // line stays focused on "what's happening *now*" rather than running
-  // totals — those live in the idle summary instead).
-  if (tally.running > 0 && tally.currentName) {
-    const spin = paint(C.tealDark, toolSpinnerFrame());
-    const name = paint(C.blue, tally.currentName);
-    const dur =
-      tally.currentElapsedMs !== undefined ? formatElapsed(tally.currentElapsedMs) : "";
-    const tail = dur ? ` ${paint(C.fgDim, dur)}` : "";
-    segments.push(seg(`${spin} ${name}${tail}`, 80));
-  }
 
   // 70 — tokens
   const inTokens = formatTokens(snapshot.inputValue ?? snapshot.promptIn);
@@ -430,13 +402,10 @@ function updateWorkingMessage(ctx: ExtensionContext): void {
   }
 
   const snapshot = cyberState.snapshot();
-  const tally = toolRegistry.getTally();
-
   const args: RunningLineArgs = {
     verb: prompt.verb,
     elapsedMs: elapsed,
     snapshot,
-    tally,
   };
 
   const segments = collectRunningSegments(args);
@@ -481,7 +450,6 @@ function endPromptTimer(ctx: ExtensionContext): void {
 
 export default function working(pi: ExtensionAPI) {
   let messageTimer: NodeJS.Timeout | undefined;
-  let toolUnsub: (() => void) | undefined;
 
   const stopMessageTimer = () => {
     if (messageTimer) {
@@ -500,13 +468,6 @@ export default function working(pi: ExtensionAPI) {
       lastSummary = undefined;
       clearSummaryWidget(ctx);
     }
-
-    // Refresh working message whenever a tool starts/ends so the spinner +
-    // tool slot stays current even when no events fire on the prompt side.
-    toolUnsub?.();
-    toolUnsub = toolRegistry.subscribe(() => {
-      if (prompt) updateWorkingMessage(ctx);
-    });
   });
 
   pi.on("agent_start", (_event, ctx) => {
@@ -527,8 +488,6 @@ export default function working(pi: ExtensionAPI) {
       ctx.ui.setWorkingMessage();
       clearSummaryWidget(ctx);
     }
-    toolUnsub?.();
-    toolUnsub = undefined;
     stopMessageTimer();
     prompt = undefined;
   });
