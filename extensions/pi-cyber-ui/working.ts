@@ -12,7 +12,7 @@
  *
  *   idle — Loader is hidden. A single-line widget above the editor shows the
  *     last prompt's summary, persisting until the next prompt:
- *       ✓ done · <total> · ✓N ✗M · ↑in ↓out · <avg tps>
+ *       ✓ done · <total> · ↑in ↓out · <avg tps>
  *
  * Verb pool is cyber-themed and rotates every few seconds for ambient variety.
  */
@@ -33,19 +33,16 @@ import { toolRegistry, type ToolTally } from "./tool-registry.js";
 type RGB = readonly [number, number, number];
 
 const C = {
-  hotPink: [255, 130, 184] as RGB,
-  dim: [112, 124, 146] as RGB,
-  muted: [162, 176, 196] as RGB,
-  accent: [137, 219, 255] as RGB,
+  fg: [192, 202, 245] as RGB,
+  fgMuted: [169, 177, 214] as RGB,
+  fgDim: [86, 95, 137] as RGB,
+  cyan: [125, 207, 255] as RGB,
   cyanBright: [180, 249, 248] as RGB,
-  purple: [187, 154, 247] as RGB,
   blue: [122, 162, 247] as RGB,
-  teal: [79, 214, 190] as RGB,
   tealDark: [65, 166, 181] as RGB,
   green: [158, 206, 106] as RGB,
-  success: [122, 217, 166] as RGB,
-  warning: [255, 202, 112] as RGB,
-  error: [255, 136, 136] as RGB,
+  orange: [224, 175, 104] as RGB,
+  red: [247, 118, 142] as RGB,
 };
 
 const RESET_FG = "\x1b[39m";
@@ -62,9 +59,45 @@ function paint(color: RGB, text: string, bold = false): string {
   return `${open}${text}${close}`;
 }
 
+function mix(a: RGB, b: RGB, t: number): RGB {
+  const clamped = Math.max(0, Math.min(1, t));
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * clamped),
+    Math.round(a[1] + (b[1] - a[1]) * clamped),
+    Math.round(a[2] + (b[2] - a[2]) * clamped),
+  ] as RGB;
+}
+
+const SHIMMER_PADDING = 10;
+const SHIMMER_SWEEP_MS = 2_000;
+const SHIMMER_BAND_HALF_WIDTH = 5;
+
+function paintCyberSilver(text: string): string {
+  const chars = [...text];
+  if (chars.length === 0) return "";
+
+  const period = chars.length + SHIMMER_PADDING * 2;
+  const pos = ((Date.now() % SHIMMER_SWEEP_MS) / SHIMMER_SWEEP_MS) * period;
+
+  return `${BOLD}${chars
+    .map((ch, index) => {
+      const charPos = index + SHIMMER_PADDING;
+      const dist = Math.abs(charPos - pos);
+      const intensity =
+        dist <= SHIMMER_BAND_HALF_WIDTH
+          ? 0.5 * (1 + Math.cos(Math.PI * (dist / SHIMMER_BAND_HALF_WIDTH)))
+          : 0;
+
+      const base = mix(C.fgDim, C.fgMuted, 0.28);
+      const highlight = mix(C.fg, C.cyanBright, 0.12);
+      return `${rgb(mix(base, highlight, intensity))}${ch}`;
+    })
+    .join("")}${RESET_FG}${UNBOLD}`;
+}
+
 /** v1 HUD's tps grading. Higher rate → more positive colour. */
 function tpsColor(v: number): RGB {
-  return v > 300 ? C.success : v > 150 ? C.accent : v > 50 ? C.warning : C.error;
+  return v > 300 ? C.green : v > 150 ? C.cyan : v > 50 ? C.orange : C.red;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,9 +111,9 @@ function applyWorkingIndicator(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
   ctx.ui.setWorkingIndicator({
     frames: FRAMES.map((frame, index) => {
-      if (index === 3 || index === 4 || index === 5) return paint(C.accent, frame);
-      if (index === 2 || index === 6) return paint(C.muted, frame);
-      return paint(C.dim, frame);
+      if (index === 3 || index === 4 || index === 5) return paint(C.cyan, frame);
+      if (index === 2 || index === 6) return paint(C.fgMuted, frame);
+      return paint(C.fgDim, frame);
     }),
     intervalMs: FRAME_INTERVAL_MS,
   });
@@ -164,7 +197,7 @@ function formatTps(value: number | undefined): string {
 }
 
 function joinDim(parts: string[]): string {
-  const sep = paint(C.dim, " · ");
+  const sep = paint(C.fgDim, " · ");
   return parts.filter((p) => p && p.length > 0).join(sep);
 }
 
@@ -214,20 +247,20 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   // 100 — verb + elapsed (anchor). Internal " · " matches the inter-segment
   // separator added by fitSegments(), so the whole line reads with a
   // consistent middle-dot rhythm.
-  const verb = paint(C.purple, args.verb, true);
-  const time = paint(C.cyanBright, formatElapsed(args.elapsedMs));
-  segments.push(seg(`${verb}${paint(C.dim, " · ")}${time}`, 100));
+  const verb = paintCyberSilver(args.verb);
+  const time = paint(C.fgMuted, formatElapsed(args.elapsedMs));
+  segments.push(seg(`${verb}${paint(C.fgDim, " · ")}${time}`, 100));
 
   // 80 — current tool spinner+name+dur (only while a tool is actively
   // running; between-tool tallies are intentionally omitted so the loading
   // line stays focused on "what's happening *now*" rather than running
   // totals — those live in the idle summary instead).
   if (tally.running > 0 && tally.currentName) {
-    const spin = paint(C.teal, toolSpinnerFrame());
+    const spin = paint(C.tealDark, toolSpinnerFrame());
     const name = paint(C.blue, tally.currentName);
     const dur =
       tally.currentElapsedMs !== undefined ? formatElapsed(tally.currentElapsedMs) : "";
-    const tail = dur ? ` ${paint(C.dim, dur)}` : "";
+    const tail = dur ? ` ${paint(C.fgDim, dur)}` : "";
     segments.push(seg(`${spin} ${name}${tail}`, 80));
   }
 
@@ -235,10 +268,10 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   const inTokens = formatTokens(snapshot.inputValue ?? snapshot.promptIn);
   const outTokens = formatTokens(snapshot.output.value);
   if (inTokens || outTokens) {
-    const inPart = inTokens ? paint(C.tealDark, `↑${inTokens}`) : "";
-    let outColor: RGB = C.green;
-    if (snapshot.output.frozen) outColor = C.dim;
-    else if (snapshot.output.estimated) outColor = C.muted;
+    const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
+    let outColor: RGB = C.fgMuted;
+    if (snapshot.output.frozen) outColor = C.fgDim;
+    else if (snapshot.output.estimated) outColor = C.fgMuted;
     const outPrefix = snapshot.output.estimated ? "~" : "";
     const outPart = outTokens ? paint(outColor, `${outPrefix}↓${outTokens}`) : "";
     const both = [inPart, outPart].filter(Boolean).join(" ");
@@ -250,7 +283,7 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   if (tpsValue !== undefined && Number.isFinite(tpsValue) && tpsValue > 0) {
     const tpsLabel = `${snapshot.tps.estimated ? "~" : ""}${formatTps(tpsValue)}`;
     const idle = snapshot.agentState === "thinking" || snapshot.agentState === "idle";
-    const color: RGB = idle ? C.dim : tpsColor(tpsValue);
+    const color: RGB = idle ? C.fgDim : tpsColor(tpsValue);
     segments.push(seg(paint(color, tpsLabel), 60));
   }
 
@@ -258,12 +291,12 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   // v1 HUD's behaviour (the clock glyph + count is part of the muscle memory).
   if (snapshot.promptActive) {
     const turns = Math.max(1, snapshot.promptTurns);
-    segments.push(seg(paint(C.hotPink, `${TURN_ICON}${turns}`), 50));
+    segments.push(seg(paint(C.fgDim, `${TURN_ICON}${turns}`), 50));
   }
 
   // 20 — esc hint (after 10s)
   if (args.elapsedMs >= ESC_HINT_AFTER_MS) {
-    segments.push(seg(paint(C.dim, "esc to cancel"), 20));
+    segments.push(seg(paint(C.fgDim, "esc to cancel"), 20));
   }
 
   return segments;
@@ -276,7 +309,7 @@ function fitSegments(segments: Segment[], budget: number): string {
   // Visible separator is a dim middle-dot with a space on each side. The
   // ANSI escape adds bytes but not display width, so we track them
   // separately for budgeting.
-  const sep = paint(C.dim, " · ");
+  const sep = paint(C.fgDim, " · ");
   const sepWidth = visibleWidth(sep);
 
   const indexed = segments.map((s, i) => ({ s, i }));
@@ -316,8 +349,6 @@ function fitSegments(segments: Segment[], budget: number): string {
 interface PromptSummary {
   totalElapsedMs: number;
   turns: number;
-  toolOk: number;
-  toolErr: number;
   inputTokens: number | undefined;
   outputTokens: number | undefined;
   avgTps: number | undefined;
@@ -331,37 +362,29 @@ function buildIdleSummary(summary: PromptSummary): string {
   const parts: string[] = [];
 
   // ✓ done · 1:23
-  const check = paint(C.success, "✓", true);
-  const doneLabel = paint(C.success, "done");
-  const time = paint(C.cyanBright, formatElapsed(summary.totalElapsedMs));
-  parts.push(`${check} ${doneLabel} ${paint(C.dim, "·")} ${time}`);
-
-  // ✓m ✗k
-  if (summary.toolOk > 0 || summary.toolErr > 0) {
-    const okStr = summary.toolOk > 0 ? paint(C.success, `✓${summary.toolOk}`) : "";
-    const errStr = summary.toolErr > 0 ? paint(C.error, `✗${summary.toolErr}`) : "";
-    const t = [okStr, errStr].filter(Boolean).join(" ");
-    if (t) parts.push(t);
-  }
+  const check = paint(C.green, "✓", true);
+  const doneLabel = paint(C.green, "done");
+  const time = paint(C.fgMuted, formatElapsed(summary.totalElapsedMs));
+  parts.push(`${check} ${doneLabel} ${paint(C.fgDim, "·")} ${time}`);
 
   // tokens
   const inTokens = formatTokens(summary.inputTokens);
   const outTokens = formatTokens(summary.outputTokens);
   if (inTokens || outTokens) {
-    const inPart = inTokens ? paint(C.tealDark, `↑${inTokens}`) : "";
-    const outPart = outTokens ? paint(C.green, `↓${outTokens}`) : "";
+    const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
+    const outPart = outTokens ? paint(C.fgMuted, `↓${outTokens}`) : "";
     const both = [inPart, outPart].filter(Boolean).join(" ");
     if (both) parts.push(both);
   }
 
   // avg tps
   if (summary.avgTps !== undefined && summary.avgTps > 0) {
-    parts.push(paint(C.dim, formatTps(summary.avgTps)));
+    parts.push(paint(C.fgDim, formatTps(summary.avgTps)));
   }
 
   // turn count tail — always show, matching v1 HUD
   if (summary.turns > 0) {
-    parts.push(paint(C.hotPink, `${TURN_ICON}${summary.turns}`));
+    parts.push(paint(C.fgDim, `${TURN_ICON}${summary.turns}`));
   }
 
   return joinDim(parts);
@@ -392,7 +415,7 @@ interface PromptState {
 }
 
 const VERB_ROTATE_MS = 20_000;
-const MESSAGE_REFRESH_MS = 250;
+const MESSAGE_REFRESH_MS = 80;
 
 let prompt: PromptState | undefined;
 
@@ -406,7 +429,6 @@ function updateWorkingMessage(ctx: ExtensionContext): void {
     prompt.verbChangedAt = now;
   }
 
-  const theme = ctx.ui.theme;
   const snapshot = cyberState.snapshot();
   const tally = toolRegistry.getTally();
 
@@ -436,8 +458,6 @@ function endPromptTimer(ctx: ExtensionContext): void {
   if (!prompt) return;
   const totalElapsedMs = Date.now() - prompt.startedAt;
   const snapshot = cyberState.snapshot();
-  const tally = toolRegistry.getTally();
-
   const inputTokens = snapshot.inputValue ?? snapshot.promptIn;
   const outputTokens = snapshot.output.value;
   const avgTps = snapshot.tps.value;
@@ -445,8 +465,6 @@ function endPromptTimer(ctx: ExtensionContext): void {
   lastSummary = {
     totalElapsedMs,
     turns: snapshot.promptTurns,
-    toolOk: tally.ok,
-    toolErr: tally.err,
     inputTokens: inputTokens && inputTokens > 0 ? inputTokens : undefined,
     outputTokens,
     avgTps,
