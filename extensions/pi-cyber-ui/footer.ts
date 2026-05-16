@@ -94,13 +94,13 @@ function thinkingText(theme: Theme, level: string): string {
   }
   switch (normalized) {
     case "off":
-      return theme.fg("dim", normalized);
+      return theme.fg("thinkingOff", normalized);
     case "minimal":
-      return theme.fg("muted", normalized);
+      return theme.fg("thinkingMinimal", normalized);
     case "low":
-      return theme.fg("accent", normalized);
+      return theme.fg("thinkingLow", normalized);
     case "medium":
-      return theme.fg("success", normalized);
+      return theme.fg("thinkingMedium", normalized);
     default:
       return theme.fg("muted", normalized);
   }
@@ -255,7 +255,7 @@ function renderGit(
   if (!branch || !dirty || dirty <= 0) return "";
   const icon = theme.fg("dim", ICONS.branch);
   const count = theme.fg("warning", `~${dirty}`);
-  return `${icon} ${count}`;
+  return `${icon}${count}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -376,17 +376,18 @@ function renderLine(width: number, theme: Theme, parts: LineParts): string {
     return compose(leftParts, rightParts, "");
   };
 
-  const gitHidden = countIfVisible(parts.git);
+  const contextHidden = countIfVisible(parts.context);
   const thinkingHidden = countIfVisible(parts.thinking);
+  const gitHidden = countIfVisible(parts.git);
   const pathHidden = countIfVisible(parts.path);
 
   return (
-    tryLayout([parts.path, parts.git], [parts.modelLabel, parts.thinking, parts.context], 0) ??
-    tryLayout([parts.path], [parts.modelLabel, parts.thinking, parts.context], gitHidden) ??
-    tryLayout([parts.path], [parts.modelLabel, parts.context], gitHidden + thinkingHidden) ??
-    tryLayout([parts.path], [parts.modelLabel], gitHidden + thinkingHidden + countIfVisible(parts.context)) ??
-    tryLayout([], [parts.modelLabel, parts.context], pathHidden + gitHidden + thinkingHidden) ??
-    truncateToWidth(joinNonEmpty(theme, [parts.modelLabel, parts.context], SEP), width)
+    tryLayout([parts.modelLabel, parts.thinking, parts.context], [parts.path, parts.git], 0) ??
+    tryLayout([parts.modelLabel, parts.thinking], [parts.path, parts.git], contextHidden) ??
+    tryLayout([parts.modelLabel, parts.thinking], [parts.path], contextHidden + gitHidden) ??
+    tryLayout([parts.modelLabel], [parts.path], contextHidden + thinkingHidden + gitHidden) ??
+    tryLayout([parts.modelLabel], [], contextHidden + thinkingHidden + gitHidden + pathHidden) ??
+    truncateToWidth(parts.modelLabel, width)
   );
 }
 
