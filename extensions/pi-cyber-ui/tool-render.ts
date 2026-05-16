@@ -35,6 +35,7 @@ interface RenderCtx {
   isPartial: boolean;
   isError: boolean;
   expanded: boolean;
+  state: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +96,14 @@ function formatDuration(ms: number | undefined): string {
   const m = Math.floor(ms / 60_000);
   const s = Math.floor((ms % 60_000) / 1000);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function toolDuration(toolCallId: string, startedAtOverride?: number): number | undefined {
+  const entry = toolRegistry.getEntry(toolCallId);
+  if (!entry) return undefined;
+  const startedAt = startedAtOverride ?? entry.startedAt;
+  const endedAt = entry.endedAt ?? Date.now();
+  return Math.max(0, endedAt - startedAt);
 }
 
 function formatSize(bytes: number): string {
@@ -162,6 +171,8 @@ interface SummaryParts {
   summary?: string;
   /** Pass true to suppress automatic duration suffix. */
   hideDuration?: boolean;
+  /** Override visual timer start, used for tools whose args stream for a while before execution. */
+  durationStartedAt?: number;
 }
 
 function renderSummaryLine(
@@ -171,7 +182,7 @@ function renderSummaryLine(
 ): string {
   toolRegistry.setInvalidate(ctx.toolCallId, ctx.invalidate);
 
-  const dur = formatDuration(toolRegistry.getDuration(ctx.toolCallId));
+  const dur = formatDuration(toolDuration(ctx.toolCallId, parts.durationStartedAt));
   const running = ctx.isPartial || toolRegistry.isRunning(ctx.toolCallId);
 
   const icon = statusIcon({
@@ -523,6 +534,8 @@ export default function toolRender(pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, ctx) {
+      ctx.state.writeArgsStartedAt ??= Date.now();
+
       const path = shortenPath(args.path ?? "", ctx.cwd);
       const content = args.content as string | undefined;
       const lines = content ? content.split("\n").length : 0;
@@ -541,7 +554,9 @@ export default function toolRender(pi: ExtensionAPI) {
 
     renderResult(result, { expanded }, theme, ctx) {
       // Successful write produces no useful output; keep summary empty.
-      const head = renderSummaryLine(ctx, theme, {});
+      const head = renderSummaryLine(ctx, theme, {
+        durationStartedAt: ctx.state.writeArgsStartedAt as number | undefined,
+      });
       if (!expanded) return new Text(head, 0, 0);
       if (ctx.isError) {
         const body = expandedBody(result, theme, { color: "error" });
