@@ -273,9 +273,13 @@ function bashSummary(result: any): string {
 function parseEditDiff(diff: string): { added: number; modified: number; removed: number } {
   const lines = diff
     .split("\n")
-    .filter(
-      (l) => !l.startsWith("---") && !l.startsWith("+++") && !l.startsWith("@@"),
-    );
+    .filter((l, index) => {
+      // Unified diff file headers are the first two lines for this single-file
+      // edit. Later lines that happen to start with +++/--- are real content.
+      if (index === 0 && l.startsWith("--- ")) return false;
+      if (index === 1 && l.startsWith("+++ ")) return false;
+      return !l.startsWith("@@");
+    });
 
   let added = 0;
   let modified = 0;
@@ -329,9 +333,11 @@ function renderEditStats(theme: any, details: any): string {
 }
 
 function lineCountSummary(result: any, label: string): string {
-  const text = asText(result.content);
+  const text = asText(result.content).trim();
   if (!text) return "";
-  const count = text.trim().split("\n").filter(Boolean).length;
+  if (/^No matches found$/i.test(text)) return `0 ${label}`;
+  if (/^No files found/i.test(text)) return `0 ${label}`;
+  const count = text.split("\n").filter(Boolean).length;
   if (count === 0) return "";
   return `${count} ${label}`;
 }
@@ -356,10 +362,9 @@ function expandedDiff(details: any, theme: any): string {
   return details.diff
     .replace(/\n+$/, "")
     .split("\n")
-    .map((line: string) => {
-      if (line.startsWith("+++") || line.startsWith("---")) {
-        return theme.fg("dim", line);
-      }
+    .map((line: string, index: number) => {
+      if (index === 0 && line.startsWith("--- ")) return theme.fg("dim", line);
+      if (index === 1 && line.startsWith("+++ ")) return theme.fg("dim", line);
       if (line.startsWith("@@")) return theme.fg("dim", line);
       if (line.startsWith("+")) return theme.fg("toolDiffAdded", line);
       if (line.startsWith("-")) return theme.fg("toolDiffRemoved", line);
@@ -379,6 +384,7 @@ export default function toolRender(pi: ExtensionAPI) {
   // read
   // -------------------------------------------------------------------------
   pi.registerTool({
+    ...initial.read,
     name: "read",
     label: "read",
     description: initial.read.description,
@@ -422,6 +428,7 @@ export default function toolRender(pi: ExtensionAPI) {
   // bash
   // -------------------------------------------------------------------------
   pi.registerTool({
+    ...initial.bash,
     name: "bash",
     label: "bash",
     description: initial.bash.description,
@@ -457,6 +464,7 @@ export default function toolRender(pi: ExtensionAPI) {
   // edit
   // -------------------------------------------------------------------------
   pi.registerTool({
+    ...initial.edit,
     name: "edit",
     label: "edit",
     description: initial.edit.description,
@@ -503,6 +511,7 @@ export default function toolRender(pi: ExtensionAPI) {
   // write
   // -------------------------------------------------------------------------
   pi.registerTool({
+    ...initial.write,
     name: "write",
     label: "write",
     description: initial.write.description,
@@ -544,6 +553,7 @@ export default function toolRender(pi: ExtensionAPI) {
   // grep
   // -------------------------------------------------------------------------
   pi.registerTool({
+    ...initial.grep,
     name: "grep",
     label: "grep",
     description: initial.grep.description,
@@ -584,6 +594,7 @@ export default function toolRender(pi: ExtensionAPI) {
   // find
   // -------------------------------------------------------------------------
   pi.registerTool({
+    ...initial.find,
     name: "find",
     label: "find",
     description: initial.find.description,
@@ -621,6 +632,7 @@ export default function toolRender(pi: ExtensionAPI) {
   // ls
   // -------------------------------------------------------------------------
   pi.registerTool({
+    ...initial.ls,
     name: "ls",
     label: "ls",
     description: initial.ls.description,

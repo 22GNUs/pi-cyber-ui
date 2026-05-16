@@ -26,7 +26,8 @@ import { cyberState, type CyberHudSnapshot } from "./editor-state.js";
 import { toolRegistry, type ToolTally } from "./tool-registry.js";
 
 // ---------------------------------------------------------------------------
-// Cyber palette — raw RGB, kept identical to the v1 HUD so colours don't shift.
+// Cyber palette — working-specific UI colours. Pure presentation layer; token
+// accounting / tps logic remains untouched.
 // ---------------------------------------------------------------------------
 
 type RGB = readonly [number, number, number];
@@ -36,6 +37,12 @@ const C = {
   dim: [112, 124, 146] as RGB,
   muted: [162, 176, 196] as RGB,
   accent: [137, 219, 255] as RGB,
+  cyanBright: [180, 249, 248] as RGB,
+  purple: [187, 154, 247] as RGB,
+  blue: [122, 162, 247] as RGB,
+  teal: [79, 214, 190] as RGB,
+  tealDark: [65, 166, 181] as RGB,
+  green: [158, 206, 106] as RGB,
   success: [122, 217, 166] as RGB,
   warning: [255, 202, 112] as RGB,
   error: [255, 136, 136] as RGB,
@@ -204,18 +211,20 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   const { snapshot, tally } = args;
   const segments: Segment[] = [];
 
-  // 100 — verb + elapsed (anchor)
-  const verb = paint(C.accent, args.verb, true);
-  const time = paint(C.muted, formatElapsed(args.elapsedMs));
-  segments.push(seg(`${verb} ${paint(C.dim, "·")} ${time}`, 100));
+  // 100 — verb + elapsed (anchor). Internal " · " matches the inter-segment
+  // separator added by fitSegments(), so the whole line reads with a
+  // consistent middle-dot rhythm.
+  const verb = paint(C.purple, args.verb, true);
+  const time = paint(C.cyanBright, formatElapsed(args.elapsedMs));
+  segments.push(seg(`${verb}${paint(C.dim, " · ")}${time}`, 100));
 
   // 80 — current tool spinner+name+dur (only while a tool is actively
   // running; between-tool tallies are intentionally omitted so the loading
   // line stays focused on "what's happening *now*" rather than running
   // totals — those live in the idle summary instead).
   if (tally.running > 0 && tally.currentName) {
-    const spin = paint(C.accent, toolSpinnerFrame());
-    const name = paint(C.accent, tally.currentName);
+    const spin = paint(C.teal, toolSpinnerFrame());
+    const name = paint(C.blue, tally.currentName);
     const dur =
       tally.currentElapsedMs !== undefined ? formatElapsed(tally.currentElapsedMs) : "";
     const tail = dur ? ` ${paint(C.dim, dur)}` : "";
@@ -226,8 +235,8 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   const inTokens = formatTokens(snapshot.inputValue ?? snapshot.promptIn);
   const outTokens = formatTokens(snapshot.output.value);
   if (inTokens || outTokens) {
-    const inPart = inTokens ? paint(C.muted, `↑${inTokens}`) : "";
-    let outColor: RGB = C.accent;
+    const inPart = inTokens ? paint(C.tealDark, `↑${inTokens}`) : "";
+    let outColor: RGB = C.green;
     if (snapshot.output.frozen) outColor = C.dim;
     else if (snapshot.output.estimated) outColor = C.muted;
     const outPrefix = snapshot.output.estimated ? "~" : "";
@@ -249,7 +258,7 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   // v1 HUD's behaviour (the clock glyph + count is part of the muscle memory).
   if (snapshot.promptActive) {
     const turns = Math.max(1, snapshot.promptTurns);
-    segments.push(seg(paint(C.dim, `${TURN_ICON}${turns}`), 50));
+    segments.push(seg(paint(C.hotPink, `${TURN_ICON}${turns}`), 50));
   }
 
   // 20 — esc hint (after 10s)
@@ -264,12 +273,12 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
 const MESSAGE_BUDGET = 100;
 
 function fitSegments(segments: Segment[], budget: number): string {
-  const sep = "  "; // soft separator between segments
-  const sepWidth = sep.length;
+  // Visible separator is a dim middle-dot with a space on each side. The
+  // ANSI escape adds bytes but not display width, so we track them
+  // separately for budgeting.
+  const sep = paint(C.dim, " · ");
+  const sepWidth = visibleWidth(sep);
 
-  // Drop lowest-importance segments while total width exceeds budget.
-  // Segments are kept in original order; we discard from the back of the
-  // sorted-by-importance ascending list.
   const indexed = segments.map((s, i) => ({ s, i }));
   const survivors = new Set(indexed.map((x) => x.i));
 
@@ -285,11 +294,11 @@ function fitSegments(segments: Segment[], budget: number): string {
     return w;
   };
 
+  // Drop lowest-importance segments while total width exceeds budget.
   const sortedByImportance = [...indexed].sort((a, b) => a.s.importance - b.s.importance);
   for (const { i } of sortedByImportance) {
     if (totalWidth() <= budget) break;
-    // Always keep the highest-importance anchor (first segment), even if
-    // it overflows on its own.
+    // Always keep the highest-importance anchor, even if it overflows alone.
     if (segments[i]!.importance >= 100) continue;
     survivors.delete(i);
   }
@@ -324,7 +333,7 @@ function buildIdleSummary(summary: PromptSummary): string {
   // ✓ done · 1:23
   const check = paint(C.success, "✓", true);
   const doneLabel = paint(C.success, "done");
-  const time = paint(C.muted, formatElapsed(summary.totalElapsedMs));
+  const time = paint(C.cyanBright, formatElapsed(summary.totalElapsedMs));
   parts.push(`${check} ${doneLabel} ${paint(C.dim, "·")} ${time}`);
 
   // ✓m ✗k
@@ -339,8 +348,8 @@ function buildIdleSummary(summary: PromptSummary): string {
   const inTokens = formatTokens(summary.inputTokens);
   const outTokens = formatTokens(summary.outputTokens);
   if (inTokens || outTokens) {
-    const inPart = inTokens ? paint(C.muted, `↑${inTokens}`) : "";
-    const outPart = outTokens ? paint(C.muted, `↓${outTokens}`) : "";
+    const inPart = inTokens ? paint(C.tealDark, `↑${inTokens}`) : "";
+    const outPart = outTokens ? paint(C.green, `↓${outTokens}`) : "";
     const both = [inPart, outPart].filter(Boolean).join(" ");
     if (both) parts.push(both);
   }
@@ -352,7 +361,7 @@ function buildIdleSummary(summary: PromptSummary): string {
 
   // turn count tail — always show, matching v1 HUD
   if (summary.turns > 0) {
-    parts.push(paint(C.dim, `${TURN_ICON}${summary.turns}`));
+    parts.push(paint(C.hotPink, `${TURN_ICON}${summary.turns}`));
   }
 
   return joinDim(parts);
@@ -382,7 +391,7 @@ interface PromptState {
   verbChangedAt: number;
 }
 
-const VERB_ROTATE_MS = 6000;
+const VERB_ROTATE_MS = 20_000;
 const MESSAGE_REFRESH_MS = 250;
 
 let prompt: PromptState | undefined;
@@ -463,10 +472,16 @@ export default function working(pi: ExtensionAPI) {
     }
   };
 
-  pi.on("session_start", (_event, ctx) => {
+  pi.on("session_start", (event, ctx) => {
     applyWorkingIndicator(ctx);
-    // Resurface last summary if we have one (e.g. after reload).
-    if (lastSummary) attachSummaryWidget(ctx, lastSummary);
+    // Resurface the previous summary only on extension reload; new/resumed/forked
+    // sessions should not inherit another session's completed-turn banner.
+    if (event.reason === "reload" && lastSummary) {
+      attachSummaryWidget(ctx, lastSummary);
+    } else {
+      lastSummary = undefined;
+      clearSummaryWidget(ctx);
+    }
 
     // Refresh working message whenever a tool starts/ends so the spinner +
     // tool slot stays current even when no events fire on the prompt side.
