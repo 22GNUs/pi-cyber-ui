@@ -25,6 +25,13 @@ import {
 import { Text } from "@earendil-works/pi-tui";
 import { homedir } from "os";
 
+import {
+  clearCompactRead,
+  getCompactReadClassification,
+  isCompactRead,
+  markCompactRead,
+  renderCompactReadCall,
+} from "./read-compact.js";
 import { toolRegistry } from "./tool-registry.js";
 
 /** Subset of pi's ToolRenderContext we rely on (type not re-exported by pi). */
@@ -464,7 +471,8 @@ export default function toolRender(pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, ctx) {
-      const path = shortenPath(args.path ?? "", ctx.cwd);
+      const rawPath = args.path ?? "";
+      const path = shortenPath(rawPath, ctx.cwd);
       const offset = args.offset as number | undefined;
       const limit = args.limit as number | undefined;
       let suffix = "";
@@ -473,6 +481,25 @@ export default function toolRender(pi: ExtensionAPI) {
         const end = limit !== undefined ? `-${start + limit - 1}` : "";
         suffix = `:${start}${end}`;
       }
+
+      const classification = !ctx.isPartial
+        ? getCompactReadClassification(rawPath, ctx.cwd, shortenPath)
+        : undefined;
+      if (classification) {
+        markCompactRead(ctx.state, classification.kind);
+        return new Text(
+          renderCompactReadCall({
+            theme,
+            classification,
+            suffix,
+            renderHeader,
+          }),
+          0,
+          0,
+        );
+      }
+      clearCompactRead(ctx.state);
+
       return new Text(
         renderHeader({
           theme,
@@ -487,6 +514,7 @@ export default function toolRender(pi: ExtensionAPI) {
     },
 
     renderResult(result, { expanded }, theme, ctx) {
+      if (!expanded && !ctx.isError && isCompactRead(ctx.state)) return new Text("", 0, 0);
       const summary = readSummary(result);
       const head = renderSummaryLine(ctx, theme, { summary });
       if (!expanded) return new Text(head, 0, 0);
