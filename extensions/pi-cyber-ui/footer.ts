@@ -251,23 +251,58 @@ function renderPath(cwd: string, maxWidth: number): string {
 }
 
 /**
- * Show the git branch icon plus the dirty-file count. Branch name itself is
+ * Show the git branch icon plus compact dirty counts. Branch name itself is
  * omitted to keep the footer compact — the shell prompt already shows the
- * branch, and what changes turn-to-turn is the dirty count. Clean trees
- * render nothing.
+ * branch, and what changes turn-to-turn are added/modified/deleted counts.
+ * Clean trees render nothing.
  *
- * `~N` mirrors the `~` symbol used in `edit` tool diff stats for modified
- * lines, keeping the visual language consistent across the UI.
+ * Symbols mirror `edit` tool diff stats where possible: `+N`, `~N`, `−N`.
  */
+interface GitStatusCounts {
+  added: number;
+  modified: number;
+  deleted: number;
+}
+
+function totalGitChanges(counts: GitStatusCounts | undefined): number {
+  if (!counts) return 0;
+  return counts.added + counts.modified + counts.deleted;
+}
+
+function parseGitStatus(stdout: string): GitStatusCounts {
+  const counts: GitStatusCounts = { added: 0, modified: 0, deleted: 0 };
+
+  for (const line of stdout.split("\n")) {
+    if (line.trim().length === 0) continue;
+    const x = line[0] ?? " ";
+    const y = line[1] ?? " ";
+
+    if (x === "?" && y === "?") {
+      counts.added += 1;
+    } else if (x === "A" || y === "A") {
+      counts.added += 1;
+    } else if (x === "D" || y === "D") {
+      counts.deleted += 1;
+    } else {
+      counts.modified += 1;
+    }
+  }
+
+  return counts;
+}
+
 function renderGit(
   theme: Theme,
   branch: string | null,
-  dirty: number | undefined,
+  counts: GitStatusCounts | undefined,
 ): string {
-  if (!branch || !dirty || dirty <= 0) return "";
+  if (!branch || totalGitChanges(counts) <= 0) return "";
   const icon = theme.fg("dim", ICONS.branch);
-  const count = theme.fg("warning", `~${dirty}`);
-  return `${icon}${count}`;
+  const parts: string[] = [];
+  if (counts && counts.added > 0) parts.push(theme.fg("toolDiffAdded", `+${counts.added}`));
+  if (counts && counts.modified > 0) parts.push(theme.fg("warning", `~${counts.modified}`));
+  if (counts && counts.deleted > 0) parts.push(theme.fg("error", `−${counts.deleted}`));
+  return `${icon} ${parts.join(" ")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,15 +310,25 @@ function renderGit(
 // ---------------------------------------------------------------------------
 
 interface DirtyCacheEntry {
-  count: number;
+  counts: GitStatusCounts;
   at: number;
   inFlight?: boolean;
 }
 
+const EMPTY_GIT_STATUS_COUNTS: GitStatusCounts = { added: 0, modified: 0, deleted: 0 };
+
 const dirtyCache = new Map<string, DirtyCacheEntry>();
 
-function getCachedDirty(cwd: string): number | undefined {
-  return dirtyCache.get(cwd)?.count;
+function getCachedDirty(cwd: string): GitStatusCounts | undefined {
+  return dirtyCache.get(cwd)?.counts;
+}
+
+function gitStatusCountsEqual(
+  a: GitStatusCounts | undefined,
+  b: GitStatusCounts | undefined,
+): boolean {
+  if (!a || !b) return a === b;
+  return a.added === b.added && a.modified === b.modified && a.deleted === b.deleted;
 }
 
 function refreshDirty(cwd: string, onUpdate?: () => void, force = false): void {
@@ -292,7 +337,7 @@ function refreshDirty(cwd: string, onUpdate?: () => void, force = false): void {
   if (!force && existing && Date.now() - existing.at < DIRTY_REFRESH_MS / 2) return;
 
   const entry: DirtyCacheEntry = {
-    count: existing?.count ?? 0,
+    counts: existing?.counts ?? EMPTY_GIT_STATUS_COUNTS,
     at: existing?.at ?? 0,
     inFlight: true,
   };
@@ -302,11 +347,9 @@ function refreshDirty(cwd: string, onUpdate?: () => void, force = false): void {
     "git status --porcelain",
     { cwd, timeout: DIRTY_TIMEOUT_MS, maxBuffer: 256 * 1024 },
     (err, stdout) => {
-      const count = err
-        ? entry.count
-        : stdout.split("\n").filter((line) => line.trim().length > 0).length;
-      const changed = existing?.count !== count;
-      dirtyCache.set(cwd, { count, at: Date.now() });
+      const counts = err ? entry.counts : parseGitStatus(stdout);
+      const changed = !gitStatusCountsEqual(existing?.counts, counts);
+      dirtyCache.set(cwd, { counts, at: Date.now() });
       if (changed || force) onUpdate?.();
     },
   );
@@ -398,7 +441,7 @@ interface CacheKey {
   width: number;
   cwd: string;
   branch: string | null;
-  dirty: number | undefined;
+  dirty: GitStatusCounts | undefined;
   modelId: string | undefined;
   modelName: string | undefined;
   thinkingLevel: string;
@@ -414,7 +457,7 @@ function cacheKeyEquals(a: CacheKey | undefined, b: CacheKey): boolean {
     a.width === b.width &&
     a.cwd === b.cwd &&
     a.branch === b.branch &&
-    a.dirty === b.dirty &&
+    gitStatusCountsEqual(a.dirty, b.dirty) &&
     a.modelId === b.modelId &&
     a.modelName === b.modelName &&
     a.thinkingLevel === b.thinkingLevel &&

@@ -354,7 +354,7 @@
   <thead><tr><th>段</th><th>规则</th></tr></thead>
   <tbody>
     <tr><td>path</td><td>basename <code>fg+bold</code>；<code>~</code> hotPink；<code>shortenPathToWidth</code> 自适应。</td></tr>
-    <tr><td>git</td><td>仅 dirty count <code>\uf126~N</code>（紧贴无空格）。无 branch name。异步缓存，<code>agent_end</code> 强刷；<code>try/catch + disposed</code> 防 stale ctx。</td></tr>
+    <tr><td>git</td><td>Compact counts：<code>\uf126 +A ~M −D</code>，仅显示非零项，顺序固定 added → modified → deleted；无 dirty 时隐藏；无 branch name。新增用 <span class="green">green</span>，修改用 <span class="orange">orange</span>，删除用 <span class="red">red</span>。异步缓存，<code>agent_end</code> 强刷；<code>try/catch + disposed</code> 防 stale ctx。</td></tr>
     <tr><td>context bar</td><td>&lt;55% <code>mdCode/teal</code> → <span class="cyan">cyan</span> → <span class="orange">orange</span> → <span class="red">red</span> 梯度。</td></tr>
     <tr><td>thinking</td><td>off=<code>thinkingOff</code> · minimal=<span class="teal">tealDark</span> · low=<span class="blue">blue</span> · medium=<span class="cyan">cyan</span> · high=<span class="purple">purple</span> · xhigh=<span class="pink">pink</span>+bold；high 及以上彩虹。</td></tr>
     <tr><td>fold</td><td><code>fitStatusText</code> 把 git/thinking/context/path/扩展 statuses 全计入折叠 <code>+N</code>。</td></tr>

@@ -15,6 +15,8 @@ Concise working notes for this repository.
 - HUD rendering lives in `extensions/pi-cyber-ui/editor-hud.ts`
 
 ## Workflow
+- Before changing any code, confirm `design/DESIGN.html` is current and explicitly user-approved for review.
+- Keep code changes synchronized with `design/DESIGN.html`.
 - Use `npm run typecheck` after code changes.
 - Update `README.md` when public structure or usage changes.
 - Prefer small, surgical edits over rewrites.
