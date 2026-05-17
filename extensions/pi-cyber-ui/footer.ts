@@ -433,6 +433,7 @@ function attachFooter(
   ctx: ExtensionContext,
   getThinkingLevel: () => string,
 ): void {
+  const cwd = ctx.cwd;
   ctx.ui.setFooter(
     (_tui, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
       let cachedKey: CacheKey | undefined;
@@ -460,16 +461,17 @@ function attachFooter(
         pokeRender();
       };
 
-      // Prime + watch git
-      refreshDirty(ctx.cwd, invalidate);
-      const dirtyTimer = setInterval(() => refreshDirty(ctx.cwd, invalidate), DIRTY_REFRESH_MS);
+      // Prime + watch git. Capture cwd while ctx is active; timer callbacks
+      // must not read guarded ctx getters after reload/session replacement.
+      refreshDirty(cwd, invalidate);
+      const dirtyTimer = setInterval(() => refreshDirty(cwd, invalidate), DIRTY_REFRESH_MS);
       if (typeof dirtyTimer.unref === "function") dirtyTimer.unref();
 
       const unsubBranch = footerData.onBranchChange(() => {
         if (disposed) return;
         // Branch changed → dirty count likely stale.
-        dirtyCache.delete(ctx.cwd);
-        refreshDirty(ctx.cwd, invalidate);
+        dirtyCache.delete(cwd);
+        refreshDirty(cwd, invalidate);
         invalidate();
       });
 
@@ -479,22 +481,33 @@ function attachFooter(
           cachedLines = undefined;
         },
         render(width: number): string[] {
+          let model: ExtensionContext["model"];
+          let usage: ContextUsage | undefined;
+          let thinkingLevel = "off";
+          try {
+            model = ctx.model;
+            usage = ctx.getContextUsage?.();
+            thinkingLevel = getThinkingLevel();
+          } catch {
+            // Component can render once after ctx went stale during reload.
+            // Return last stable line and mark disposed so async callbacks stop.
+            disposed = true;
+            return cachedLines ?? [""];
+          }
+
           const branch = footerData.getGitBranch();
-          const dirty = getCachedDirty(ctx.cwd);
-          const thinkingLevel = getThinkingLevel();
-          const usage: ContextUsage | undefined = ctx.getContextUsage?.();
+          const dirty = getCachedDirty(cwd);
           const usedTokens = usage?.tokens ?? null;
-          const contextWindow =
-            usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
+          const contextWindow = usage?.contextWindow ?? model?.contextWindow ?? 0;
           const statusInfo = getStatusInfo(theme, footerData);
 
           const key: CacheKey = {
             width,
-            cwd: ctx.cwd,
+            cwd,
             branch,
             dirty,
-            modelId: ctx.model?.id,
-            modelName: ctx.model?.name,
+            modelId: model?.id,
+            modelName: model?.name,
             thinkingLevel,
             usedTokens,
             contextWindow,
@@ -508,11 +521,11 @@ function attachFooter(
 
           // Path budget: roughly a third of the width when long, never less than 12.
           const pathBudget = Math.max(12, Math.floor(width * 0.34));
-          const path = renderPath(ctx.cwd, pathBudget);
+          const path = renderPath(cwd, pathBudget);
           const git = renderGit(theme, branch, dirty);
           const modelLabel = theme.fg(
             "accent",
-            `${ICONS.model} ${formatModelLabel(ctx.model)}`,
+            `${ICONS.model} ${formatModelLabel(model)}`,
           );
           const thinking = thinkingText(theme, thinkingLevel);
           const context = contextText(theme, usedTokens, contextWindow);
@@ -547,26 +560,35 @@ export default function footer(pi: ExtensionAPI) {
   };
 
   pi.on("session_start", async (_event, ctx) => {
-    if (!ctx.hasUI) return;
-    attachFooter(ctx, getThinkingLevel);
+    try {
+      if (!ctx.hasUI) return;
+      attachFooter(ctx, getThinkingLevel);
+    } catch {
+      // ctx may already be stale during reload teardown; next session attaches.
+    }
   });
 
   // Refresh dirty count after agent_end (likely files just changed). Force so
   // commits/checkout performed by tools update immediately even inside the
   // normal debounce window.
   pi.on("agent_end", async (_event, ctx) => {
-    if (!ctx.hasUI) return;
-    refreshDirty(
-      ctx.cwd,
-      () => {
-        try {
-          ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
-        } catch {
-          // ctx may be stale if session was reloaded/replaced while git status
-          // command was in flight. Fresh session will refresh its own footer.
-        }
-      },
-      true,
-    );
+    try {
+      if (!ctx.hasUI) return;
+      const cwd = ctx.cwd;
+      refreshDirty(
+        cwd,
+        () => {
+          try {
+            ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
+          } catch {
+            // ctx may be stale if session was reloaded/replaced while git status
+            // command was in flight. Fresh session will refresh its own footer.
+          }
+        },
+        true,
+      );
+    } catch {
+      // Ignore stale ctx during reload/session replacement.
+    }
   });
 }
