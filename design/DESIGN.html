@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>pi-cyber-ui · Design Language</title>
+<style>
+  :root {
+    --bg: #0a0a0d;
+    --bgAlt: #1f2335;
+    --bgCard: #16161e;
+    --bgSelection: #33467c;
+    --fg: #c0caf5;
+    --fgMuted: #a9b1d6;
+    --fgDim: #565f89;
+    --red: #f7768e;
+    --orange: #e0af68;
+    --green: #9ece6a;
+    --teal: #4fd6be;
+    --tealDark: #41a6b5;
+    --blue: #7aa2f7;
+    --cyan: #7dcfff;
+    --cyanBright: #b4f9f8;
+    --purple: #bb9af7;
+    --pink: #f7768e;
+    --silverDim: rgb(111,119,148);
+    --silver: rgb(200,211,234);
+    --silverHi: rgb(230,236,250);
+    --greenSoft: #5ec27e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.65 -apple-system, "SF Pro Text", "JetBrainsMono Nerd Font", ui-monospace, monospace;
+  }
+  body {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 32px 96px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+    color: var(--cyan);
+    letter-spacing: 0.5px;
+  }
+  h1::before { content: "❯ "; color: var(--cyan); }
+  .subtitle { color: var(--fgMuted); margin-bottom: 48px; font-size: 13px; }
+  h2 {
+    font-size: 18px;
+    margin: 48px 0 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--fgDim);
+    color: var(--cyanBright);
+  }
+  h3 {
+    font-size: 14px;
+    margin: 24px 0 10px;
+    color: var(--purple);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  p { color: var(--fgMuted); }
+  code, .mono {
+    font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--teal);
+    background: var(--bgAlt);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--bgAlt);
+    color: var(--fg);
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 2px solid var(--tealDark);
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  ul, ol { color: var(--fgMuted); padding-left: 22px; }
+  li { margin: 4px 0; }
+  li strong { color: var(--fg); font-weight: 600; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--fgDim);
+  }
+  th {
+    color: var(--cyan);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  td { color: var(--fgMuted); }
+  td.role { color: var(--fg); }
+  .swatch {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    vertical-align: -2px;
+    margin-right: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .hex { font-family: ui-monospace, monospace; color: var(--orange); }
+  .principles {
+    counter-reset: pcount;
+    list-style: none; padding: 0;
+  }
+  .principles li {
+    counter-increment: pcount;
+    padding: 10px 14px 10px 48px;
+    margin: 8px 0;
+    background: var(--bgCard);
+    border-left: 2px solid var(--cyan);
+    border-radius: 4px;
+    position: relative;
+  }
+  .principles li::before {
+    content: counter(pcount, decimal-leading-zero);
+    position: absolute;
+    left: 14px; top: 10px;
+    color: var(--cyan);
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+  }
+  .demo {
+    background: var(--bg);
+    border: 1px solid var(--fgDim);
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
+    font-size: 13px;
+    margin: 12px 0;
+  }
+  .demo .verb {
+    background: linear-gradient(90deg, var(--silverDim), var(--silverHi), var(--silverDim));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: wave 1.8s linear infinite;
+  }
+  @keyframes wave { from { background-position: 200% 0; } to { background-position: 0 0; } }
+  .demo .pulse {
+    color: var(--silverHi);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { color: var(--fgDim); }
+    50%      { color: var(--silverHi); }
+  }
+  .dim { color: var(--fgDim); }
+  .muted { color: var(--fgMuted); }
+  .cyan { color: var(--cyan); }
+  .green { color: var(--green); }
+  .purple { color: var(--purple); }
+  .orange { color: var(--orange); }
+  .blue { color: var(--blue); }
+  .teal { color: var(--tealDark); }
+  .red { color: var(--red); }
+  .greenSoft { color: var(--greenSoft); }
+  .pink { color: var(--pink); }
+  .invariant {
+    background: var(--bgCard);
+    border-left: 2px solid var(--red);
+    padding: 8px 14px;
+    margin: 6px 0;
+    color: var(--fgMuted);
+    border-radius: 3px;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card {
+    background: var(--bgCard);
+    border: 1px solid var(--fgDim);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .card h4 { margin: 0 0 6px; color: var(--cyan); font-size: 13px; }
+  .card p { margin: 0; font-size: 12.5px; }
+  .footer-note {
+    margin-top: 64px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--fgDim);
+    color: var(--fgDim);
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>pi-cyber-ui</h1>
+<div class="subtitle">Design Language · Tokyo Night cyber 派生 · 终端 TUI 沉淀</div>
+
+<p>克制、低饱和、有层级。每个颜色绑定一个语义角色；同一区域不出现两个相同色级；动效低频不抢戏。</p>
+
+<h2>1 · 设计原则</h2>
+<ol class="principles">
+  <li><strong>语义优先</strong>。颜色不是装饰，是状态/角色标签。<code>cyan</code> 仅留给主品牌 / 当前焦点 / 进度主调。</li>
+  <li><strong>层级唯一</strong>。同一行/区域不重复同色级。读 → 看 → 操作三层视觉权重必须有明显落差。</li>
+  <li><strong>克制动效</strong>。动效服务于"还在跑"的信号，不喧宾夺主。呼吸/letter-wave 周期 ≥ 1.8s，不闪。</li>
+  <li><strong>可降级</strong>。宽度不足时从右向左丢段；颜色失败回落到 <code>fg</code>/<code>fgDim</code>；不依赖 24-bit color 的形状/语义。</li>
+  <li><strong>设计先行</strong>。UI 改动先写 HTML mock，review 通过再落 code。</li>
+</ol>
+
+<h2>2 · 调色板</h2>
+<p>源自 <code>themes/cyber-ui-dark.json</code>。</p>
+
+<h3>2.1 Base</h3>
+<table>
+  <thead><tr><th>token</th><th>hex</th><th>角色</th></tr></thead>
+  <tbody>
+    <tr><td><span class="swatch" style="background:#0a0a0d"></span><code>bg</code></td><td class="hex">#0a0a0d</td><td class="role">主背景</td></tr>
+    <tr><td><span class="swatch" style="background:#1f2335"></span><code>bgAlt</code></td><td class="hex">#1f2335</td><td class="role">用户消息底</td></tr>
+    <tr><td><span class="swatch" style="background:#33467c"></span><code>bgSelection</code></td><td class="hex">#33467c</td><td class="role">选区</td></tr>
+    <tr><td><span class="swatch" style="background:#c0caf5"></span><code>fg</code></td><td class="hex">#c0caf5</td><td class="role">主文本</td></tr>
+    <tr><td><span class="swatch" style="background:#a9b1d6"></span><code>fgMuted</code></td><td class="hex">#a9b1d6</td><td class="role">次文本</td></tr>
+    <tr><td><span class="swatch" style="background:#565f89"></span><code>fgDim</code></td><td class="hex">#565f89</td><td class="role">边框 / 弱信息</td></tr>
+  </tbody>
+</table>
+
+<h3>2.2 Accent — 一色一职</h3>
+<table>
+  <thead><tr><th>token</th><th>hex</th><th>唯一角色</th></tr></thead>
+  <tbody>
+    <tr><td><span class="swatch" style="background:#7dcfff"></span><code>cyan</code></td><td class="hex">#7dcfff</td><td class="role">品牌 / 主进度 / 焦点</td></tr>
+    <tr><td><span class="swatch" style="background:#b4f9f8"></span><code>cyanBright</code></td><td class="hex">#b4f9f8</td><td class="role">强调（少用）</td></tr>
+    <tr><td><span class="swatch" style="background:#7aa2f7"></span><code>blue</code></td><td class="hex">#7aa2f7</td><td class="role">tool: ls · 链接 · function 名</td></tr>
+    <tr><td><span class="swatch" style="background:#41a6b5"></span><code>tealDark</code></td><td class="hex">#41a6b5</td><td class="role">tool: grep/find · 引用边 · minimal thinking</td></tr>
+    <tr><td><span class="swatch" style="background:#4fd6be"></span><code>teal</code></td><td class="hex">#4fd6be</td><td class="role">code 内联 · context bar 起点</td></tr>
+    <tr><td><span class="swatch" style="background:#bb9af7"></span><code>purple</code></td><td class="hex">#bb9af7</td><td class="role">tool: edit/write · keyword · customLabel</td></tr>
+    <tr><td><span class="swatch" style="background:#9ece6a"></span><code>green</code></td><td class="hex">#9ece6a</td><td class="role">diff added · 字符串</td></tr>
+    <tr><td><span class="swatch" style="background:#5ec27e"></span><code>greenSoft</code></td><td class="hex">#5ec27e</td><td class="role">tool done 状态符 <code>╴</code></td></tr>
+    <tr><td><span class="swatch" style="background:#e0af68"></span><code>orange</code></td><td class="hex">#e0af68</td><td class="role">tool: bash · number · warning</td></tr>
+    <tr><td><span class="swatch" style="background:#f7768e"></span><code>red / pink</code></td><td class="hex">#f7768e</td><td class="role">error · xhigh thinking</td></tr>
+  </tbody>
+</table>
+
+<h3>2.3 Silver — 仅 working line 局部</h3>
+<p>不进 theme.json，是 <code>working.ts</code> 局部 const。其余 UI 不得使用，避免泛滥。</p>
+<table>
+  <thead><tr><th>token</th><th>rgb</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr><td><span class="swatch" style="background:rgb(111,119,148)"></span><code>silverDim</code></td><td class="hex">111,119,148</td><td class="role">呼吸谷 · 字符波静止</td></tr>
+    <tr><td><span class="swatch" style="background:rgb(200,211,234)"></span><code>silver</code></td><td class="hex">200,211,234</td><td class="role">呼吸中位</td></tr>
+    <tr><td><span class="swatch" style="background:rgb(230,236,250)"></span><code>silverHi</code></td><td class="hex">230,236,250</td><td class="role">呼吸峰 · 字符波高亮</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · 区域规范</h2>
+
+<h3>3.1 Editor</h3>
+<ul>
+  <li>形态：纯 prompt glyph <code>❯</code> + border。</li>
+  <li>不嵌 HUD。所有动态状态外移到 working line / footer。</li>
+  <li>文件：<code>cyber-editor.ts</code> · <code>editor.ts</code> · <code>editor-state.ts</code>（共享 <code>cyberState</code> 单例）。</li>
+</ul>
+
+<h3>3.2 Working line（运行中）</h3>
+<div class="demo">
+  <span class="pulse">●</span>
+  <span class="verb">Reasoning...</span>
+  <span class="dim">(</span><span class="muted">12s</span>
+  <span class="dim">·</span> <span class="dim">↑45k</span> <span class="muted">↓1.5k</span>
+  <span class="dim">·</span> <span class="cyan">182 tps</span>
+  <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
+</div>
+
+<table>
+  <thead><tr><th>元素</th><th>规则</th></tr></thead>
+  <tbody>
+    <tr><td>spinner</td><td><code>●</code> 静形不变；32 帧 cosine 呼吸；周期 2400ms；<code>fgDim ↔ silverHi</code>；FRAME 75ms；MESSAGE refresh 16ms。</td></tr>
+    <tr><td>verb</td><td><code>paintLetterWave</code> 字符波；周期 1800ms；120ms/char delay；peak 32%；<code>fgMuted ↔ silverHi</code>；无 bold。</td></tr>
+    <tr><td>verb 池</td><td>20 词，多语言（EN/ES/FR/IT/DE/Latin），统一 9 字符宽避免抖动；<code>VERB_ROTATE_MS = 8_000</code>。</td></tr>
+    <tr><td>label</td><td><code>&lt;verb&gt;...</code> 固定宽度 <code>padWorkingLabel</code>。</td></tr>
+    <tr><td>metrics</td><td>第一段后括号内分组：<code>(elapsed · tokens · tps · turn)</code>。</td></tr>
+    <tr><td>elapsed</td><td><code>&lt;60s</code> 整秒 <code>Ns</code>；<code>&gt;=60s</code> 用 <code>m:ss</code>。无 ms / 小数。</td></tr>
+    <tr><td>tokens</td><td><code>↑in</code> = <span class="dim">dim</span> · <code>↓out</code> = <span class="muted">muted</span>。无颜色语义。</td></tr>
+    <tr><td>tps</td><td>&gt;300 <span class="green">green</span> / &gt;150 <span class="cyan">cyan</span> / &gt;50 <span class="orange">orange</span> / 其他 <span class="red">red</span>。算法不变（cumulative）。</td></tr>
+    <tr><td>turn</td><td><code>󰄉 N</code> 用 <span class="dim">dim</span>，低优先级。</td></tr>
+    <tr><td>降级</td><td><code>fitSegments</code> 按 importance 从右向左丢。</td></tr>
+    <tr><td>取消提示</td><td>10s 后追加 <span class="dim">esc to cancel</span>。</td></tr>
+  </tbody>
+</table>
+
+<h3>3.3 Idle summary（aboveEditor widget）</h3>
+<div class="demo">
+  <span class="green" style="font-weight:600">✓</span>
+  <span class="muted">done</span>
+  <span class="dim">·</span> <span class="muted">2:14</span>
+  <span class="dim">·</span> <span class="muted">↑45k ↓3.2k</span>
+  <span class="dim">·</span> <span class="muted">156 tps</span>
+</div>
+<ul>
+  <li>仅在 <code>agent_end</code> 后展示，下次 prompt 开始清除。</li>
+  <li><code>✓</code> green bold；其余 muted。<strong>不显示 tool 成功/失败 tally</strong>。</li>
+  <li><code>lastSummary</code> 仅当 <code>event.reason === "reload"</code> 复用；跨 session 清空。</li>
+</ul>
+
+<h3>3.4 Tool rendering</h3>
+<p>覆盖 <code>read / bash / edit / write / grep / find / ls</code>；<code>renderShell: "default"</code>；保留内置 <code>promptSnippet/promptGuidelines</code>（<code>...initial.&lt;tool&gt;</code> spread）。</p>
+
+<div class="grid2">
+  <div class="card">
+    <h4>状态符</h4>
+    <p>
+      running: spinner（120ms）· tool 语义色<br>
+      done: <span class="greenSoft">╴</span> <code>greenSoft #5ec27e</code><br>
+      error: <span class="red">✗</span> red
+    </p>
+  </div>
+  <div class="card">
+    <h4>语义分色（头）</h4>
+    <p>
+      <span class="cyan">read</span> ·
+      <span class="orange">bash</span> ·
+      <span class="purple">edit / write</span> ·
+      <span class="teal">grep / find</span> ·
+      <span class="blue">ls</span>
+    </p>
+  </div>
+</div>
+
+<div class="demo">
+  <span class="cyan">╴ read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="dim">· 573 lines · 12ms</span><br>
+  <span class="purple">╴ edit</span> <span style="color:var(--fg);font-weight:600">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">· 84ms</span><br>
+  <span class="orange">╴ bash</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="dim">· 2.4s</span>
+</div>
+
+<ul>
+  <li>折叠 summary，<code>ctrl+o</code> 展开。</li>
+  <li>duration 来自 <code>tool-registry</code>：<code>startedAt → endedAt</code>；<code>write</code> 从 args streaming 起算（<code>ctx.state.writeArgsStartedAt</code>）。</li>
+  <li>spinner phase 基于 <code>registry.getEntry(id).startedAt</code>，全局 120ms tick。</li>
+  <li><code>edit</code> 解析 unified diff，仅前两行 <code>--- / +++</code> 视作 header；显示 <code>+N ~N −N</code>。</li>
+  <li>grep/find 空结果显示 <code>0 matches/files</code>。</li>
+  <li><code>write</code> header streaming 期保留 <code>+N lines</code> hint；sum 行存 <code>formatSize(bytes)</code> 兜底 reload。</li>
+  <li>primary arg <code>fg</code>；path basename <code>fg+bold</code>；<code>~</code> 保留 <span style="color:#ff6ec7">hotPink</span>。</li>
+</ul>
+
+<h3>3.5 Footer</h3>
+<p><strong>左</strong>：modelLabel · thinking · context &nbsp;|&nbsp; <strong>右</strong>：path · git · 扩展 statuses / +N</p>
+<table>
+  <thead><tr><th>段</th><th>规则</th></tr></thead>
+  <tbody>
+    <tr><td>path</td><td>basename <code>fg+bold</code>；<code>~</code> hotPink；<code>shortenPathToWidth</code> 自适应。</td></tr>
+    <tr><td>git</td><td>仅 dirty count <code>\uf126~N</code>（紧贴无空格）。无 branch name。异步缓存，<code>agent_end</code> 强刷；<code>try/catch + disposed</code> 防 stale ctx。</td></tr>
+    <tr><td>context bar</td><td>&lt;55% <code>mdCode/teal</code> → <span class="cyan">cyan</span> → <span class="orange">orange</span> → <span class="red">red</span> 梯度。</td></tr>
+    <tr><td>thinking</td><td>off=<code>thinkingOff</code> · minimal=<span class="teal">tealDark</span> · low=<span class="blue">blue</span> · medium=<span class="cyan">cyan</span> · high=<span class="purple">purple</span> · xhigh=<span class="pink">pink</span>+bold；high 及以上彩虹。</td></tr>
+    <tr><td>fold</td><td><code>fitStatusText</code> 把 git/thinking/context/path/扩展 statuses 全计入折叠 <code>+N</code>。</td></tr>
+  </tbody>
+</table>
+
+<h3>3.6 Editor 全局</h3>
+<ul>
+  <li><code>terminal.showImages = false</code>：避免内联图片撑高，LLM 仍能收到内容。</li>
+</ul>
+
+<h2>4 · 动效节拍</h2>
+<table>
+  <thead><tr><th>元素</th><th>周期</th><th>帧间隔</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>working spinner pulse</td><td>2400ms</td><td>75ms × 32 帧</td><td>cosine 呼吸</td></tr>
+    <tr><td>working verb wave</td><td>1800ms</td><td>120ms / char</td><td>raised cosine · 4:3 错相 spinner</td></tr>
+    <tr><td>working message refresh</td><td>—</td><td>16ms</td><td>~60fps，承载动画</td></tr>
+    <tr><td>verb 轮换</td><td>8000ms</td><td>—</td><td>多语 20 词</td></tr>
+    <tr><td>tool spinner</td><td>—</td><td>120ms tick</td><td>全局 registry tick</td></tr>
+    <tr><td>footer dirty refresh</td><td>—</td><td>cache + agent_end 强刷</td><td>异步</td></tr>
+  </tbody>
+</table>
+
+<h2>5 · 文件地图</h2>
+<pre><code>extensions/pi-cyber-ui/
+  index.ts          # 注册顺序：tool-registry → tool-render → footer → editor → working
+  editor-state.ts   # cyberState 单例（token/tps/turn）
+  cyber-editor.ts   # ❯ + border，纯净
+  editor.ts         # editor 注入
+  working.ts        # working line + idle summary
+  footer.ts         # 左右双栏 + fold
+  tool-registry.ts  # 工具运行态 + duration（runningIds 优化）
+  tool-render.ts    # 7 个工具 compact renderer
+  path-utils.ts     # shortenPathToWidth / stylePath / homeRelative
+
+themes/cyber-ui-dark.json
+design/DESIGN.html  # 本文档</code></pre>
+
+<h2>6 · 不变量</h2>
+<div class="invariant">① TPS 算法（cumulative）和 token 计算逻辑 — <strong>不动</strong>。</div>
+<div class="invariant">② 注册顺序：<code>editor(pi)</code> 必须在 <code>working(pi)</code> 之前（producer → consumer）。</div>
+<div class="invariant">③ 工具内置 <code>promptSnippet / promptGuidelines</code> 必须 spread 保留。</div>
+<div class="invariant">④ 不在 working line 重复展示工具运行（HUD 已有）。</div>
+<div class="invariant">⑤ <code>cyan</code> 不下放到普通文本/路径/工具状态符。</div>
+<div class="invariant">⑥ silver 系仅限 working line 内部使用。</div>
+<div class="invariant">⑦ 不引入二进制串 / emoji 串 / CSS gradient 类视觉噱头。</div>
+
+<h2>7 · 流程</h2>
+<ol>
+  <li>UI 改动 → 先写/改 design HTML mock。</li>
+  <li>用户 review HTML → 确认。</li>
+  <li>落 code，<code>npm run typecheck</code>。</li>
+  <li>版本：<code>npm version patch --no-git-tag-version</code>。</li>
+  <li>不创建 git tag；不要 <code>npm pack</code>。</li>
+</ol>
+
+<div class="footer-note">pi-cyber-ui · design language v1 · 浏览器直接打开此文件即可阅读</div>
+
+</body>
+</html>
