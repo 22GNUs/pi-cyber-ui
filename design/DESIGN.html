@@ -273,7 +273,7 @@
   <span class="verb">Reasoning...</span>
   <span class="dim">(</span><span class="muted">12s</span>
   <span class="dim">·</span> <span class="dim">↑45k</span> <span class="muted">↓1.5k</span>
-  <span class="dim">·</span> <span class="cyan">182 tps</span>
+  <span class="dim">·</span> <span class="green">182 tps</span>
   <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
 </div>
 
@@ -287,7 +287,7 @@
     <tr><td>metrics</td><td>第一段后括号内分组：<code>(elapsed · tokens · tps · turn)</code>。</td></tr>
     <tr><td>elapsed</td><td><code>&lt;60s</code> 整秒 <code>Ns</code>；<code>&gt;=60s</code> 用 <code>m:ss</code>。无 ms / 小数。</td></tr>
     <tr><td>tokens</td><td><code>↑in</code> = <span class="dim">dim</span> · <code>↓out</code> = <span class="muted">muted</span>。无颜色语义。</td></tr>
-    <tr><td>tps</td><td>&gt;300 <span class="green">green</span> / &gt;150 <span class="cyan">cyan</span> / &gt;50 <span class="orange">orange</span> / 其他 <span class="red">red</span>。算法不变（cumulative）。</td></tr>
+    <tr><td>tps</td><td>&lt;60 <span class="red">red</span> / 60–99 <span class="orange">orange</span> / 100–149 <span class="cyan">cyan</span> / ≥150 <span class="green">green</span>。算法不变（cumulative）；保留最低档 red，不使用 dim。</td></tr>
     <tr><td>turn</td><td><code>󰄉 N</code> 用 <span class="dim">dim</span>，低优先级。</td></tr>
     <tr><td>降级</td><td><code>fitSegments</code> 按 importance 从右向左丢。</td></tr>
     <tr><td>取消提示</td><td>10s 后追加 <span class="dim">esc to cancel</span>。</td></tr>
