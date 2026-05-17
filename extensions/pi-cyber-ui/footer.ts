@@ -17,7 +17,103 @@ const ICONS = {
   // Nerd Font: nf-fa-code-branch (U+F126). Encoded via \u escape so it
   // survives source-edit round-trips that may strip non-ASCII glyphs.
   branch: "\uf126",
+  // Nerd Font: nf-fa-bolt (U+F0E7). Cache hit “spark” glyph.
+  cache: "\uf0e7",
 };
+
+// Cache hit-rate gradient. Higher = better. Unified 5-tier palette across
+// TPS / context / cache: green=exceptional · teal=good · cyan=ok ·
+// orange=warn · red=bad. cache is direction-inverse of context.
+const CACHE_PERCENT_COLORS: readonly { min: number; color: ThemeColor }[] = [
+  { min: 95, color: "toolDiffAdded" }, // green
+  { min: 85, color: "mdCode" },        // teal
+  { min: 60, color: "accent" },        // cyan
+  { min: 30, color: "warning" },       // orange
+  { min: 0, color: "error" },          // red
+];
+
+function colorForCachePercent(percent: number): ThemeColor {
+  for (const step of CACHE_PERCENT_COLORS) {
+    if (percent >= step.min) return step.color;
+  }
+  return "error";
+}
+
+// Latest cache hit-rate, updated on every assistant message_end. Single
+// module-level slot is enough — pi shows one active session in the TUI at a
+// time, and the footer factory reads on each render(). Reset on context
+// reset events (session_start / session_compact / session_tree / model_select)
+// so a fresh context never inherits a stale value.
+let latestCacheHit: number | null = null;
+// Successful assistant turns observed since the last context reset. Used to
+// suppress the cold-start "0%" that always shows on the first turn after a
+// reset (no prior prefix has been cached server-side yet).
+let assistantTurnsSinceReset = 0;
+const footerRenderListeners = new Set<() => void>();
+
+function notifyFooterRenderListeners(): void {
+  for (const fn of footerRenderListeners) {
+    try {
+      fn();
+    } catch {
+      // listeners are best-effort poke-renders; ignore stale ctx errors.
+    }
+  }
+}
+
+function setLatestCacheHit(value: number | null): void {
+  if (latestCacheHit === value) return;
+  latestCacheHit = value;
+  notifyFooterRenderListeners();
+}
+
+function resetCacheTracking(): void {
+  assistantTurnsSinceReset = 0;
+  setLatestCacheHit(null);
+}
+
+function usageToken(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return 0;
+  return value;
+}
+
+function recordAssistantUsage(usage: unknown): void {
+  if (!usage || typeof usage !== "object") {
+    setLatestCacheHit(null);
+    return;
+  }
+  const u = usage as Record<string, unknown>;
+  const input = usageToken(u.input);
+  const cacheRead = usageToken(u.cacheRead);
+  const cacheWrite = usageToken(u.cacheWrite);
+  const denom = input + cacheRead + cacheWrite;
+  if (denom <= 0) {
+    setLatestCacheHit(null);
+    return;
+  }
+  // Server actually processed the prompt → prefix is now cached. Count this
+  // turn even if cacheRead is 0 so the next turn passes the cold-start gate.
+  assistantTurnsSinceReset += 1;
+  // Cold-start gate: first assistant turn after a context reset has no prior
+  // prefix to read from, so cacheRead==0 is structurally guaranteed and a 0%
+  // readout is just noise. Hide it. If the provider reports a non-zero hit
+  // (e.g. --continue with a still-warm Anthropic prompt cache), show it.
+  if (assistantTurnsSinceReset < 2 && cacheRead <= 0) {
+    setLatestCacheHit(null);
+    return;
+  }
+  setLatestCacheHit((cacheRead / denom) * 100);
+}
+
+function renderCache(theme: Theme, percent: number | null): string {
+  if (percent === null || !Number.isFinite(percent)) return "";
+  const clamped = Math.max(0, Math.min(100, percent));
+  const color = colorForCachePercent(clamped);
+  const icon = theme.fg("dim", ICONS.cache);
+  const num = theme.fg(color, `${Math.round(clamped)}`);
+  const sign = theme.fg("dim", "%");
+  return `${icon} ${num}${sign}`;
+}
 
 // True spectrum, no hue duplicates. The previous palette repeated `accent`
 // and `success` (both cyan in this theme) and ended on `muted`, so "high"
@@ -32,16 +128,15 @@ const THINKING_HIGH_COLORS: readonly ThemeColor[] = [
   "error",          // red
 ];
 
-// Context-window heat. Low band uses teal (`mdCode`) instead of grass
-// green — the saturated #9ece6a read as a botanical accent against the
-// cyber theme, while teal sits naturally next to cyan and feels like a
-// cooler "all clear" signal. Resulting gradient: teal → cyan → orange →
-// red, all cool-to-warm with no hue collision.
+// Context-window heat. Unified 5-tier palette across TPS / context / cache:
+// green=exceptional · teal=good · cyan=ok · orange=warn · red=bad. Context
+// is lower=better, so green sits at the very low end.
 const CONTEXT_PERCENT_COLORS: readonly { max: number; color: ThemeColor }[] = [
-  { max: 55, color: "mdCode" },
-  { max: 75, color: "accent" },
-  { max: 90, color: "warning" },
-  { max: Number.POSITIVE_INFINITY, color: "error" },
+  { max: 30, color: "toolDiffAdded" }, // green
+  { max: 55, color: "mdCode" },        // teal
+  { max: 75, color: "accent" },        // cyan
+  { max: 90, color: "warning" },       // orange
+  { max: Number.POSITIVE_INFINITY, color: "error" }, // red
 ];
 
 const KNOWN_THINKING_LEVELS = new Set([
@@ -56,7 +151,6 @@ const KNOWN_THINKING_LEVELS = new Set([
 const SEP = " ∷ ";
 const DIRTY_REFRESH_MS = 10_000;
 const DIRTY_TIMEOUT_MS = 800;
-const FOOTER_REFRESH_STATUS_KEY = "cyber-ui:footer-refresh";
 
 // ---------------------------------------------------------------------------
 // Tiny helpers reused from v1 footer
@@ -365,6 +459,7 @@ interface LineParts {
   modelLabel: string;
   thinking: string;
   context: string;
+  cache: string;
   statusTexts: string[];
 }
 
@@ -418,17 +513,45 @@ function renderLine(width: number, theme: Theme, parts: LineParts): string {
     return compose(leftParts, rightParts);
   };
 
+  const cacheHidden = countIfVisible(parts.cache);
   const contextHidden = countIfVisible(parts.context);
   const thinkingHidden = countIfVisible(parts.thinking);
   const gitHidden = countIfVisible(parts.git);
   const pathHidden = countIfVisible(parts.path);
 
+  // Fold priority (drop first → keep last):
+  // cache → context → thinking → git → path → modelLabel.
   return (
-    tryLayout([parts.modelLabel, parts.thinking, parts.context], [parts.path, parts.git], 0) ??
-    tryLayout([parts.modelLabel, parts.thinking], [parts.path, parts.git], contextHidden) ??
-    tryLayout([parts.modelLabel, parts.thinking], [parts.path], contextHidden + gitHidden) ??
-    tryLayout([parts.modelLabel], [parts.path], contextHidden + thinkingHidden + gitHidden) ??
-    tryLayout([parts.modelLabel], [], contextHidden + thinkingHidden + gitHidden + pathHidden) ??
+    tryLayout(
+      [parts.modelLabel, parts.thinking, parts.context, parts.cache],
+      [parts.path, parts.git],
+      0,
+    ) ??
+    tryLayout(
+      [parts.modelLabel, parts.thinking, parts.context],
+      [parts.path, parts.git],
+      cacheHidden,
+    ) ??
+    tryLayout(
+      [parts.modelLabel, parts.thinking],
+      [parts.path, parts.git],
+      cacheHidden + contextHidden,
+    ) ??
+    tryLayout(
+      [parts.modelLabel, parts.thinking],
+      [parts.path],
+      cacheHidden + contextHidden + gitHidden,
+    ) ??
+    tryLayout(
+      [parts.modelLabel],
+      [parts.path],
+      cacheHidden + contextHidden + thinkingHidden + gitHidden,
+    ) ??
+    tryLayout(
+      [parts.modelLabel],
+      [],
+      cacheHidden + contextHidden + thinkingHidden + gitHidden + pathHidden,
+    ) ??
     truncateToWidth(parts.modelLabel, width)
   );
 }
@@ -447,6 +570,7 @@ interface CacheKey {
   thinkingLevel: string;
   usedTokens: number | null;
   contextWindow: number;
+  cacheHit: number | null;
   statusSignature: string;
   statusCount: number;
 }
@@ -463,6 +587,7 @@ function cacheKeyEquals(a: CacheKey | undefined, b: CacheKey): boolean {
     a.thinkingLevel === b.thinkingLevel &&
     a.usedTokens === b.usedTokens &&
     a.contextWindow === b.contextWindow &&
+    a.cacheHit === b.cacheHit &&
     a.statusSignature === b.statusSignature &&
     a.statusCount === b.statusCount
   );
@@ -478,7 +603,7 @@ function attachFooter(
 ): void {
   const cwd = ctx.cwd;
   ctx.ui.setFooter(
-    (_tui, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
+    (tui, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
       let cachedKey: CacheKey | undefined;
       let cachedLines: string[] | undefined;
       let disposed = false;
@@ -486,10 +611,9 @@ function attachFooter(
       const pokeRender = () => {
         if (disposed) return;
         try {
-          // Footer render cache is internal to the custom component. Poking an
-          // empty status key triggers pi's requestRender() without adding visible
-          // content, so async git updates are reflected while idle.
-          ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
+          // Footer render cache is internal to this custom component. Async
+          // updates must explicitly ask the TUI to redraw while pi is idle.
+          tui.requestRender();
         } catch {
           // Session reload/replacement can stale captured ctx before async git
           // callbacks settle. Ignore: next session attaches a fresh footer.
@@ -509,6 +633,9 @@ function attachFooter(
       refreshDirty(cwd, invalidate);
       const dirtyTimer = setInterval(() => refreshDirty(cwd, invalidate), DIRTY_REFRESH_MS);
       if (typeof dirtyTimer.unref === "function") dirtyTimer.unref();
+
+      // Cache/git updates flow through module-level listeners → this component.
+      footerRenderListeners.add(invalidate);
 
       const unsubBranch = footerData.onBranchChange(() => {
         if (disposed) return;
@@ -542,6 +669,7 @@ function attachFooter(
           const dirty = getCachedDirty(cwd);
           const usedTokens = usage?.tokens ?? null;
           const contextWindow = usage?.contextWindow ?? model?.contextWindow ?? 0;
+          const cacheHit = latestCacheHit;
           const statusInfo = getStatusInfo(theme, footerData);
 
           const key: CacheKey = {
@@ -554,6 +682,7 @@ function attachFooter(
             thinkingLevel,
             usedTokens,
             contextWindow,
+            cacheHit,
             statusSignature: statusInfo.signature,
             statusCount: statusInfo.texts.length,
           };
@@ -572,6 +701,7 @@ function attachFooter(
           );
           const thinking = thinkingText(theme, thinkingLevel);
           const context = contextText(theme, usedTokens, contextWindow);
+          const cache = renderCache(theme, cacheHit);
 
           cachedLines = [
             renderLine(width, theme, {
@@ -580,6 +710,7 @@ function attachFooter(
               modelLabel,
               thinking,
               context,
+              cache,
               statusTexts: statusInfo.texts,
             }),
           ];
@@ -590,6 +721,7 @@ function attachFooter(
           disposed = true;
           unsubBranch();
           clearInterval(dirtyTimer);
+          footerRenderListeners.delete(invalidate);
         },
       };
     },
@@ -603,11 +735,29 @@ export default function footer(pi: ExtensionAPI) {
   };
 
   pi.on("session_start", async (_event, ctx) => {
+    // Fresh session must not inherit prior cache hit-rate or turn count.
+    resetCacheTracking();
     try {
       if (!ctx.hasUI) return;
       attachFooter(ctx, getThinkingLevel);
     } catch {
       // ctx may already be stale during reload teardown; next session attaches.
+    }
+  });
+
+  // Context-reset events that invalidate the cache prefix. session_before_switch
+  // is intentionally not hooked: it can be cancelled, and the post-switch
+  // session_start handler above resets unconditionally.
+  pi.on("session_compact", async () => resetCacheTracking());
+  pi.on("session_tree", async () => resetCacheTracking());
+  pi.on("model_select", async () => resetCacheTracking());
+
+  pi.on("message_end", async (event) => {
+    try {
+      if (event.message.role !== "assistant") return;
+      recordAssistantUsage((event.message as { usage?: unknown }).usage);
+    } catch {
+      // Defensive: usage shape varies across providers.
     }
   });
 
@@ -618,18 +768,7 @@ export default function footer(pi: ExtensionAPI) {
     try {
       if (!ctx.hasUI) return;
       const cwd = ctx.cwd;
-      refreshDirty(
-        cwd,
-        () => {
-          try {
-            ctx.ui.setStatus(FOOTER_REFRESH_STATUS_KEY, undefined);
-          } catch {
-            // ctx may be stale if session was reloaded/replaced while git status
-            // command was in flight. Fresh session will refresh its own footer.
-          }
-        },
-        true,
-      );
+      refreshDirty(cwd, notifyFooterRenderListeners, true);
     } catch {
       // Ignore stale ctx during reload/session replacement.
     }

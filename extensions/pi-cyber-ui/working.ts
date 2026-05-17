@@ -36,6 +36,7 @@ const C = {
   fgMuted: [169, 177, 214] as RGB,
   fgDim: [86, 95, 137] as RGB,
   cyan: [125, 207, 255] as RGB,
+  teal: [79, 214, 190] as RGB,
   green: [158, 206, 106] as RGB,
   orange: [224, 175, 104] as RGB,
   red: [247, 118, 142] as RGB,
@@ -115,8 +116,11 @@ function paintLetterWave(text: string): string {
 
 /** TPS grading. Higher rate → more positive colour; algorithm unchanged. */
 function tpsColor(v: number): RGB {
+  // Unified 5-tier palette: green=exceptional · teal=good · cyan=ok ·
+  // orange=warn · red=bad. TPS skips the cyan "ok" band so the jump from
+  // good to exceptional still reads as a clear breakthrough.
   if (v >= 100) return C.green;
-  if (v >= 60) return C.cyan;
+  if (v >= 60) return C.teal;
   if (v >= 30) return C.orange;
   return C.red;
 }
