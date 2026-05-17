@@ -19,16 +19,26 @@ const ICONS = {
   branch: "\uf126",
 };
 
+// True spectrum, no hue duplicates. The previous palette repeated `accent`
+// and `success` (both cyan in this theme) and ended on `muted`, so "high"
+// looked half cyan, half gray. Now each slot is a distinct hue: cyan →
+// teal → purple → orange → red — a clean cool-to-warm sweep that reads
+// as escalating intensity rather than a random colour mix.
 const THINKING_HIGH_COLORS: readonly ThemeColor[] = [
-  "accent",
-  "success",
-  "warning",
-  "error",
-  "muted",
+  "accent",         // cyan
+  "mdCode",         // teal
+  "syntaxKeyword",  // purple
+  "warning",        // orange
+  "error",          // red
 ];
 
+// Context-window heat. Low band uses teal (`mdCode`) instead of grass
+// green — the saturated #9ece6a read as a botanical accent against the
+// cyber theme, while teal sits naturally next to cyan and feels like a
+// cooler "all clear" signal. Resulting gradient: teal → cyan → orange →
+// red, all cool-to-warm with no hue collision.
 const CONTEXT_PERCENT_COLORS: readonly { max: number; color: ThemeColor }[] = [
-  { max: 55, color: "success" },
+  { max: 55, color: "mdCode" },
   { max: 75, color: "accent" },
   { max: 90, color: "warning" },
   { max: Number.POSITIVE_INFINITY, color: "error" },
@@ -89,9 +99,11 @@ function formatModelLabel(model: { name?: string; id: string } | undefined): str
 
 function thinkingText(theme: Theme, level: string): string {
   const normalized = normalizeThinkingLevel(level);
-  if (normalized === "high" || normalized === "xhigh") {
-    return rainbow(theme, normalized);
-  }
+  // xhigh distinguishes itself from high via bold weight on the same
+  // rainbow palette — keeps the spectrum consistent while still showing
+  // "one notch above high".
+  if (normalized === "xhigh") return theme.bold(rainbow(theme, normalized));
+  if (normalized === "high") return rainbow(theme, normalized);
   switch (normalized) {
     case "off":
       return theme.fg("thinkingOff", normalized);
