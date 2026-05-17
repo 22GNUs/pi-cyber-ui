@@ -12,7 +12,7 @@
  *
  * Color & shape align with `themes/cyber-ui-dark.json`.
  */
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import {
   createBashToolDefinition,
   createEditToolDefinition,
@@ -34,8 +34,17 @@ interface RenderCtx {
   invalidate: () => void;
   isPartial: boolean;
   isError: boolean;
-  expanded: boolean;
   state: Record<string, unknown>;
+}
+
+interface TextContent {
+  type: string;
+  text?: string;
+}
+
+interface ToolResultLike {
+  content?: readonly TextContent[];
+  details?: unknown;
 }
 
 /**
@@ -51,22 +60,17 @@ interface RenderCtx {
  *   find   teal    — search / query
  *   ls     blue    — structure / listing
  */
-type ToolNameColor =
-  | "accent"
-  | "warning"
-  | "syntaxKeyword"
-  | "mdCode"
-  | "toolTitle";
+type ToolNameColor = Extract<
+  ThemeColor,
+  "accent" | "warning" | "syntaxKeyword" | "mdCode" | "toolTitle"
+>;
 
 // ---------------------------------------------------------------------------
 // Cyber palette (raw RGB, mirrors themes/cyber-ui-dark.json)
 // ---------------------------------------------------------------------------
 
-const ICON_GREEN = "\x1b[38;2;158;206;106m"; // green (reserved for done summary)
 const ICON_RED = "\x1b[38;2;247;118;142m"; // red
 const ICON_CYAN = "\x1b[38;2;125;207;255m"; // cyan
-const ICON_ORANGE = "\x1b[38;2;224;175;104m"; // orange
-const ICON_DIM = "\x1b[38;2;86;95;137m"; // fgDim
 // greenSoft (#5ec27e) — green #9ece6a darkened ~30%. Carries the "done"
 // semantic without the rainforest-green punch of the rainbow palette;
 // quiet enough to repeat across many tool rows without dominating.
@@ -138,7 +142,8 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
-function asText(content: { type: string; text?: string }[]): string {
+function asText(content: readonly TextContent[] | undefined): string {
+  if (!content) return "";
   for (const c of content) {
     if (c.type === "text" && typeof c.text === "string") return c.text;
   }
@@ -175,7 +180,7 @@ function statusIcon({ isPartial, isError, toolCallId }: StatusOptions): string {
 // ---------------------------------------------------------------------------
 
 interface HeaderOptions {
-  theme: any;
+  theme: Theme;
   toolName: string;
   /** Semantic colour for the tool name. Defaults to `toolTitle` (blue). */
   nameColor?: ToolNameColor;
@@ -207,15 +212,13 @@ function renderHeader({
 interface SummaryParts {
   /** Inline summary like "120 lines · 3.8KB" or "4 matches". Optional. */
   summary?: string;
-  /** Pass true to suppress automatic duration suffix. */
-  hideDuration?: boolean;
   /** Override visual timer start, used for tools whose args stream for a while before execution. */
   durationStartedAt?: number;
 }
 
 function renderSummaryLine(
   ctx: RenderCtx,
-  theme: any,
+  theme: Theme,
   parts: SummaryParts,
 ): string {
   toolRegistry.setInvalidate(ctx.toolCallId, ctx.invalidate);
@@ -245,16 +248,12 @@ function renderSummaryLine(
   if (parts.summary) {
     segments.push(theme.fg("muted", parts.summary));
   }
-  if (!parts.hideDuration && dur) {
+  if (dur) {
     segments.push(theme.fg("dim", dur));
   }
 
   // For empty (e.g. write success), keep just the icon.
   return segments.join("  ");
-}
-
-function emptyText(): Text {
-  return new Text("", 0, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -298,7 +297,7 @@ function defaultDefsForRegistration(): BuiltInDefs {
 // Per-tool summary helpers
 // ---------------------------------------------------------------------------
 
-function readSummary(result: any): string {
+function readSummary(result: ToolResultLike): string {
   const text = asText(result.content);
   if (!text) return "";
   const lines = text.split("\n").length;
@@ -306,7 +305,7 @@ function readSummary(result: any): string {
   return `${lines} lines · ${formatSize(bytes)}`;
 }
 
-function bashSummary(result: any): string {
+function bashSummary(result: ToolResultLike): string {
   const text = asText(result.content);
   const lines = text ? text.split("\n").length : 0;
   // Built-in bash details may include exitCode in details? Currently no. Try regex.
@@ -376,9 +375,11 @@ function parseEditDiff(diff: string): { added: number; modified: number; removed
   return { added, modified, removed };
 }
 
-function renderEditStats(theme: any, details: any): string {
-  if (!details || typeof details.diff !== "string") return "";
-  const { added, modified, removed } = parseEditDiff(details.diff);
+function renderEditStats(theme: Theme, details: unknown): string {
+  if (!details || typeof details !== "object" || !("diff" in details)) return "";
+  const { diff } = details;
+  if (typeof diff !== "string") return "";
+  const { added, modified, removed } = parseEditDiff(diff);
   if (added === 0 && modified === 0 && removed === 0) return "";
 
   const parts: string[] = [];
@@ -388,7 +389,7 @@ function renderEditStats(theme: any, details: any): string {
   return parts.join(" ");
 }
 
-function lineCountSummary(result: any, label: string): string {
+function lineCountSummary(result: ToolResultLike, label: string): string {
   const text = asText(result.content).trim();
   if (!text) return "";
   if (/^No matches found$/i.test(text)) return `0 ${label}`;
@@ -402,7 +403,7 @@ function lineCountSummary(result: any, label: string): string {
 // Expanded body renderer (shared)
 // ---------------------------------------------------------------------------
 
-function expandedBody(result: any, theme: any, opts?: { color?: string }): string {
+function expandedBody(result: ToolResultLike, theme: Theme, opts?: { color?: ThemeColor }): string {
   const text = asText(result.content);
   if (!text) return "";
   const color = opts?.color ?? "toolOutput";
@@ -413,9 +414,11 @@ function expandedBody(result: any, theme: any, opts?: { color?: string }): strin
     .join("\n");
 }
 
-function expandedDiff(details: any, theme: any): string {
-  if (!details || typeof details.diff !== "string") return "";
-  return details.diff
+function expandedDiff(details: unknown, theme: Theme): string {
+  if (!details || typeof details !== "object" || !("diff" in details)) return "";
+  const { diff } = details;
+  if (typeof diff !== "string") return "";
+  return diff
     .replace(/\n+$/, "")
     .split("\n")
     .map((line: string, index: number) => {
@@ -443,8 +446,6 @@ export default function toolRender(pi: ExtensionAPI) {
     ...initial.read,
     name: "read",
     label: "read",
-    description: initial.read.description,
-    parameters: initial.read.parameters,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return builtInDefs(ctx.cwd).read.execute(toolCallId, params, signal, onUpdate, ctx);
     },
@@ -488,8 +489,6 @@ export default function toolRender(pi: ExtensionAPI) {
     ...initial.bash,
     name: "bash",
     label: "bash",
-    description: initial.bash.description,
-    parameters: initial.bash.parameters,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return builtInDefs(ctx.cwd).bash.execute(toolCallId, params, signal, onUpdate, ctx);
     },
@@ -526,9 +525,6 @@ export default function toolRender(pi: ExtensionAPI) {
     ...initial.edit,
     name: "edit",
     label: "edit",
-    description: initial.edit.description,
-    parameters: initial.edit.parameters,
-    prepareArguments: initial.edit.prepareArguments,
     // Force the default boxed shell. The built-in edit definition uses
     // `renderShell: "self"` for its rich preview component; without this
     // override pi merges that field back in and the row loses its background
@@ -574,8 +570,6 @@ export default function toolRender(pi: ExtensionAPI) {
     ...initial.write,
     name: "write",
     label: "write",
-    description: initial.write.description,
-    parameters: initial.write.parameters,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return builtInDefs(ctx.cwd).write.execute(toolCallId, params, signal, onUpdate, ctx);
     },
@@ -629,8 +623,6 @@ export default function toolRender(pi: ExtensionAPI) {
     ...initial.grep,
     name: "grep",
     label: "grep",
-    description: initial.grep.description,
-    parameters: initial.grep.parameters,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return builtInDefs(ctx.cwd).grep.execute(toolCallId, params, signal, onUpdate, ctx);
     },
@@ -671,8 +663,6 @@ export default function toolRender(pi: ExtensionAPI) {
     ...initial.find,
     name: "find",
     label: "find",
-    description: initial.find.description,
-    parameters: initial.find.parameters,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return builtInDefs(ctx.cwd).find.execute(toolCallId, params, signal, onUpdate, ctx);
     },
@@ -710,8 +700,6 @@ export default function toolRender(pi: ExtensionAPI) {
     ...initial.ls,
     name: "ls",
     label: "ls",
-    description: initial.ls.description,
-    parameters: initial.ls.parameters,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return builtInDefs(ctx.cwd).ls.execute(toolCallId, params, signal, onUpdate, ctx);
     },
@@ -738,8 +726,4 @@ export default function toolRender(pi: ExtensionAPI) {
       return new Text(body ? `${head}\n${body}` : head, 0, 0);
     },
   });
-
-  // Suppress unused warning for icons we keep for future use.
-  void ICON_ORANGE;
-  void ICON_GREEN;
 }

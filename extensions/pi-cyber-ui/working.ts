@@ -36,20 +36,14 @@ const C = {
   fgMuted: [169, 177, 214] as RGB,
   fgDim: [86, 95, 137] as RGB,
   cyan: [125, 207, 255] as RGB,
-  cyanBright: [180, 249, 248] as RGB,
-  tealDark: [65, 166, 181] as RGB,
-  blue: [122, 162, 247] as RGB,
   green: [158, 206, 106] as RGB,
   orange: [224, 175, 104] as RGB,
   red: [247, 118, 142] as RGB,
-  // Silver palette — working line uses cool silver/white tones for a
-  // restrained, refined "server breathing-light" feel. Spinner stays in
-  // silver, verb letter-wave peaks in white. No cyan/pink in the working
-  // line proper; cyan reserved for the tps gradient and footer accents.
+  // Silver palette — working line uses cool silver tones for a restrained,
+  // refined "server breathing-light" feel. No cyan/pink in the working line
+  // proper; cyan is reserved for the tps gradient and footer accents.
   silverDim: [111, 119, 148] as RGB,
-  silver: [200, 211, 234] as RGB,
   silverHi: [230, 236, 250] as RGB,
-  white: [255, 255, 255] as RGB,
 };
 
 const RESET_FG = "\x1b[39m";
@@ -76,13 +70,13 @@ function mix(a: RGB, b: RGB, t: number): RGB {
 }
 
 /**
- * Letter-wave verb. Each character glows up to white in turn, with a
- * fixed per-character delay, like a slow ripple of light passing through
- * the word. Replaces the cyan-teal sweep which felt too "neon".
+ * Letter-wave verb. Each character glows up in turn, with a fixed
+ * per-character delay, like a slow ripple of light passing through the word.
+ * Replaces the cyan-teal sweep which felt too "neon".
  *
  * Design:
- *   base   = silverDim  (resting tone)
- *   peak   = white       (single-char highlight)
+ *   base   = fgMuted    (resting tone)
+ *   peak   = silverHi   (single-char highlight)
  *   period = 1800ms      (4:3 against the 2400ms spinner)
  *   delay  = 120ms / char
  *   peak phase = 32% of period (slightly past quarter, gives a forward feel)
@@ -144,7 +138,6 @@ const FRAME_INTERVAL_MS = 75;
 interface PulseFrame {
   glyph: string;
   color: RGB;
-  bold?: boolean;
 }
 
 const PULSE_FRAMES: readonly PulseFrame[] = (() => {
@@ -159,11 +152,14 @@ const PULSE_FRAMES: readonly PulseFrame[] = (() => {
   return frames;
 })();
 
-function applyWorkingIndicator(ctx: ExtensionContext): void {
-  if (!ctx.hasUI) return;
-  ctx.ui.setWorkingIndicator({
-    frames: PULSE_FRAMES.map((f) => paint(f.color, f.glyph, f.bold ?? false)),
-    intervalMs: FRAME_INTERVAL_MS,
+const PULSE_FRAME_TEXTS = PULSE_FRAMES.map((f) => paint(f.color, f.glyph));
+
+function applyWorkingIndicator(ctx: ExtensionContext): boolean {
+  return safeUi(ctx, () => {
+    ctx.ui.setWorkingIndicator({
+      frames: PULSE_FRAME_TEXTS,
+      intervalMs: FRAME_INTERVAL_MS,
+    });
   });
 }
 
@@ -195,7 +191,7 @@ const VERBS = [
   "Pensando.",
   "Ragionare",
   "Denkend..",
-  "Cogitans."
+  "Cogitans.",
 ] as const;
 
 const WORKING_LABEL_SUFFIX = "...";
@@ -439,18 +435,30 @@ function buildIdleSummary(summary: PromptSummary): string {
   return joinDim(parts);
 }
 
-function attachSummaryWidget(ctx: ExtensionContext, summary: PromptSummary): void {
-  if (!ctx.hasUI) return;
-  ctx.ui.setWidget(
-    WIDGET_KEY,
-    (_tui, _theme) => new Text(buildIdleSummary(summary), 0, 0),
-    { placement: "aboveEditor" },
-  );
+function safeUi(ctx: ExtensionContext, fn: () => void): boolean {
+  if (!ctx.hasUI) return true;
+  try {
+    fn();
+    return true;
+  } catch {
+    // Session reload/replacement can stale captured ctx before timers or
+    // deferred UI work settle. Fresh session will attach fresh UI state.
+    return false;
+  }
 }
 
-function clearSummaryWidget(ctx: ExtensionContext): void {
-  if (!ctx.hasUI) return;
-  ctx.ui.setWidget(WIDGET_KEY, undefined);
+function attachSummaryWidget(ctx: ExtensionContext, summary: PromptSummary): boolean {
+  return safeUi(ctx, () => {
+    ctx.ui.setWidget(
+      WIDGET_KEY,
+      (_tui, _theme) => new Text(buildIdleSummary(summary), 0, 0),
+      { placement: "aboveEditor" },
+    );
+  });
+}
+
+function clearSummaryWidget(ctx: ExtensionContext): boolean {
+  return safeUi(ctx, () => ctx.ui.setWidget(WIDGET_KEY, undefined));
 }
 
 // ---------------------------------------------------------------------------
@@ -469,8 +477,8 @@ const MESSAGE_REFRESH_MS = 16;
 
 let prompt: PromptState | undefined;
 
-function updateWorkingMessage(ctx: ExtensionContext): void {
-  if (!ctx.hasUI || !prompt) return;
+function updateWorkingMessage(ctx: ExtensionContext): boolean {
+  if (!ctx.hasUI || !prompt) return true;
   const now = Date.now();
   const elapsed = now - prompt.startedAt;
 
@@ -488,14 +496,15 @@ function updateWorkingMessage(ctx: ExtensionContext): void {
 
   const segments = collectRunningSegments(args);
   const message = fitSegments(segments, MESSAGE_BUDGET);
-  ctx.ui.setWorkingMessage(message);
+  return safeUi(ctx, () => ctx.ui.setWorkingMessage(message));
 }
 
 function startPromptTimer(ctx: ExtensionContext): void {
+  const now = Date.now();
   prompt = {
-    startedAt: Date.now(),
+    startedAt: now,
     verb: pickVerb(),
-    verbChangedAt: Date.now(),
+    verbChangedAt: now,
   };
   clearSummaryWidget(ctx);
   updateWorkingMessage(ctx);
@@ -518,7 +527,7 @@ function endPromptTimer(ctx: ExtensionContext): void {
   };
 
   prompt = undefined;
-  if (ctx.hasUI) ctx.ui.setWorkingMessage();
+  safeUi(ctx, () => ctx.ui.setWorkingMessage());
   attachSummaryWidget(ctx, lastSummary);
 }
 
@@ -528,15 +537,22 @@ function endPromptTimer(ctx: ExtensionContext): void {
 
 export default function working(pi: ExtensionAPI) {
   let messageTimer: NodeJS.Timeout | undefined;
+  let sessionToken = 0;
 
-  const stopMessageTimer = () => {
-    if (messageTimer) {
-      clearInterval(messageTimer);
-      messageTimer = undefined;
-    }
+  const stopMessageTimer = (timer = messageTimer) => {
+    if (!timer) return;
+    clearInterval(timer);
+    if (timer === messageTimer) messageTimer = undefined;
+  };
+
+  const invalidateSession = () => {
+    sessionToken += 1;
+    stopMessageTimer();
+    prompt = undefined;
   };
 
   pi.on("session_start", (event, ctx) => {
+    invalidateSession();
     applyWorkingIndicator(ctx);
     // Resurface the previous summary only on extension reload; new/resumed/forked
     // sessions should not inherit another session's completed-turn banner.
@@ -551,8 +567,12 @@ export default function working(pi: ExtensionAPI) {
   pi.on("agent_start", (_event, ctx) => {
     startPromptTimer(ctx);
     stopMessageTimer();
-    messageTimer = setInterval(() => updateWorkingMessage(ctx), MESSAGE_REFRESH_MS);
-    if (typeof messageTimer.unref === "function") messageTimer.unref();
+    const token = sessionToken;
+    const timer = setInterval(() => {
+      if (token !== sessionToken || !updateWorkingMessage(ctx)) stopMessageTimer(timer);
+    }, MESSAGE_REFRESH_MS);
+    messageTimer = timer;
+    if (typeof timer.unref === "function") timer.unref();
   });
 
   pi.on("agent_end", (_event, ctx) => {
@@ -560,13 +580,16 @@ export default function working(pi: ExtensionAPI) {
     endPromptTimer(ctx);
   });
 
+  pi.on("session_before_switch", () => {
+    invalidateSession();
+  });
+
   pi.on("session_shutdown", (_event, ctx) => {
-    if (ctx.hasUI) {
+    safeUi(ctx, () => {
       ctx.ui.setWorkingIndicator();
       ctx.ui.setWorkingMessage();
-      clearSummaryWidget(ctx);
-    }
-    stopMessageTimer();
-    prompt = undefined;
+      ctx.ui.setWidget(WIDGET_KEY, undefined);
+    });
+    invalidateSession();
   });
 }

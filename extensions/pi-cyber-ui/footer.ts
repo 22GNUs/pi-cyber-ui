@@ -243,7 +243,7 @@ function fitStatusText(theme: Theme, texts: string[], availableWidth: number): s
 // Path + Git rendering
 // ---------------------------------------------------------------------------
 
-function renderPath(theme: Theme, cwd: string, maxWidth: number): string {
+function renderPath(cwd: string, maxWidth: number): string {
   if (!cwd || maxWidth <= 0) return "";
   const home = homeRelative(cwd);
   const text = shortenPathToWidth(home, Math.max(8, maxWidth));
@@ -508,7 +508,7 @@ function attachFooter(
 
           // Path budget: roughly a third of the width when long, never less than 12.
           const pathBudget = Math.max(12, Math.floor(width * 0.34));
-          const path = renderPath(theme, ctx.cwd, pathBudget);
+          const path = renderPath(ctx.cwd, pathBudget);
           const git = renderGit(theme, branch, dirty);
           const modelLabel = theme.fg(
             "accent",
