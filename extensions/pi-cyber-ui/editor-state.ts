@@ -1,6 +1,5 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 
-import { toolRegistry, type ToolTally } from "./tool-registry.js";
 import { getUsageMode, type UsageMode, StreamingTokenEstimator } from "./token-usage.js";
 
 export type CyberEditorStateApi = CyberEditorState;
@@ -31,7 +30,6 @@ export interface CyberHudSnapshot {
   output: OutputDisplayValue;
   tps: DisplayValue;
   toolDepth: number;
-  toolStats: ToolTally;
   resetNotice?: ResetNotice;
 }
 
@@ -254,7 +252,6 @@ export class CyberEditorState {
         estimated: tpsEstimated,
       },
       toolDepth: this.toolDepth,
-      toolStats: toolRegistry.getTally(),
       resetNotice: this.resetNotice,
     };
   }

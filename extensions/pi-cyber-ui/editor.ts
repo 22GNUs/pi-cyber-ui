@@ -1,8 +1,7 @@
 /**
- * Cyber Editor — cyberpunk HUD + ❯ glyph
+ * Cyber Editor — pure ❯ prompt glyph + dynamic border.
  *
- * ❯  silver prompt marker
- * HUD  cwd ∷ turn ∷ ↑in ↓out ∷ Nt/s
+ * Dynamic HUD data lives in working/footer; editor owns input chrome only.
  */
 import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
@@ -11,11 +10,12 @@ import { cyberState as state } from "./editor-state.js";
 
 function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
+  const theme = ctx.ui.theme;
   ctx.ui.setEditorComponent((tui, th, kb) => {
     const editor = new CyberEditor(tui, th, kb, {
       getBorderColor: (text) => text.trimStart().startsWith("!")
-        ? ctx.ui.theme.getBashModeBorderColor()
-        : ctx.ui.theme.getThinkingBorderColor(pi.getThinkingLevel()),
+        ? theme.getBashModeBorderColor()
+        : theme.getThinkingBorderColor(pi.getThinkingLevel()),
     });
     return editor;
   });
@@ -32,7 +32,13 @@ export default function editor(pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async (_e, ctx) => {
-    if (ctx.hasUI) ctx.ui.setEditorComponent(undefined);
+    if (!ctx.hasUI) return;
+    try {
+      ctx.ui.setEditorComponent(undefined);
+    } catch {
+      // Reload/session replacement may stale ctx during teardown. Fresh session
+      // installs its own editor component on session_start.
+    }
   });
 
   pi.on("session_compact", async () => {
