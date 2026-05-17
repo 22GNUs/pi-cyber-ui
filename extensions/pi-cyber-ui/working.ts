@@ -113,9 +113,12 @@ function paintLetterWave(text: string): string {
     .join("")}${RESET_FG}`;
 }
 
-/** v1 HUD's tps grading. Higher rate → more positive colour. */
+/** TPS grading. Higher rate → more positive colour; algorithm unchanged. */
 function tpsColor(v: number): RGB {
-  return v > 300 ? C.green : v > 150 ? C.cyan : v > 50 ? C.orange : C.red;
+  if (v >= 150) return C.green;
+  if (v >= 100) return C.cyan;
+  if (v >= 60) return C.orange;
+  return C.red;
 }
 
 // ---------------------------------------------------------------------------

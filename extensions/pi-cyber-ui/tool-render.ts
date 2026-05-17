@@ -135,6 +135,19 @@ function toolDuration(toolCallId: string, startedAtOverride?: number): number | 
   return Math.max(0, endedAt - startedAt);
 }
 
+function markArgsStarted(ctx: RenderCtx, key: string): number {
+  const existing = ctx.state[key];
+  if (typeof existing === "number") return existing;
+  const startedAt = Date.now();
+  ctx.state[key] = startedAt;
+  return startedAt;
+}
+
+function stateNumber(ctx: RenderCtx, key: string): number | undefined {
+  const value = ctx.state[key];
+  return typeof value === "number" ? value : undefined;
+}
+
 function formatSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "";
   if (bytes < 1024) return `${bytes}B`;
@@ -535,6 +548,8 @@ export default function toolRender(pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, ctx) {
+      markArgsStarted(ctx, "editArgsStartedAt");
+
       const path = shortenPath(args.path ?? "", ctx.cwd);
       const editsCount = Array.isArray(args.edits) ? args.edits.length : 0;
       const hint = editsCount > 1 ? `(${editsCount} edits)` : undefined;
@@ -553,7 +568,10 @@ export default function toolRender(pi: ExtensionAPI) {
 
     renderResult(result, { expanded }, theme, ctx) {
       const summary = renderEditStats(theme, result.details);
-      const head = renderSummaryLine(ctx, theme, { summary });
+      const head = renderSummaryLine(ctx, theme, {
+        summary,
+        durationStartedAt: stateNumber(ctx, "editArgsStartedAt"),
+      });
       if (!expanded) return new Text(head, 0, 0);
 
       const body = ctx.isError
@@ -575,7 +593,7 @@ export default function toolRender(pi: ExtensionAPI) {
     },
 
     renderCall(args, theme, ctx) {
-      ctx.state.writeArgsStartedAt ??= Date.now();
+      markArgsStarted(ctx, "writeArgsStartedAt");
 
       const path = shortenPath(args.path ?? "", ctx.cwd);
       const content = args.content as string | undefined;
@@ -605,7 +623,7 @@ export default function toolRender(pi: ExtensionAPI) {
       const summary = (ctx.state.writeSummary as string | undefined) ?? "";
       const head = renderSummaryLine(ctx, theme, {
         summary,
-        durationStartedAt: ctx.state.writeArgsStartedAt as number | undefined,
+        durationStartedAt: stateNumber(ctx, "writeArgsStartedAt"),
       });
       if (!expanded) return new Text(head, 0, 0);
       if (ctx.isError) {
