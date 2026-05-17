@@ -9,16 +9,25 @@ import CyberEditor from "./cyber-editor.js";
 import { cyberState as state } from "./editor-state.js";
 
 function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
-  if (!ctx.hasUI) return;
-  const theme = ctx.ui.theme;
-  ctx.ui.setEditorComponent((tui, th, kb) => {
-    const editor = new CyberEditor(tui, th, kb, {
-      getBorderColor: (text) => text.trimStart().startsWith("!")
-        ? theme.getBashModeBorderColor()
-        : theme.getThinkingBorderColor(pi.getThinkingLevel()),
+  try {
+    if (!ctx.hasUI) return;
+    const theme = ctx.ui.theme;
+    ctx.ui.setEditorComponent((tui, th, kb) => {
+      const editor = new CyberEditor(tui, th, kb, {
+        getBorderColor: (text) => {
+          if (text.trimStart().startsWith("!")) return theme.getBashModeBorderColor();
+          try {
+            return theme.getThinkingBorderColor(pi.getThinkingLevel());
+          } catch {
+            return theme.getThinkingBorderColor("off");
+          }
+        },
+      });
+      return editor;
     });
-    return editor;
-  });
+  } catch {
+    // ctx may already be stale during reload teardown; next session attaches.
+  }
 }
 
 export default function editor(pi: ExtensionAPI) {
@@ -32,8 +41,8 @@ export default function editor(pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async (_e, ctx) => {
-    if (!ctx.hasUI) return;
     try {
+      if (!ctx.hasUI) return;
       ctx.ui.setEditorComponent(undefined);
     } catch {
       // Reload/session replacement may stale ctx during teardown. Fresh session

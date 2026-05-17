@@ -435,9 +435,17 @@ function buildIdleSummary(summary: PromptSummary): string {
   return joinDim(parts);
 }
 
-function safeUi(ctx: ExtensionContext, fn: () => void): boolean {
-  if (!ctx.hasUI) return true;
+function hasUsableUi(ctx: ExtensionContext): boolean {
   try {
+    return ctx.hasUI;
+  } catch {
+    return false;
+  }
+}
+
+function safeUi(ctx: ExtensionContext, fn: () => void): boolean {
+  try {
+    if (!ctx.hasUI) return true;
     fn();
     return true;
   } catch {
@@ -478,7 +486,7 @@ const MESSAGE_REFRESH_MS = 16;
 let prompt: PromptState | undefined;
 
 function updateWorkingMessage(ctx: ExtensionContext): boolean {
-  if (!ctx.hasUI || !prompt) return true;
+  if (!prompt) return true;
   const now = Date.now();
   const elapsed = now - prompt.startedAt;
 
@@ -565,6 +573,7 @@ export default function working(pi: ExtensionAPI) {
   });
 
   pi.on("agent_start", (_event, ctx) => {
+    if (!hasUsableUi(ctx)) return;
     startPromptTimer(ctx);
     stopMessageTimer();
     const token = sessionToken;
