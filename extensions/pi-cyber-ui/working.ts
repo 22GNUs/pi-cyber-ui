@@ -115,9 +115,9 @@ function paintLetterWave(text: string): string {
 
 /** TPS grading. Higher rate → more positive colour; algorithm unchanged. */
 function tpsColor(v: number): RGB {
-  if (v >= 150) return C.green;
-  if (v >= 100) return C.cyan;
-  if (v >= 60) return C.orange;
+  if (v >= 100) return C.green;
+  if (v >= 60) return C.cyan;
+  if (v >= 30) return C.orange;
   return C.red;
 }
 
