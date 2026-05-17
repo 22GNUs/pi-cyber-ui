@@ -6,7 +6,8 @@
  *     folds, initials, and tail-clips to fit a hard column budget.
  *
  *   stylePath(raw) — paint a path with cyber colours: home tilde pink, dim
- *     separators, accent on the basename. Returns ANSI text.
+ *     separators, bold fg on the basename (no extra hue, weight signals
+ *     "current location"). Returns ANSI text.
  */
 const PATH_MAX_DEPTH = 3;
 const RESET = "\x1b[39m";
@@ -15,10 +16,14 @@ const UNBOLD = "\x1b[22m";
 
 type RGB = readonly [number, number, number];
 
+// Path palette is intentionally muted: only the home `~` carries a hue,
+// the basename gets weight (bold + fg) instead of an extra colour. This
+// removes a major source of cyan repetition in the footer.
 const C = {
   hotPink: [255, 130, 184] as RGB,
   dim: [112, 124, 146] as RGB,
-  accent: [137, 219, 255] as RGB,
+  // Tokyo Night fg — same as theme `text`. Used for the basename.
+  fg: [192, 202, 245] as RGB,
 };
 
 function rgb(c: RGB): string {
@@ -108,7 +113,9 @@ export function stylePath(raw: string): string {
       if (part === "…") return paint(C.dim, part);
       const isLast = index === parts.length - 1;
       if (part === "~") return paint(C.hotPink, part, true);
-      if (isLast) return paint(C.accent, part);
+      // Basename: bold fg, no extra hue. Lets `~` and dim separators carry
+      // the only colour cues, while weight signals "current location".
+      if (isLast) return paint(C.fg, part, true);
       return paint(C.dim, part);
     })
     .join(slash);

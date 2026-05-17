@@ -37,10 +37,19 @@ const C = {
   fgDim: [86, 95, 137] as RGB,
   cyan: [125, 207, 255] as RGB,
   cyanBright: [180, 249, 248] as RGB,
+  tealDark: [65, 166, 181] as RGB,
   blue: [122, 162, 247] as RGB,
   green: [158, 206, 106] as RGB,
   orange: [224, 175, 104] as RGB,
   red: [247, 118, 142] as RGB,
+  // Silver palette — working line uses cool silver/white tones for a
+  // restrained, refined "server breathing-light" feel. Spinner stays in
+  // silver, verb letter-wave peaks in white. No cyan/pink in the working
+  // line proper; cyan reserved for the tps gradient and footer accents.
+  silverDim: [111, 119, 148] as RGB,
+  silver: [200, 211, 234] as RGB,
+  silverHi: [230, 236, 250] as RGB,
+  white: [255, 255, 255] as RGB,
 };
 
 const RESET_FG = "\x1b[39m";
@@ -66,31 +75,48 @@ function mix(a: RGB, b: RGB, t: number): RGB {
   ] as RGB;
 }
 
-const SHIMMER_PADDING = 10;
-const SHIMMER_SWEEP_MS = 2_000;
-const SHIMMER_BAND_HALF_WIDTH = 5;
+/**
+ * Letter-wave verb. Each character glows up to white in turn, with a
+ * fixed per-character delay, like a slow ripple of light passing through
+ * the word. Replaces the cyan-teal sweep which felt too "neon".
+ *
+ * Design:
+ *   base   = silverDim  (resting tone)
+ *   peak   = white       (single-char highlight)
+ *   period = 1800ms      (4:3 against the 2400ms spinner)
+ *   delay  = 120ms / char
+ *   peak phase = 32% of period (slightly past quarter, gives a forward feel)
+ *   peak FWHM  = 50% of period (raised cosine window)
+ */
+const LETTER_WAVE_PERIOD_MS = 1_800;
+const LETTER_WAVE_DELAY_MS = 120;
+const LETTER_WAVE_PEAK = 0.32;
+const LETTER_WAVE_HALF = 0.25;
 
-function paintCyberSilver(text: string): string {
+function paintLetterWave(text: string): string {
   const chars = [...text];
   if (chars.length === 0) return "";
 
-  const period = chars.length + SHIMMER_PADDING * 2;
-  const pos = ((Date.now() % SHIMMER_SWEEP_MS) / SHIMMER_SWEEP_MS) * period;
-
-  return `${BOLD}${chars
-    .map((ch, index) => {
-      const charPos = index + SHIMMER_PADDING;
-      const dist = Math.abs(charPos - pos);
+  const now = Date.now();
+  // Low-key: no bold, gentler contrast (fgMuted → silverHi instead of
+  // silverDim → white). Peak window narrowed so most chars rest quietly.
+  return `${chars
+    .map((ch, i) => {
+      const charTime = now - i * LETTER_WAVE_DELAY_MS;
+      const phi =
+        (((charTime % LETTER_WAVE_PERIOD_MS) + LETTER_WAVE_PERIOD_MS) %
+          LETTER_WAVE_PERIOD_MS) /
+        LETTER_WAVE_PERIOD_MS;
+      const d = Math.abs(phi - LETTER_WAVE_PEAK);
+      const wrapped = Math.min(d, 1 - d);
       const intensity =
-        dist <= SHIMMER_BAND_HALF_WIDTH
-          ? 0.5 * (1 + Math.cos(Math.PI * (dist / SHIMMER_BAND_HALF_WIDTH)))
-          : 0;
-
-      const base = mix(C.fgDim, C.fgMuted, 0.28);
-      const highlight = mix(C.fg, C.cyanBright, 0.12);
-      return `${rgb(mix(base, highlight, intensity))}${ch}`;
+        wrapped > LETTER_WAVE_HALF
+          ? 0
+          : 0.5 * (1 + Math.cos((Math.PI * wrapped) / LETTER_WAVE_HALF));
+      const color = mix(C.fgMuted, C.silverHi, intensity);
+      return `${rgb(color)}${ch}`;
     })
-    .join("")}${RESET_FG}${UNBOLD}`;
+    .join("")}${RESET_FG}`;
 }
 
 /** v1 HUD's tps grading. Higher rate → more positive colour. */
@@ -99,20 +125,44 @@ function tpsColor(v: number): RGB {
 }
 
 // ---------------------------------------------------------------------------
-// Spinner — gentle 8-frame breath, used by pi's Loader to the left of message
+// Spinner — "Pulsar" silver breathing dot. The glyph never changes shape
+// (always ●) and never toggles bold; only its colour breathes. This is
+// what the previous pink heartbeat lacked — jumping between ·→◉ and
+// flipping bold on every crest read as "flashy" rather than refined.
+//
+// Eight discrete frames sample an ease-in-out curve fgDim → silverDim →
+// silver → silverHi (peak hold 2 frames) → silver → silverDim → fgDim,
+// 300ms each = 2400ms cycle. Verb letter-wave runs at 1800ms (4:3 against
+// this) so layers do not crest together.
 // ---------------------------------------------------------------------------
 
-const FRAMES = ["·", "·", "•", "●", "◆", "●", "•", "·"] as const;
-const FRAME_INTERVAL_MS = 120;
+// 32 frames @ 75ms = 2400ms cycle. High frame count makes the breathing
+// read as continuous light rather than terminal steps. Higher peak contrast
+// (fgDim → silverHi) makes the breathing visible while staying non-bold.
+const FRAME_INTERVAL_MS = 75;
+
+interface PulseFrame {
+  glyph: string;
+  color: RGB;
+  bold?: boolean;
+}
+
+const PULSE_FRAMES: readonly PulseFrame[] = (() => {
+  const N = 32;
+  const frames: PulseFrame[] = [];
+  for (let i = 0; i < N; i++) {
+    const phase = i / N;
+    // Cosine breathing: 0 at start/end, 1 at midpoint.
+    const intensity = 0.5 * (1 - Math.cos(Math.PI * 2 * phase));
+    frames.push({ glyph: "●", color: mix(C.fgDim, C.silverHi, intensity) });
+  }
+  return frames;
+})();
 
 function applyWorkingIndicator(ctx: ExtensionContext): void {
   if (!ctx.hasUI) return;
   ctx.ui.setWorkingIndicator({
-    frames: FRAMES.map((frame, index) => {
-      if (index === 3 || index === 4 || index === 5) return paint(C.cyan, frame);
-      if (index === 2 || index === 6) return paint(C.fgMuted, frame);
-      return paint(C.fgDim, frame);
-    }),
+    frames: PULSE_FRAMES.map((f) => paint(f.color, f.glyph, f.bold ?? false)),
     intervalMs: FRAME_INTERVAL_MS,
   });
 }
@@ -122,31 +172,42 @@ function applyWorkingIndicator(ctx: ExtensionContext): void {
 // ---------------------------------------------------------------------------
 
 const VERBS = [
-  "Compiling",
-  "Indexing",
-  "Synthesizing",
-  "Routing",
-  "Distilling",
-  "Calibrating",
-  "Decoding",
+  // English
+  "Reasoning",
+  "Analyzing",
   "Resolving",
-  "Streaming",
-  "Plotting",
-  "Crunching",
-  "Weaving",
-  "Conjuring",
-  "Querying",
-  "Brewing",
-  "Tokenizing",
-  "Optimizing",
-  "Cogitating",
-  "Pondering",
-  "Refracting",
+  "Inferring",
+  "Rendering",
+  "Iterating",
   "Threading",
-  "Buffering",
-  "Hacking",
-  "Probing",
+  "Distilling",
+  // Español
+  "Razonando",
+  "Pensando.",
+  "Tejiendo.",
+  "Afinando.",
+  // Français
+  "Analysant",
+  "Composant",
+  "Éclairant",
+  "Tissant..",
+  // Italiano / Deutsch / Latin-ish
+  "Pensando.",
+  "Ragionare",
+  "Denkend..",
+  "Cogitans."
 ] as const;
+
+const WORKING_LABEL_SUFFIX = "...";
+const WORKING_LABEL_WIDTH = Math.max(
+  ...VERBS.map((v) => visibleWidth(`${v}${WORKING_LABEL_SUFFIX}`)),
+);
+
+function padWorkingLabel(verb: string): string {
+  const label = `${verb}${WORKING_LABEL_SUFFIX}`;
+  const pad = Math.max(0, WORKING_LABEL_WIDTH - visibleWidth(label));
+  return `${label}${" ".repeat(pad)}`;
+}
 
 function pickVerb(prev?: string): string {
   for (let i = 0; i < 8; i++) {
@@ -237,12 +298,12 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   const { snapshot } = args;
   const segments: Segment[] = [];
 
-  // 100 — verb + elapsed (anchor). Internal " · " matches the inter-segment
-  // separator added by fitSegments(), so the whole line reads with a
-  // consistent middle-dot rhythm.
-  const verb = paintCyberSilver(args.verb);
+  // 100 — fixed-width working label. Metrics after it are grouped in
+  // parentheses by fitSegments(), keeping the vibe stable and low-key.
+  const label = paintLetterWave(padWorkingLabel(args.verb));
   const time = paint(C.fgMuted, formatWorkingElapsed(args.elapsedMs));
-  segments.push(seg(`${verb}${paint(C.fgDim, " · ")}${time}`, 100));
+  segments.push(seg(label, 100));
+  segments.push(seg(time, 95));
 
   // 70 — tokens
   const inTokens = formatTokens(snapshot.inputValue ?? snapshot.promptIn);
@@ -294,32 +355,38 @@ function fitSegments(segments: Segment[], budget: number): string {
 
   const indexed = segments.map((s, i) => ({ s, i }));
   const survivors = new Set(indexed.map((x) => x.i));
+  const labelWidth = segments[0]?.width ?? 0;
+  const bracketWidth = visibleWidth(" ()");
 
   const totalWidth = () => {
-    let w = 0;
-    let n = 0;
+    let tailWidth = 0;
+    let tailCount = 0;
     for (const { s, i } of indexed) {
-      if (!survivors.has(i)) continue;
-      if (n > 0) w += sepWidth;
-      w += s.width;
-      n += 1;
+      if (!survivors.has(i) || i === 0) continue;
+      if (tailCount > 0) tailWidth += sepWidth;
+      tailWidth += s.width;
+      tailCount += 1;
     }
-    return w;
+    return labelWidth + (tailCount > 0 ? bracketWidth + tailWidth : 0);
   };
 
   // Drop lowest-importance segments while total width exceeds budget.
   const sortedByImportance = [...indexed].sort((a, b) => a.s.importance - b.s.importance);
   for (const { i } of sortedByImportance) {
     if (totalWidth() <= budget) break;
-    // Always keep the highest-importance anchor, even if it overflows alone.
+    // Always keep the highest-importance segment, even if it overflows alone.
     if (segments[i]!.importance >= 100) continue;
     survivors.delete(i);
   }
 
-  return indexed
-    .filter(({ i }) => survivors.has(i))
+  const label = segments[0]?.text ?? "";
+  const tail = indexed
+    .filter(({ i }) => survivors.has(i) && i !== 0)
     .map(({ s }) => s.text)
     .join(sep);
+
+  if (!tail) return label;
+  return `${label} ${paint(C.fgDim, "(")}${tail}${paint(C.fgDim, ")")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -342,8 +409,10 @@ function buildIdleSummary(summary: PromptSummary): string {
   const parts: string[] = [];
 
   // ✓ done · 1:23
+  // Only the check stays green; "done" drops to muted fg so the line reads
+  // as one positive event rather than a doubled-up green block.
   const check = paint(C.green, "✓", true);
-  const doneLabel = paint(C.green, "done");
+  const doneLabel = paint(C.fgMuted, "done");
   const time = paint(C.fgMuted, formatElapsed(summary.totalElapsedMs));
   parts.push(`${check} ${doneLabel} ${paint(C.fgDim, "·")} ${time}`);
 
@@ -394,8 +463,9 @@ interface PromptState {
   verbChangedAt: number;
 }
 
-const VERB_ROTATE_MS = 20_000;
-const MESSAGE_REFRESH_MS = 80;
+const VERB_ROTATE_MS = 8_000;
+// ~60fps so the letter-wave breathes very smoothly without visible stepping.
+const MESSAGE_REFRESH_MS = 16;
 
 let prompt: PromptState | undefined;
 

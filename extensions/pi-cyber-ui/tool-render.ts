@@ -38,14 +38,39 @@ interface RenderCtx {
   state: Record<string, unknown>;
 }
 
+/**
+ * Per-tool name color. Tools are coloured by *intent class* so the eye can
+ * distinguish read-only browsing from mutation from shell exec at a glance,
+ * instead of every tool blurring into the same toolTitle blue.
+ *
+ *   read   cyan    — data ingest
+ *   bash   orange  — shell / high-signal exec
+ *   edit   purple  — mutation
+ *   write  purple  — mutation
+ *   grep   teal    — search / query
+ *   find   teal    — search / query
+ *   ls     blue    — structure / listing
+ */
+type ToolNameColor =
+  | "accent"
+  | "warning"
+  | "syntaxKeyword"
+  | "mdCode"
+  | "toolTitle";
+
 // ---------------------------------------------------------------------------
 // Cyber palette (raw RGB, mirrors themes/cyber-ui-dark.json)
 // ---------------------------------------------------------------------------
 
-const ICON_GREEN = "\x1b[38;2;158;206;106m"; // green
+const ICON_GREEN = "\x1b[38;2;158;206;106m"; // green (reserved for done summary)
 const ICON_RED = "\x1b[38;2;247;118;142m"; // red
 const ICON_CYAN = "\x1b[38;2;125;207;255m"; // cyan
 const ICON_ORANGE = "\x1b[38;2;224;175;104m"; // orange
+const ICON_DIM = "\x1b[38;2;86;95;137m"; // fgDim
+// greenSoft (#5ec27e) — green #9ece6a darkened ~30%. Carries the "done"
+// semantic without the rainforest-green punch of the rainbow palette;
+// quiet enough to repeat across many tool rows without dominating.
+const ICON_GREEN_SOFT = "\x1b[38;2;94;194;126m";
 const RESET = "\x1b[39m";
 const BOLD = "\x1b[1m";
 const UNBOLD = "\x1b[22m";
@@ -135,7 +160,14 @@ function statusIcon({ isPartial, isError, toolCallId }: StatusOptions): string {
     return paint(ICON_CYAN, spinnerFrame(toolCallId), true);
   }
   if (isError) return paint(ICON_RED, "✗", true);
-  return paint(ICON_GREEN, "✓", true);
+  // Tool success: soft-green horizontal half-line. Acts as the spinner's
+  // "resting frame" — the running braille spinner naturally winds down to
+  // a quiet marker instead of swapping to a bold green check on every
+  // tool. greenSoft retains the conventional "green = done" semantic
+  // while staying low-intensity, so a column of completed tools no longer
+  // reads as a wall of green. ✓ is reserved for the per-turn done summary
+  // where it lands once as a ceremonial close.
+  return paint(ICON_GREEN_SOFT, "╴");
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +177,8 @@ function statusIcon({ isPartial, isError, toolCallId }: StatusOptions): string {
 interface HeaderOptions {
   theme: any;
   toolName: string;
+  /** Semantic colour for the tool name. Defaults to `toolTitle` (blue). */
+  nameColor?: ToolNameColor;
   primary: string;
   /** Optional grayed suffix shown after the primary arg (e.g. ":1-120"). */
   primarySuffix?: string;
@@ -155,12 +189,16 @@ interface HeaderOptions {
 function renderHeader({
   theme,
   toolName,
+  nameColor = "toolTitle",
   primary,
   primarySuffix = "",
   hint,
 }: HeaderOptions): string {
-  const namePart = theme.fg("toolTitle", theme.bold(toolName));
-  const primaryPart = primary ? ` ${theme.fg("accent", primary)}` : "";
+  // Tool name: bold + per-tool semantic colour. Acts as the row's title.
+  const namePart = theme.fg(nameColor, theme.bold(toolName));
+  // Primary arg (path / pattern / command): plain fg so it reads as content,
+  // not as another title competing for attention.
+  const primaryPart = primary ? ` ${theme.fg("text", primary)}` : "";
   const suffixPart = primarySuffix ? theme.fg("dim", primarySuffix) : "";
   const hintPart = hint ? theme.fg("muted", ` ${hint}`) : "";
   return `${namePart}${primaryPart}${suffixPart}${hintPart}`;
@@ -196,7 +234,12 @@ function renderSummaryLine(
   if (running) {
     segments.push(theme.fg("muted", "running"));
     if (dur) segments.push(theme.fg("dim", dur));
-    return `  ${segments.join(" ")}`;
+    // Flush left: the status marker now sits in the same column as the
+    // tool name in the header row, forming a "title / status" two-row
+    // table. The old 2-space indent only made sense when the marker was a
+    // bold green check carrying its own weight; the soft ╴ needs the
+    // column anchor instead.
+    return segments.join(" ");
   }
 
   if (parts.summary) {
@@ -207,7 +250,7 @@ function renderSummaryLine(
   }
 
   // For empty (e.g. write success), keep just the icon.
-  return `  ${segments.join("  ")}`;
+  return segments.join("  ");
 }
 
 function emptyText(): Text {
@@ -420,6 +463,7 @@ export default function toolRender(pi: ExtensionAPI) {
         renderHeader({
           theme,
           toolName: "read",
+          nameColor: "accent",
           primary: path || "...",
           primarySuffix: suffix,
         }),
@@ -456,8 +500,10 @@ export default function toolRender(pi: ExtensionAPI) {
       const display =
         command.length > 100 ? `${command.slice(0, 97)}…` : command;
       const hint = timeout ? `(timeout ${timeout}s)` : undefined;
-      const namePart = theme.fg("toolTitle", theme.bold("$"));
-      const cmdPart = theme.fg("accent", display);
+      // `$` glyph + command share bash's high-signal orange marker, command
+      // body stays in fg so the prompt reads as content, not chrome.
+      const namePart = theme.fg("warning", theme.bold("$"));
+      const cmdPart = theme.fg("text", display);
       const hintPart = hint ? theme.fg("muted", ` ${hint}`) : "";
       return new Text(`${namePart} ${cmdPart}${hintPart}`, 0, 0);
     },
@@ -500,6 +546,7 @@ export default function toolRender(pi: ExtensionAPI) {
         renderHeader({
           theme,
           toolName: "edit",
+          nameColor: "syntaxKeyword",
           primary: path || "...",
           hint,
         }),
@@ -539,11 +586,19 @@ export default function toolRender(pi: ExtensionAPI) {
       const path = shortenPath(args.path ?? "", ctx.cwd);
       const content = args.content as string | undefined;
       const lines = content ? content.split("\n").length : 0;
+      const bytes = content ? Buffer.byteLength(content, "utf8") : 0;
+      // Header keeps `+N lines` so streaming users see the line count
+      // grow in real time as the args delta arrives. The sum line gets
+      // the size + duration after completion — size also covers the
+      // reload case where toolRegistry is empty and dur is unavailable,
+      // so the sum row is never just a lonely marker.
+      ctx.state.writeSummary = bytes > 0 ? formatSize(bytes) : "";
       const hint = lines > 0 ? `+${lines} lines` : undefined;
       return new Text(
         renderHeader({
           theme,
           toolName: "write",
+          nameColor: "syntaxKeyword",
           primary: path || "...",
           hint,
         }),
@@ -553,8 +608,9 @@ export default function toolRender(pi: ExtensionAPI) {
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      // Successful write produces no useful output; keep summary empty.
+      const summary = (ctx.state.writeSummary as string | undefined) ?? "";
       const head = renderSummaryLine(ctx, theme, {
+        summary,
         durationStartedAt: ctx.state.writeArgsStartedAt as number | undefined,
       });
       if (!expanded) return new Text(head, 0, 0);
@@ -590,6 +646,7 @@ export default function toolRender(pi: ExtensionAPI) {
         renderHeader({
           theme,
           toolName: "grep",
+          nameColor: "mdCode",
           primary: `/${pattern}/`,
           hint: hintParts.join(" "),
         }),
@@ -628,6 +685,7 @@ export default function toolRender(pi: ExtensionAPI) {
         renderHeader({
           theme,
           toolName: "find",
+          nameColor: "mdCode",
           primary: pattern,
           hint,
         }),
@@ -664,6 +722,7 @@ export default function toolRender(pi: ExtensionAPI) {
         renderHeader({
           theme,
           toolName: "ls",
+          nameColor: "toolTitle",
           primary: path || ".",
         }),
         0,
@@ -682,4 +741,5 @@ export default function toolRender(pi: ExtensionAPI) {
 
   // Suppress unused warning for icons we keep for future use.
   void ICON_ORANGE;
+  void ICON_GREEN;
 }

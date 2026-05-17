@@ -78,7 +78,7 @@
     "syntaxPunctuation": "fgDim",
 
     "thinkingOff":      "fgDim",
-    "thinkingMinimal":  "blueDark",
+    "thinkingMinimal":  "tealDark",
     "thinkingLow":      "blue",
     "thinkingMedium":   "cyan",
     "thinkingHigh":     "purple",
