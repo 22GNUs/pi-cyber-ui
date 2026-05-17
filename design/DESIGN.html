@@ -287,7 +287,7 @@
     <tr><td>metrics</td><td>第一段后括号内分组：<code>(elapsed · tokens · tps · turn)</code>。</td></tr>
     <tr><td>elapsed</td><td><code>&lt;60s</code> 整秒 <code>Ns</code>；<code>&gt;=60s</code> 用 <code>m:ss</code>。无 ms / 小数。</td></tr>
     <tr><td>tokens</td><td><code>↑in</code> = <span class="dim">dim</span> · <code>↓out</code> = <span class="muted">muted</span>。无颜色语义。</td></tr>
-    <tr><td>tps</td><td>&lt;30 <span class="red">red</span> / 30–59 <span class="orange">orange</span> / 60–99 <span class="cyan">cyan</span> / ≥100 <span class="green">green</span>。算法不变（cumulative）；保留最低档 red，不使用 dim。</td></tr>
+    <tr><td>tps</td><td>高=佳。&lt;30 <span class="red">red</span> · 30–59 <span class="orange">orange</span> · 60–99 <span class="teal">teal/mdCode</span> · ≥100 <span class="green">green</span>。算法不变（cumulative）；保留最低档 red，不使用 dim。</td></tr>
     <tr><td>turn</td><td><code>󰄉 N</code> 用 <span class="dim">dim</span>，低优先级。</td></tr>
     <tr><td>降级</td><td><code>fitSegments</code> 按 importance 从右向左丢。</td></tr>
     <tr><td>取消提示</td><td>10s 后追加 <span class="dim">esc to cancel</span>。</td></tr>
@@ -351,15 +351,16 @@
 </ul>
 
 <h3>3.5 Footer</h3>
-<p><strong>左</strong>：modelLabel · thinking · context &nbsp;|&nbsp; <strong>右</strong>：path · git · 扩展 statuses / +N</p>
+<p><strong>左</strong>：modelLabel · thinking · context · cache &nbsp;|&nbsp; <strong>右</strong>：path · git · 扩展 statuses / +N</p>
 <table>
   <thead><tr><th>段</th><th>规则</th></tr></thead>
   <tbody>
     <tr><td>path</td><td>basename <code>fg+bold</code>；<code>~</code> hotPink；<code>shortenPathToWidth</code> 自适应。</td></tr>
     <tr><td>git</td><td>Compact counts：<code>\uf126 +A ~M −D</code>，仅显示非零项，顺序固定 added → modified → deleted；无 dirty 时隐藏；无 branch name。新增用 <span class="green">green</span>，修改用 <span class="orange">orange</span>，删除用 <span class="red">red</span>。异步缓存，<code>agent_end</code> 强刷；<code>try/catch + disposed</code> 防 stale ctx。</td></tr>
-    <tr><td>context bar</td><td>&lt;55% <code>mdCode/teal</code> → <span class="cyan">cyan</span> → <span class="orange">orange</span> → <span class="red">red</span> 梯度。</td></tr>
+    <tr><td>context bar</td><td>低=佳。&lt;30% <span class="green">green</span> · &lt;55% <span class="teal">teal/mdCode</span> · &lt;75% <span class="cyan">cyan</span> · &lt;90% <span class="orange">orange</span> · ≥90% <span class="red">red</span>。</td></tr>
+    <tr><td>cache</td><td>每轮 prompt 缓存命中率，紧贴 context 右侧。文案 <code> NN%</code>（闪电图标 + 整数百分比）。公式 <code>cacheRead / (input + cacheRead + cacheWrite)</code>，数据源最近一次 assistant <code>message_end</code> usage。高=佳：≥95% <span class="green">green</span> · ≥85% <span class="teal">teal/mdCode</span> · ≥60% <span class="cyan">cyan</span> · ≥30% <span class="orange">orange</span> · &lt;30% <span class="red">red</span>。隐藏规则：（1）无数据或分母为 0；（2）冷启动門禁——上下文重置后第 1 轮且 <code>cacheRead === 0</code>（避免展示无意义的 0%；若 server-side cache 存活，cacheRead&gt;0 仍正常显示）。重置触发：<code>session_start</code>（含 startup/new/resume/fork/reload）、<code>session_compact</code>、<code>session_tree</code>、<code>model_select</code>。每轮覆盖更新，<code>agent_start</code> 不清，保留上轮便于对比。fold 时与其他左侧字段一同参与折叠 <code>+N</code>。</td></tr>
     <tr><td>thinking</td><td>off=<code>thinkingOff</code> · minimal=<span class="teal">tealDark</span> · low=<span class="blue">blue</span> · medium=<span class="cyan">cyan</span> · high=<span class="purple">purple</span> · xhigh=<span class="pink">pink</span>+bold；high 及以上彩虹。</td></tr>
-    <tr><td>fold</td><td><code>fitStatusText</code> 把 git/thinking/context/path/扩展 statuses 全计入折叠 <code>+N</code>。</td></tr>
+    <tr><td>fold</td><td><code>fitStatusText</code> 把 git/thinking/context/cache/path/扩展 statuses 全计入折叠 <code>+N</code>。优先级（先丢后保）：cache → context → thinking → git → path → modelLabel。</td></tr>
   </tbody>
 </table>
 
