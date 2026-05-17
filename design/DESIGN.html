@@ -309,7 +309,8 @@
 </ul>
 
 <h3>3.4 Tool rendering</h3>
-<p>覆盖 <code>read / bash / edit / write / grep / find / ls</code>；<code>renderShell: "default"</code>；保留内置 <code>promptSnippet/promptGuidelines</code>（<code>...initial.&lt;tool&gt;</code> spread）。</p>
+<p>覆盖 <code>read / bash / edit / write / grep / find / ls</code> 的 UI render；执行层继续委托 Pi built-in tools。<code>renderShell: "default"</code>；保留内置 <code>parameters/description/promptSnippet/promptGuidelines</code>（<code>...initial.&lt;tool&gt;</code> spread）。</p>
+<p>架构边界：Pi execution-layer 更新通常自动继承；Pi native renderer 新特性不会自动进入，需要人工 review/port。升级 <code>@earendil-works/pi-coding-agent</code> 后优先 diff <code>core/tools/read</code>，避免丢失 <code>SKILL.md</code> / resource / docs compact 语义。</p>
 
 <div class="grid2">
   <div class="card">
@@ -340,6 +341,7 @@
 
 <ul>
   <li>折叠 summary，<code>ctrl+o</code> 展开。</li>
+  <li><code>read</code> 保留 Pi 内置 compact 分类：<code>SKILL.md</code> 显示 <code>[skill] name</code>；Pi docs / <code>AGENTS.md</code> / <code>CLAUDE.md</code> 显示 <code>read docs/resource</code>；折叠时隐藏 result body。</li>
   <li>duration 来自 <code>tool-registry</code>：<code>startedAt → endedAt</code>；<code>write</code> 从 args streaming 起算（<code>ctx.state.writeArgsStartedAt</code>）。</li>
   <li>spinner phase 基于 <code>registry.getEntry(id).startedAt</code>，全局 120ms tick。</li>
   <li><code>edit</code> 解析 unified diff，仅前两行 <code>--- / +++</code> 视作 header；显示 <code>+N ~N −N</code>。</li>
@@ -389,6 +391,7 @@
   footer.ts         # 左右双栏 + fold
   tool-registry.ts  # 工具运行态 + duration（runningIds 优化）
   tool-render.ts    # 7 个工具 compact renderer
+  read-compact.ts   # Pi read compact 兼容层（skill/resource）
   path-utils.ts     # shortenPathToWidth / stylePath / homeRelative
 
 themes/cyber-ui-dark.json
@@ -397,11 +400,13 @@ design/DESIGN.html  # 本文档</code></pre>
 <h2>6 · 不变量</h2>
 <div class="invariant">① TPS 算法（cumulative）和 token 计算逻辑 — <strong>不动</strong>。</div>
 <div class="invariant">② 注册顺序：<code>editor(pi)</code> 必须在 <code>working(pi)</code> 之前（producer → consumer）。</div>
-<div class="invariant">③ 工具内置 <code>promptSnippet / promptGuidelines</code> 必须 spread 保留。</div>
-<div class="invariant">④ 不在 working line 重复展示工具运行（HUD 已有）。</div>
-<div class="invariant">⑤ <code>cyan</code> 不下放到普通文本/路径/工具状态符。</div>
-<div class="invariant">⑥ silver 系仅限 working line 内部使用。</div>
-<div class="invariant">⑦ 不引入二进制串 / emoji 串 / CSS gradient 类视觉噱头。</div>
+<div class="invariant">③ 工具内置 <code>parameters / description / promptSnippet / promptGuidelines</code> 必须 spread 保留；<code>execute</code> 必须委托 Pi built-in。</div>
+<div class="invariant">④ 工具 render 是本包定制层；Pi native renderer 新特性必须 review/port，不能假设自动继承。</div>
+<div class="invariant">⑤ <code>read</code> 必须保留 Pi compact 语义：<code>SKILL.md</code> → <code>[skill] name</code>；<code>AGENTS.md</code>/<code>CLAUDE.md</code> → resource。</div>
+<div class="invariant">⑥ 不在 working line 重复展示工具运行（HUD 已有）。</div>
+<div class="invariant">⑦ <code>cyan</code> 不下放到普通文本/路径/工具状态符。</div>
+<div class="invariant">⑧ silver 系仅限 working line 内部使用。</div>
+<div class="invariant">⑨ 不引入二进制串 / emoji 串 / CSS gradient 类视觉噱头。</div>
 
 <h2>7 · 流程</h2>
 <ol>
