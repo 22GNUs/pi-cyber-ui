@@ -149,6 +149,8 @@ function asText(content: readonly TextContent[] | undefined): string {
 interface HeaderOptions {
   theme: Theme;
   toolName: string;
+  /** Optional left glyph, kept one-cell in Nerd Font for column alignment. */
+  icon?: string;
   /** Semantic colour for the tool name. Defaults to `toolTitle` (blue). */
   nameColor?: ToolNameColor;
   primary: string;
@@ -158,16 +160,27 @@ interface HeaderOptions {
   hint?: string;
 }
 
+const TOOL_ICONS = {
+  read: "󰈙",
+  edit: "󰏫",
+  write: "󰝒",
+  search: "󰍉",
+  list: "󰉋",
+  bash: "",
+} as const;
+
 function renderHeader({
   theme,
   toolName,
+  icon,
   nameColor = "toolTitle",
   primary,
   primarySuffix = "",
   hint,
 }: HeaderOptions): string {
-  // Tool name: bold + per-tool semantic colour. Acts as the row's title.
-  const namePart = theme.fg(nameColor, theme.bold(toolName));
+  // Tool marker + name: bold + per-tool semantic colour. Acts as the row's title.
+  const label = icon ? `${icon} ${toolName}` : toolName;
+  const namePart = theme.fg(nameColor, theme.bold(label));
   // Primary arg (path / pattern / command): plain fg so it reads as content,
   // not as another title competing for attention.
   const primaryPart = primary ? ` ${theme.fg("text", primary)}` : "";
@@ -459,6 +472,7 @@ export default function toolRender(pi: ExtensionAPI) {
       const header = setHeader(ctx, renderHeader({
         theme,
         toolName: "read",
+        icon: TOOL_ICONS.read,
         nameColor: "accent",
         primary: path || "...",
         primarySuffix: suffix,
@@ -496,12 +510,14 @@ export default function toolRender(pi: ExtensionAPI) {
       const display =
         command.length > 100 ? `${command.slice(0, 97)}…` : command;
       const hint = timeout ? `(timeout ${timeout}s)` : undefined;
-      // `$` glyph + command share bash's high-signal orange marker, command
-      // body stays in fg so the prompt reads as content, not chrome.
-      const namePart = theme.fg("warning", theme.bold("$"));
-      const cmdPart = theme.fg("text", display);
-      const hintPart = hint ? theme.fg("muted", ` ${hint}`) : "";
-      const header = setHeader(ctx, `${namePart} ${cmdPart}${hintPart}`);
+      const header = setHeader(ctx, renderHeader({
+        theme,
+        toolName: "bash",
+        icon: TOOL_ICONS.bash,
+        nameColor: "warning",
+        primary: display,
+        hint,
+      }));
       return new Text(renderInlineLine(ctx, theme, header, { summary: stateSummary(ctx) }), 0, 0);
     },
 
@@ -540,6 +556,7 @@ export default function toolRender(pi: ExtensionAPI) {
       const header = setHeader(ctx, renderHeader({
         theme,
         toolName: "edit",
+        icon: TOOL_ICONS.edit,
         nameColor: "syntaxKeyword",
         primary: path || "...",
         hint,
@@ -589,6 +606,7 @@ export default function toolRender(pi: ExtensionAPI) {
       const header = setHeader(ctx, renderHeader({
         theme,
         toolName: "write",
+        icon: TOOL_ICONS.write,
         nameColor: "syntaxKeyword",
         primary: path || "...",
         hint,
@@ -631,6 +649,7 @@ export default function toolRender(pi: ExtensionAPI) {
       const header = setHeader(ctx, renderHeader({
         theme,
         toolName: "grep",
+        icon: TOOL_ICONS.search,
         nameColor: "mdCode",
         primary: `/${pattern}/`,
         hint: hintParts.join(" "),
@@ -664,6 +683,7 @@ export default function toolRender(pi: ExtensionAPI) {
       const header = setHeader(ctx, renderHeader({
         theme,
         toolName: "find",
+        icon: TOOL_ICONS.search,
         nameColor: "mdCode",
         primary: pattern,
         hint,
@@ -695,6 +715,7 @@ export default function toolRender(pi: ExtensionAPI) {
       const header = setHeader(ctx, renderHeader({
         theme,
         toolName: "ls",
+        icon: TOOL_ICONS.list,
         nameColor: "toolTitle",
         primary: path || ".",
       }));
