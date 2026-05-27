@@ -4,11 +4,11 @@
  * Overrides built-in pi tools (read / bash / edit / write / grep / find / ls)
  * with a Claude Code style minimal display:
  *
- *   <icon> <name> <primary-arg>      <summary>      <duration>
+ *   <name> <primary-arg>      <summary>      <duration>
  *
- * - Collapsed: single-line summary (default).
- * - Running:   spinner + tool name + elapsed time.
- * - Expanded:  full output (toggled by `app.tools.expand`, ctrl+o by default).
+ * - Collapsed: single-line summary (default), rendered by renderCall.
+ * - Running:   tool name + elapsed time (duration updates via registry ticker).
+ * - Expanded:  renderCall keeps header; renderResult adds body only.
  *
  * Color & shape align with `themes/cyber-ui-dark.json`.
  */
@@ -22,13 +22,12 @@ import {
   createReadToolDefinition,
   createWriteToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { Container, Text } from "@earendil-works/pi-tui";
 import { homedir } from "os";
 
 import {
   clearCompactRead,
   getCompactReadClassification,
-  isCompactRead,
   markCompactRead,
   renderCompactReadCall,
 } from "./read-compact.js";
@@ -41,6 +40,8 @@ interface RenderCtx {
   invalidate: () => void;
   isPartial: boolean;
   isError: boolean;
+  executionStarted?: boolean;
+  expanded?: boolean;
   state: Record<string, unknown>;
 }
 
@@ -71,35 +72,6 @@ type ToolNameColor = Extract<
   ThemeColor,
   "accent" | "warning" | "syntaxKeyword" | "mdCode" | "toolTitle"
 >;
-
-// ---------------------------------------------------------------------------
-// Cyber palette (raw RGB, mirrors themes/cyber-ui-dark.json)
-// ---------------------------------------------------------------------------
-
-const ICON_RED = "\x1b[38;2;247;118;142m"; // red
-const ICON_CYAN = "\x1b[38;2;125;207;255m"; // cyan
-// greenSoft (#5ec27e) — green #9ece6a darkened ~30%. Carries the "done"
-// semantic without the rainforest-green punch of the rainbow palette;
-// quiet enough to repeat across many tool rows without dominating.
-const ICON_GREEN_SOFT = "\x1b[38;2;94;194;126m";
-const RESET = "\x1b[39m";
-const BOLD = "\x1b[1m";
-const UNBOLD = "\x1b[22m";
-
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
-const SPINNER_INTERVAL_MS = 120;
-
-function spinnerFrame(toolCallId: string): string {
-  const startedAt = toolRegistry.getEntry(toolCallId)?.startedAt ?? Date.now();
-  const frameIndex = Math.floor((Date.now() - startedAt) / SPINNER_INTERVAL_MS);
-  return SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length]!;
-}
-
-function paint(color: string, text: string, bold = false): string {
-  const open = bold ? `${BOLD}${color}` : color;
-  const close = bold ? `${RESET}${UNBOLD}` : RESET;
-  return `${open}${text}${close}`;
-}
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -171,31 +143,6 @@ function asText(content: readonly TextContent[] | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// Status icon — running / success / error
-// ---------------------------------------------------------------------------
-
-interface StatusOptions {
-  isPartial: boolean;
-  isError: boolean;
-  toolCallId: string;
-}
-
-function statusIcon({ isPartial, isError, toolCallId }: StatusOptions): string {
-  if (isPartial || toolRegistry.isRunning(toolCallId)) {
-    return paint(ICON_CYAN, spinnerFrame(toolCallId), true);
-  }
-  if (isError) return paint(ICON_RED, "✗", true);
-  // Tool success: soft-green horizontal half-line. Acts as the spinner's
-  // "resting frame" — the running braille spinner naturally winds down to
-  // a quiet marker instead of swapping to a bold green check on every
-  // tool. greenSoft retains the conventional "green = done" semantic
-  // while staying low-intensity, so a column of completed tools no longer
-  // reads as a wall of green. ✓ is reserved for the per-turn done summary
-  // where it lands once as a ceremonial close.
-  return paint(ICON_GREEN_SOFT, "╴");
-}
-
-// ---------------------------------------------------------------------------
 // Header — built once per render; identical visual across all tools.
 // ---------------------------------------------------------------------------
 
@@ -234,46 +181,55 @@ interface SummaryParts {
   summary?: string;
   /** Override visual timer start, used for tools whose args stream for a while before execution. */
   durationStartedAt?: number;
+  /** Hide duration for settled read cards unless expanded/error. */
+  showDuration?: boolean;
 }
 
-function renderSummaryLine(
+const HEADER_STATE_KEY = "cyberHeader";
+const SUMMARY_STATE_KEY = "cyberSummary";
+const SUMMARY_INVALIDATE_PENDING_KEY = "cyberSummaryInvalidatePending";
+
+function emptyComponent(): Container {
+  return new Container();
+}
+
+function setHeader(ctx: RenderCtx, header: string): string {
+  ctx.state[HEADER_STATE_KEY] = header;
+  return header;
+}
+
+function stateSummary(ctx: RenderCtx): string {
+  const summary = ctx.state[SUMMARY_STATE_KEY];
+  return typeof summary === "string" ? summary : "";
+}
+
+function storeSummary(ctx: RenderCtx, summary: string): void {
+  if (ctx.state[SUMMARY_STATE_KEY] === summary) return;
+  ctx.state[SUMMARY_STATE_KEY] = summary;
+  if (ctx.state[SUMMARY_INVALIDATE_PENDING_KEY] === true) return;
+  ctx.state[SUMMARY_INVALIDATE_PENDING_KEY] = true;
+  queueMicrotask(() => {
+    ctx.state[SUMMARY_INVALIDATE_PENDING_KEY] = false;
+    ctx.invalidate();
+  });
+}
+
+function renderInlineLine(
   ctx: RenderCtx,
   theme: Theme,
+  header: string,
   parts: SummaryParts,
 ): string {
   toolRegistry.setInvalidate(ctx.toolCallId, ctx.invalidate);
 
   const dur = formatDuration(toolDuration(ctx.toolCallId, parts.durationStartedAt));
-  const running = ctx.isPartial || toolRegistry.isRunning(ctx.toolCallId);
+  const running = ctx.executionStarted === true && ctx.isPartial;
 
-  const icon = statusIcon({
-    isPartial: ctx.isPartial,
-    isError: ctx.isError,
-    toolCallId: ctx.toolCallId,
-  });
-
-  const segments: string[] = [icon];
-
-  if (running) {
-    segments.push(theme.fg("muted", "running"));
-    if (dur) segments.push(theme.fg("dim", dur));
-    // Flush left: the status marker now sits in the same column as the
-    // tool name in the header row, forming a "title / status" two-row
-    // table. The old 2-space indent only made sense when the marker was a
-    // bold green check carrying its own weight; the soft ╴ needs the
-    // column anchor instead.
-    return segments.join(" ");
-  }
-
-  if (parts.summary) {
-    segments.push(theme.fg("muted", parts.summary));
-  }
-  if (dur) {
-    segments.push(theme.fg("dim", dur));
-  }
-
-  // For empty (e.g. write success), keep just the icon.
-  return segments.join("  ");
+  const segments: string[] = [];
+  if (header) segments.push(header);
+  if (!running && parts.summary) segments.push(theme.fg("muted", parts.summary));
+  if (dur && parts.showDuration !== false) segments.push(theme.fg("dim", dur));
+  return segments.join(" ");
 }
 
 // ---------------------------------------------------------------------------
@@ -500,26 +456,26 @@ export default function toolRender(pi: ExtensionAPI) {
       }
       clearCompactRead(ctx.state);
 
-      return new Text(
-        renderHeader({
-          theme,
-          toolName: "read",
-          nameColor: "accent",
-          primary: path || "...",
-          primarySuffix: suffix,
-        }),
-        0,
-        0,
-      );
+      const header = setHeader(ctx, renderHeader({
+        theme,
+        toolName: "read",
+        nameColor: "accent",
+        primary: path || "...",
+        primarySuffix: suffix,
+      }));
+      const running = ctx.executionStarted === true && ctx.isPartial;
+      return new Text(renderInlineLine(ctx, theme, header, {
+        summary: ctx.expanded || ctx.isError ? stateSummary(ctx) : "",
+        showDuration: running || ctx.expanded === true || ctx.isError,
+      }), 0, 0);
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      if (!expanded && !ctx.isError && isCompactRead(ctx.state)) return new Text("", 0, 0);
-      const summary = readSummary(result);
-      const head = renderSummaryLine(ctx, theme, { summary });
-      if (!expanded) return new Text(head, 0, 0);
+      const summary = expanded || ctx.isError ? readSummary(result) : "";
+      storeSummary(ctx, summary);
+      if (!expanded && !ctx.isError) return emptyComponent();
       const body = expandedBody(result, theme);
-      return new Text(body ? `${head}\n${body}` : head, 0, 0);
+      return body ? new Text(body, 0, 0) : emptyComponent();
     },
   });
 
@@ -534,7 +490,7 @@ export default function toolRender(pi: ExtensionAPI) {
       return builtInDefs(ctx.cwd).bash.execute(toolCallId, params, signal, onUpdate, ctx);
     },
 
-    renderCall(args, theme, _ctx) {
+    renderCall(args, theme, ctx) {
       const command = (args.command as string | undefined) ?? "...";
       const timeout = args.timeout as number | undefined;
       const display =
@@ -545,17 +501,17 @@ export default function toolRender(pi: ExtensionAPI) {
       const namePart = theme.fg("warning", theme.bold("$"));
       const cmdPart = theme.fg("text", display);
       const hintPart = hint ? theme.fg("muted", ` ${hint}`) : "";
-      return new Text(`${namePart} ${cmdPart}${hintPart}`, 0, 0);
+      const header = setHeader(ctx, `${namePart} ${cmdPart}${hintPart}`);
+      return new Text(renderInlineLine(ctx, theme, header, { summary: stateSummary(ctx) }), 0, 0);
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      const summary = bashSummary(result);
-      const head = renderSummaryLine(ctx, theme, { summary });
-      if (!expanded) return new Text(head, 0, 0);
+      storeSummary(ctx, bashSummary(result));
+      if (!expanded) return emptyComponent();
       const body = expandedBody(result, theme, {
         color: ctx.isError ? "error" : "toolOutput",
       });
-      return new Text(body ? `${head}\n${body}` : head, 0, 0);
+      return body ? new Text(body, 0, 0) : emptyComponent();
     },
   });
 
@@ -581,31 +537,27 @@ export default function toolRender(pi: ExtensionAPI) {
       const path = shortenPath(args.path ?? "", ctx.cwd);
       const editsCount = Array.isArray(args.edits) ? args.edits.length : 0;
       const hint = editsCount > 1 ? `(${editsCount} edits)` : undefined;
-      return new Text(
-        renderHeader({
-          theme,
-          toolName: "edit",
-          nameColor: "syntaxKeyword",
-          primary: path || "...",
-          hint,
-        }),
-        0,
-        0,
-      );
+      const header = setHeader(ctx, renderHeader({
+        theme,
+        toolName: "edit",
+        nameColor: "syntaxKeyword",
+        primary: path || "...",
+        hint,
+      }));
+      return new Text(renderInlineLine(ctx, theme, header, {
+        summary: stateSummary(ctx),
+        durationStartedAt: stateNumber(ctx, "editArgsStartedAt"),
+      }), 0, 0);
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      const summary = renderEditStats(theme, result.details);
-      const head = renderSummaryLine(ctx, theme, {
-        summary,
-        durationStartedAt: stateNumber(ctx, "editArgsStartedAt"),
-      });
-      if (!expanded) return new Text(head, 0, 0);
+      storeSummary(ctx, renderEditStats(theme, result.details));
+      if (!expanded) return emptyComponent();
 
       const body = ctx.isError
         ? expandedBody(result, theme, { color: "error" })
         : expandedDiff(result.details, theme) || expandedBody(result, theme);
-      return new Text(body ? `${head}\n${body}` : head, 0, 0);
+      return body ? new Text(body, 0, 0) : emptyComponent();
     },
   });
 
@@ -634,31 +586,27 @@ export default function toolRender(pi: ExtensionAPI) {
       // so the sum row is never just a lonely marker.
       ctx.state.writeSummary = bytes > 0 ? formatSize(bytes) : "";
       const hint = lines > 0 ? `+${lines} lines` : undefined;
-      return new Text(
-        renderHeader({
-          theme,
-          toolName: "write",
-          nameColor: "syntaxKeyword",
-          primary: path || "...",
-          hint,
-        }),
-        0,
-        0,
-      );
+      const header = setHeader(ctx, renderHeader({
+        theme,
+        toolName: "write",
+        nameColor: "syntaxKeyword",
+        primary: path || "...",
+        hint,
+      }));
+      return new Text(renderInlineLine(ctx, theme, header, {
+        summary: stateSummary(ctx),
+        durationStartedAt: stateNumber(ctx, "writeArgsStartedAt"),
+      }), 0, 0);
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      const summary = (ctx.state.writeSummary as string | undefined) ?? "";
-      const head = renderSummaryLine(ctx, theme, {
-        summary,
-        durationStartedAt: stateNumber(ctx, "writeArgsStartedAt"),
-      });
-      if (!expanded) return new Text(head, 0, 0);
+      storeSummary(ctx, (ctx.state.writeSummary as string | undefined) ?? "");
+      if (!expanded) return emptyComponent();
       if (ctx.isError) {
         const body = expandedBody(result, theme, { color: "error" });
-        return new Text(body ? `${head}\n${body}` : head, 0, 0);
+        return body ? new Text(body, 0, 0) : emptyComponent();
       }
-      return new Text(head, 0, 0);
+      return emptyComponent();
     },
   });
 
@@ -680,25 +628,21 @@ export default function toolRender(pi: ExtensionAPI) {
       const hintParts: string[] = [];
       if (path) hintParts.push(`in ${path}`);
       if (glob) hintParts.push(`(${glob})`);
-      return new Text(
-        renderHeader({
-          theme,
-          toolName: "grep",
-          nameColor: "mdCode",
-          primary: `/${pattern}/`,
-          hint: hintParts.join(" "),
-        }),
-        0,
-        0,
-      );
+      const header = setHeader(ctx, renderHeader({
+        theme,
+        toolName: "grep",
+        nameColor: "mdCode",
+        primary: `/${pattern}/`,
+        hint: hintParts.join(" "),
+      }));
+      return new Text(renderInlineLine(ctx, theme, header, { summary: stateSummary(ctx) }), 0, 0);
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      const summary = lineCountSummary(result, "matches");
-      const head = renderSummaryLine(ctx, theme, { summary });
-      if (!expanded) return new Text(head, 0, 0);
+      storeSummary(ctx, lineCountSummary(result, "matches"));
+      if (!expanded) return emptyComponent();
       const body = expandedBody(result, theme);
-      return new Text(body ? `${head}\n${body}` : head, 0, 0);
+      return body ? new Text(body, 0, 0) : emptyComponent();
     },
   });
 
@@ -717,25 +661,21 @@ export default function toolRender(pi: ExtensionAPI) {
       const pattern = (args.pattern as string | undefined) ?? "";
       const path = shortenPath((args.path as string | undefined) ?? "", ctx.cwd);
       const hint = path ? `in ${path}` : undefined;
-      return new Text(
-        renderHeader({
-          theme,
-          toolName: "find",
-          nameColor: "mdCode",
-          primary: pattern,
-          hint,
-        }),
-        0,
-        0,
-      );
+      const header = setHeader(ctx, renderHeader({
+        theme,
+        toolName: "find",
+        nameColor: "mdCode",
+        primary: pattern,
+        hint,
+      }));
+      return new Text(renderInlineLine(ctx, theme, header, { summary: stateSummary(ctx) }), 0, 0);
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      const summary = lineCountSummary(result, "files");
-      const head = renderSummaryLine(ctx, theme, { summary });
-      if (!expanded) return new Text(head, 0, 0);
+      storeSummary(ctx, lineCountSummary(result, "files"));
+      if (!expanded) return emptyComponent();
       const body = expandedBody(result, theme);
-      return new Text(body ? `${head}\n${body}` : head, 0, 0);
+      return body ? new Text(body, 0, 0) : emptyComponent();
     },
   });
 
@@ -752,24 +692,20 @@ export default function toolRender(pi: ExtensionAPI) {
 
     renderCall(args, theme, ctx) {
       const path = shortenPath((args.path as string | undefined) ?? ".", ctx.cwd);
-      return new Text(
-        renderHeader({
-          theme,
-          toolName: "ls",
-          nameColor: "toolTitle",
-          primary: path || ".",
-        }),
-        0,
-        0,
-      );
+      const header = setHeader(ctx, renderHeader({
+        theme,
+        toolName: "ls",
+        nameColor: "toolTitle",
+        primary: path || ".",
+      }));
+      return new Text(renderInlineLine(ctx, theme, header, { summary: stateSummary(ctx) }), 0, 0);
     },
 
     renderResult(result, { expanded }, theme, ctx) {
-      const summary = lineCountSummary(result, "entries");
-      const head = renderSummaryLine(ctx, theme, { summary });
-      if (!expanded) return new Text(head, 0, 0);
+      storeSummary(ctx, lineCountSummary(result, "entries"));
+      if (!expanded) return emptyComponent();
       const body = expandedBody(result, theme);
-      return new Text(body ? `${head}\n${body}` : head, 0, 0);
+      return body ? new Text(body, 0, 0) : emptyComponent();
     },
   });
 }
