@@ -5,7 +5,7 @@
  * per-row invalidation for compact tool rendering.
  *
  * Used by:
- * - tool-render.ts (per-row duration + spinner refresh)
+ * - tool-render.ts (per-row duration refresh)
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -23,7 +23,9 @@ const TICK_INTERVAL_MS = 120;
 
 class ToolRegistry {
   private entries = new Map<string, ToolEntry>();
-  /** Running tool IDs only; keeps spinner ticks O(running) instead of O(history). */
+  /** Invalidate callbacks that rendered before tool_execution_start reached this extension. */
+  private pendingInvalidates = new Map<string, () => void>();
+  /** Running tool IDs only; keeps duration ticks O(running) instead of O(history). */
   private runningIds = new Set<string>();
   private tickInterval?: NodeJS.Timeout;
 
@@ -33,7 +35,9 @@ class ToolRegistry {
       toolCallId,
       toolName,
       startedAt: Date.now(),
+      invalidate: this.pendingInvalidates.get(toolCallId),
     };
+    this.pendingInvalidates.delete(toolCallId);
     this.entries.set(toolCallId, entry);
     this.runningIds.add(toolCallId);
     this.ensureTicker();
@@ -52,13 +56,18 @@ class ToolRegistry {
 
   resetAll(): void {
     this.entries.clear();
+    this.pendingInvalidates.clear();
     this.runningIds.clear();
     this.stopTicker();
   }
 
   setInvalidate(toolCallId: string, invalidate: () => void): void {
     const entry = this.entries.get(toolCallId);
-    if (entry && entry.endedAt === undefined) entry.invalidate = invalidate;
+    if (entry && entry.endedAt === undefined) {
+      entry.invalidate = invalidate;
+      return;
+    }
+    if (!entry) this.pendingInvalidates.set(toolCallId, invalidate);
   }
 
   getEntry(toolCallId: string): ToolEntry | undefined {

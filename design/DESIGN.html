@@ -314,11 +314,11 @@
 
 <div class="grid2">
   <div class="card">
-    <h4>状态符</h4>
+    <h4>状态表达</h4>
     <p>
-      running: spinner（120ms）· tool 语义色<br>
-      done: <span class="greenSoft">╴</span> <code>greenSoft #5ec27e</code><br>
-      error: <span class="red">✗</span> red
+      running: 无左侧 spinner；右侧 duration 持续刷新<br>
+      done: 无左侧状态符；只保留 header + summary<br>
+      error: 无左侧状态符；依赖 error shell / 内容色
     </p>
   </div>
   <div class="card">
@@ -334,16 +334,34 @@
 </div>
 
 <div class="demo">
-  <span class="cyan">╴ read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="dim">· 573 lines · 12ms</span><br>
-  <span class="purple">╴ edit</span> <span style="color:var(--fg);font-weight:600">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">· 84ms</span><br>
-  <span class="orange">╴ bash</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="dim">· 2.4s</span>
+  <div class="dim" style="margin-bottom:6px">collapsed（默认 · 单行）</div>
+  <span class="cyan">read</span> <span style="color:var(--fg);font-weight:600">working.ts</span><br>
+  <span class="purple">edit</span> <span style="color:var(--fg);font-weight:600">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">84ms</span><br>
+  <span class="orange">$</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="muted">128 lines</span> <span class="dim">2.4s</span>
+</div>
+
+<div class="demo">
+  <div class="dim" style="margin-bottom:6px">running（单行）</div>
+  <span class="cyan">read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="dim">1.2s</span><br>
+  <span class="orange">$</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="dim">4.8s</span>
+</div>
+
+<div class="demo">
+  <div class="dim" style="margin-bottom:6px">expanded（Ctrl+O）</div>
+  <span class="cyan">read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="muted">573 lines · 18.2KB</span> <span class="dim">12ms</span><br>
+  <span class="muted">001  import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";</span><br>
+  <span class="muted">002  import editor from "./editor.js";</span><br>
+  <span class="dim">…</span>
 </div>
 
 <ul>
-  <li>折叠 summary，<code>ctrl+o</code> 展开。</li>
-  <li><code>read</code> 保留 Pi 内置 compact 分类：<code>SKILL.md</code> 显示 <code>[skill] name</code>；Pi docs / <code>AGENTS.md</code> / <code>CLAUDE.md</code> 显示 <code>read docs/resource</code>；折叠时隐藏 result body。</li>
-  <li>duration 来自 <code>tool-registry</code>：<code>startedAt → endedAt</code>；<code>write</code> 从 args streaming 起算（<code>ctx.state.writeArgsStartedAt</code>）。</li>
-  <li>spinner phase 基于 <code>registry.getEntry(id).startedAt</code>，全局 120ms tick。</li>
+  <li>所有工具成功折叠态采用单行：<code>header + inline summary + duration</code>；取消旧的 call line / result line 两段式。</li>
+  <li>实现约束：Pi 固定渲染 <code>renderCall</code> + <code>renderResult</code> 两个 slot；可见单行始终由 <code>renderCall</code> 持有，<code>renderResult</code> 只写 summary/body state，避免 execution start 时 call→result 交接闪烁。</li>
+  <li><code>read</code> 同步 Pi 0.75.5 的低噪音意图：成功折叠态只显示 <code>read line</code>，不显示状态符/行数/大小；<code>Ctrl+O</code> 展开后显示 <code>summary + body</code>。</li>
+  <li>非 <code>read</code> 工具在同一行内保留关键信息：<code>edit</code> diff stats、<code>bash</code> output lines、<code>write</code> size、<code>grep/find/ls</code> counts。</li>
+  <li><code>read</code> 保留 Pi 内置 compact 分类：<code>SKILL.md</code> 显示 <code>[skill] name</code>；Pi docs / <code>AGENTS.md</code> / <code>CLAUDE.md</code> 显示 <code>read docs/resource</code>；成功折叠态隐藏 result line。</li>
+  <li>duration 来自 <code>tool-registry</code>：<code>startedAt → endedAt</code>；running 期作为唯一动态状态提示；<code>write</code> 从 args streaming 起算（<code>ctx.state.writeArgsStartedAt</code>）。</li>
+  <li>running duration 基于 registry ticker 全局 120ms 刷新；无左侧 spinner。</li>
   <li><code>edit</code> 解析 unified diff，仅前两行 <code>--- / +++</code> 视作 header；显示 <code>+N ~N −N</code>。</li>
   <li>grep/find 空结果显示 <code>0 matches/files</code>。</li>
   <li><code>write</code> header streaming 期保留 <code>+N lines</code> hint；sum 行存 <code>formatSize(bytes)</code> 兜底 reload。</li>
@@ -377,7 +395,7 @@
     <tr><td>working verb wave</td><td>1800ms</td><td>120ms / char</td><td>raised cosine · 4:3 错相 spinner</td></tr>
     <tr><td>working message refresh</td><td>—</td><td>16ms</td><td>~60fps，承载动画</td></tr>
     <tr><td>verb 轮换</td><td>8000ms</td><td>—</td><td>多语 20 词</td></tr>
-    <tr><td>tool spinner</td><td>—</td><td>120ms tick</td><td>全局 registry tick</td></tr>
+    <tr><td>tool duration</td><td>—</td><td>120ms tick</td><td>running 期全局 registry 刷新 elapsed time</td></tr>
     <tr><td>footer dirty refresh</td><td>—</td><td>cache + agent_end 强刷</td><td>异步</td></tr>
   </tbody>
 </table>
