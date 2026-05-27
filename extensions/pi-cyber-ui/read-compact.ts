@@ -27,6 +27,7 @@ export interface CompactReadHeaderOptions {
   renderHeader: (options: {
     theme: Theme;
     toolName: string;
+    icon?: string;
     nameColor?: "toolTitle";
     primary: string;
     primarySuffix?: string;
@@ -71,6 +72,7 @@ export function renderCompactReadCall({
   return renderHeader({
     theme,
     toolName: `read ${classification.kind}`,
+    icon: "󰈙",
     nameColor: "toolTitle",
     primary: classification.label,
     primarySuffix: suffix,

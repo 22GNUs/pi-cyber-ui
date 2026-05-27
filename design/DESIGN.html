@@ -324,38 +324,39 @@
   <div class="card">
     <h4>语义分色（头）</h4>
     <p>
-      <span class="cyan">read</span> ·
-      <span class="orange">bash</span> ·
-      <span class="purple">edit / write</span> ·
-      <span class="teal">grep / find</span> ·
-      <span class="blue">ls</span>
+      <span class="cyan">󰈙 read</span> ·
+      <span class="orange"> bash</span> ·
+      <span class="purple">󰏫 edit / 󰝒 write</span> ·
+      <span class="teal">󰍉 grep / find</span> ·
+      <span class="blue">󰉋 ls</span>
     </p>
   </div>
 </div>
 
 <div class="demo">
   <div class="dim" style="margin-bottom:6px">collapsed（默认 · 单行）</div>
-  <span class="cyan">read</span> <span style="color:var(--fg);font-weight:600">working.ts</span><br>
-  <span class="purple">edit</span> <span style="color:var(--fg);font-weight:600">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">84ms</span><br>
-  <span class="orange">$</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="muted">128 lines</span> <span class="dim">2.4s</span>
+  <span class="cyan">󰈙 read</span> <span style="color:var(--fg);font-weight:600">working.ts</span><br>
+  <span class="purple">󰏫 edit</span> <span style="color:var(--fg);font-weight:600">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">84ms</span><br>
+  <span class="orange"> bash</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="muted">128 lines</span> <span class="dim">2.4s</span>
 </div>
 
 <div class="demo">
   <div class="dim" style="margin-bottom:6px">running（单行）</div>
-  <span class="cyan">read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="dim">1.2s</span><br>
-  <span class="orange">$</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="dim">4.8s</span>
+  <span class="cyan">󰈙 read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="dim">1.2s</span><br>
+  <span class="orange"> bash</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="dim">4.8s</span>
 </div>
 
 <div class="demo">
   <div class="dim" style="margin-bottom:6px">expanded（Ctrl+O）</div>
-  <span class="cyan">read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="muted">573 lines · 18.2KB</span> <span class="dim">12ms</span><br>
+  <span class="cyan">󰈙 read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="muted">573 lines · 18.2KB</span> <span class="dim">12ms</span><br>
   <span class="muted">001  import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";</span><br>
   <span class="muted">002  import editor from "./editor.js";</span><br>
   <span class="dim">…</span>
 </div>
 
 <ul>
-  <li>所有工具成功折叠态采用单行：<code>header + inline summary + duration</code>；取消旧的 call line / result line 两段式。</li>
+  <li>所有工具成功折叠态采用单行：<code>icon + tool/header + inline summary + duration</code>；取消旧的 call line / result line 两段式。</li>
+  <li>左侧语义图标使用单宽 Nerd glyph，图标与 tool label 同色：<code>󰈙 read</code>、<code>󰏫 edit</code>、<code>󰝒 write</code>、<code>󰍉 grep/find</code>、<code>󰉋 ls</code>、<code> bash</code>。</li>
   <li>实现约束：Pi 固定渲染 <code>renderCall</code> + <code>renderResult</code> 两个 slot；可见单行始终由 <code>renderCall</code> 持有，<code>renderResult</code> 只写 summary/body state，避免 execution start 时 call→result 交接闪烁。</li>
   <li><code>read</code> 同步 Pi 0.75.5 的低噪音意图：成功折叠态只显示 <code>read line</code>，不显示状态符/行数/大小；<code>Ctrl+O</code> 展开后显示 <code>summary + body</code>。</li>
   <li>非 <code>read</code> 工具在同一行内保留关键信息：<code>edit</code> diff stats、<code>bash</code> output lines、<code>write</code> size、<code>grep/find/ls</code> counts。</li>
