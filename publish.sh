@@ -71,25 +71,21 @@ fi
 
 # Token: env 优先，其次 npm config 缓存，最后交互输入
 get_cached_token() {
-    local token
-    token=$(npm config get "$AUTH_KEY" 2>/dev/null || true)
+    local config_file token
+    # npm 11+ treats auth tokens as protected and refuses to return them via
+    # `npm config get`, so read the value directly from npm's user config file.
+    config_file=$(npm config get userconfig 2>/dev/null || printf '%s' "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}")
+    if [ ! -f "$config_file" ]; then
+        return 0
+    fi
+    token=$(grep -F "$AUTH_KEY=" "$config_file" 2>/dev/null | head -n1 | cut -d= -f2-)
     if [ "$token" = "undefined" ] || [ "$token" = "null" ]; then
         token=""
     fi
     printf '%s' "$token"
 }
 
-NPM_TOKEN="${NPM_TOKEN:-}"
-if [ -n "$NPM_TOKEN" ]; then
-    echo "🔐 使用环境变量 NPM_TOKEN"
-else
-    NPM_TOKEN=$(get_cached_token)
-    if [ -n "$NPM_TOKEN" ]; then
-        echo "🔐 使用 npm config 中缓存的 token"
-    fi
-fi
-
-if [ -z "$NPM_TOKEN" ]; then
+prompt_for_token() {
     echo "🔐 需要 NPM Access Token 来完成发布"
     echo ""
     echo "   📖 Token 获取步骤:"
@@ -106,32 +102,60 @@ if [ -z "$NPM_TOKEN" ]; then
     read -r -s -p "   🔑 请输入你的 NPM Access Token: " NPM_TOKEN
     echo ""
     echo ""
-fi
+}
 
-# 验证 token 格式
-if [[ ! "$NPM_TOKEN" =~ ^npm_[a-zA-Z0-9]+$ ]]; then
-    echo "❌ 错误: Token 格式不正确。NPM Token 应该以 'npm_' 开头"
-    echo "   请重新检查你的 token 并再次运行脚本"
-    exit 1
-fi
+while true; do
+    NPM_TOKEN="${NPM_TOKEN:-}"
+    if [ -n "$NPM_TOKEN" ]; then
+        echo "🔐 使用环境变量 NPM_TOKEN"
+    else
+        NPM_TOKEN=$(get_cached_token)
+        if [ -n "$NPM_TOKEN" ]; then
+            echo "🔐 使用 npm config 中缓存的 token"
+        fi
+    fi
 
-echo "✅ Token 格式正确"
-echo ""
+    if [ -z "$NPM_TOKEN" ]; then
+        prompt_for_token
+    fi
 
-# 缓存 token 到 npm config，后续发布复用
-echo "⚙️  配置 npm auth token..."
-npm config set "$AUTH_KEY" "$NPM_TOKEN"
-echo "   ✅ Token 已配置并缓存到 npm config"
-echo ""
+    # 验证 token 格式
+    if [[ ! "$NPM_TOKEN" =~ ^npm_[a-zA-Z0-9]+$ ]]; then
+        echo "❌ 错误: Token 格式不正确。NPM Token 应该以 'npm_' 开头"
+        echo "   请重新检查你的 token 并再次运行脚本"
+        exit 1
+    fi
 
-# 验证登录
-echo "🔍 验证 npm 登录状态..."
-if USER=$(npm whoami 2>/dev/null); then
-    echo "   ✅ 已登录为: $USER"
-else
-    echo "⚠️  警告: 无法验证登录状态，但会继续尝试发布"
-fi
-echo ""
+    echo "✅ Token 格式正确"
+    echo ""
+
+    # 缓存 token 到 npm config，后续发布复用
+    echo "⚙️  配置 npm auth token..."
+    npm config set "$AUTH_KEY" "$NPM_TOKEN"
+    echo "   ✅ Token 已配置并缓存到 npm config"
+    echo ""
+
+    # 验证登录
+    echo "🔍 验证 npm 登录状态..."
+    if USER=$(npm whoami 2>/dev/null); then
+        echo "   ✅ 已登录为: $USER"
+        echo ""
+        break
+    fi
+
+    echo "⚠️  警告: 无法验证登录状态，当前 token 可能无效或已过期"
+    echo ""
+    read -r -p "   🔄 是否重新输入 token? (y/N): " RETRY
+    echo ""
+    if [[ ! "$RETRY" =~ ^[Yy]$ ]]; then
+        echo "❌ 发布已取消"
+        exit 1
+    fi
+
+    # 丢弃无效 token，下次循环重新提示输入
+    npm config delete "$AUTH_KEY" 2>/dev/null || true
+    unset NPM_TOKEN
+done
 
 # 运行类型检查
 echo "🔍 运行类型检查..."
