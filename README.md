@@ -10,7 +10,7 @@ The extension is split into small modules for easier maintenance:
 - `editor-state.ts` handles session state and token accounting
 - `working.ts` renders prompt progress and idle summaries
 - `footer.ts` renders cwd, git dirty state, model, thinking level, and context usage
-- `profile.ts` resolves `safe`/`full`, registers `/cyber-profile`, and persists the global user profile
+- `profile.ts` resolves `native`/`full`, registers `/cyber-profile`, and persists the global user profile
 - `tool-render.ts` re-registers built-in tools with compact cyber renderers while delegating execution to Pi built-ins; activated only in `full` profile
 - `read-compact.ts` preserves Pi read compact compatibility for skills and agent resource files in `full` profile
 - `tool-registry.ts` tracks tool lifecycle, durations, and per-turn tallies in `full` profile
@@ -59,7 +59,7 @@ The package is structured to be publishable later via git or npm without changin
 
 ### Profiles
 
-`pi-cyber-ui` defaults to the low-intrusion `safe` profile:
+`pi-cyber-ui` defaults to the low-intrusion `native` profile:
 
 ```bash
 pi
@@ -68,7 +68,7 @@ pi
 Switch profiles with the built-in command:
 
 ```text
-/cyber-profile safe
+/cyber-profile native
 /cyber-profile full
 /cyber-profile toggle
 /cyber-profile status
@@ -86,7 +86,7 @@ Available profiles:
 
 | Profile | Default | Tool overrides | Use case |
 |---|---:|---:|---|
-| `safe` | ✅ | none | Maximum compatibility with Pi defaults and other extensions. Keeps theme, editor, footer, and working indicator. Tool colors come from theme tokens only. |
+| `native` | ✅ | none | Keeps Pi native tool definitions/renderers for maximum compatibility with Pi defaults and other extensions. Keeps theme, editor, footer, and working indicator. Tool colors come from theme tokens only. |
 | `full` | — | `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls` | Enables compact tool rows, Nerd Font tool icons, per-tool header colors, summaries, durations, and compact read affordances. May conflict with other extensions that register the same tool names. |
 
 Enable the full compact tool rendering explicitly:
@@ -95,7 +95,7 @@ Enable the full compact tool rendering explicitly:
 /cyber-profile full
 ```
 
-Unknown persisted or environment profile values fall back to `safe`. If `PI_CYBER_UI_PROFILE` is set by your shell, it overrides the persisted config on future launches.
+Unknown persisted or environment profile values fall back to `native`. If `PI_CYBER_UI_PROFILE` is set by your shell, it overrides the persisted config on future launches.
 
 When it is published, install it with one of these forms:
 
@@ -109,7 +109,7 @@ pi install git:github.com/22GNUs/pi-cyber-ui.git
 
 This package is not a full tool implementation fork. Tool rendering is profile-gated progressive enhancement.
 
-In the default `safe` profile, `pi-cyber-ui` does not re-register any Pi built-in tools. This avoids conflicts with Pi defaults and other extensions. Tool-level coloring is limited to theme tokens such as `toolTitle`, `toolOutput`, `toolPendingBg`, `toolSuccessBg`, `toolErrorBg`, and diff colors.
+In the default `native` profile, `pi-cyber-ui` does not re-register any Pi built-in tools. This preserves Pi native tool definitions/renderers and avoids conflicts with other extensions. Tool-level coloring is limited to theme tokens such as `toolTitle`, `toolOutput`, `toolPendingBg`, `toolSuccessBg`, `toolErrorBg`, and diff colors.
 
 In the explicit `full` profile, built-in tools are re-registered to control the UI, but execution and prompt metadata continue to come from Pi's native tool definitions.
 
@@ -121,7 +121,7 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 
 ## Commands
 
-- `/cyber-profile [safe|full|toggle|status]` — show or switch the global `pi-cyber-ui` profile. Changes are persisted and followed by an automatic reload.
+- `/cyber-profile [native|full|toggle|status]` — show or switch the global `pi-cyber-ui` profile. Changes are persisted and followed by an automatic reload.
 
 ## Notes
 
@@ -130,6 +130,6 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 - Extension entrypoint: `extensions/pi-cyber-ui/index.ts`
 - Exact streaming usage is protocol-aware; Anthropic Messages API can surface cumulative in-flight usage, while other APIs fall back to estimates
 - Working indicator uses Pi's official `ctx.ui.setWorkingIndicator()` / `ctx.ui.setWorkingMessage()` APIs
-- Default profile is `safe`, which does not re-register built-in tools
+- Default profile is `native`, which does not re-register built-in tools
 - Use `/cyber-profile full` or `PI_CYBER_UI_PROFILE=full` to re-register built-in tools for compact rendering while preserving their original execution behavior and prompt metadata
 - Theme format follows the official Pi theme schema

@@ -3,7 +3,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export type CyberUiProfile = "safe" | "full";
+export type CyberUiProfile = "native" | "full";
 
 interface ProfileConfig {
   profile?: CyberUiProfile;
@@ -20,7 +20,7 @@ const PROFILE_CONFIG_PATH = join(getAgentDir(), "pi-cyber-ui.json");
 function parseProfile(value: unknown): CyberUiProfile | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim().toLowerCase();
-  return normalized === "safe" || normalized === "full" ? normalized : undefined;
+  return normalized === "native" || normalized === "full" ? normalized : undefined;
 }
 
 function readProfileConfig(): ProfileConfig {
@@ -46,7 +46,7 @@ export function resolveCyberUiProfile(): ResolvedProfile {
     return { profile: configProfile, source: "config", configPath: PROFILE_CONFIG_PATH };
   }
 
-  return { profile: "safe", source: "default", configPath: PROFILE_CONFIG_PATH };
+  return { profile: "native", source: "default", configPath: PROFILE_CONFIG_PATH };
 }
 
 function writeProfileConfig(profile: CyberUiProfile): void {
@@ -60,9 +60,9 @@ function writeProfileConfig(profile: CyberUiProfile): void {
 
 export function registerProfileCommand(pi: ExtensionAPI): void {
   pi.registerCommand("cyber-profile", {
-    description: "Show or switch pi-cyber-ui profile (safe/full), persisted globally",
+    description: "Show or switch pi-cyber-ui profile (native/full), persisted globally",
     getArgumentCompletions(prefix) {
-      const options = ["safe", "full", "toggle", "status"];
+      const options = ["native", "full", "toggle", "status"];
       const normalized = prefix.trim().toLowerCase();
       return options
         .filter((option) => option.startsWith(normalized))
@@ -75,7 +75,7 @@ export function registerProfileCommand(pi: ExtensionAPI): void {
       let next: CyberUiProfile | undefined;
       if (!requested || requested === "status") {
         if (!requested && ctx.hasUI) {
-          const choice = await ctx.ui.select("pi-cyber-ui profile", ["safe", "full"]);
+          const choice = await ctx.ui.select("pi-cyber-ui profile", ["native", "full"]);
           next = parseProfile(choice);
           if (!next) return;
         } else {
@@ -86,13 +86,13 @@ export function registerProfileCommand(pi: ExtensionAPI): void {
           return;
         }
       } else if (requested === "toggle") {
-        next = current.profile === "full" ? "safe" : "full";
+        next = current.profile === "full" ? "native" : "full";
       } else {
         next = parseProfile(requested);
       }
 
       if (!next) {
-        ctx.ui.notify("Usage: /cyber-profile [safe|full|toggle|status]", "error");
+        ctx.ui.notify("Usage: /cyber-profile [native|full|toggle|status]", "error");
         return;
       }
 
