@@ -309,8 +309,25 @@
 </ul>
 
 <h3>3.4 Tool rendering</h3>
-<p>覆盖 <code>read / bash / edit / write / grep / find / ls</code> 的 UI render；执行层继续委托 Pi built-in tools。<code>renderShell: "default"</code>；保留内置 <code>parameters/description/promptSnippet/promptGuidelines</code>（<code>...initial.&lt;tool&gt;</code> spread）。</p>
+<p><strong>Profile gating</strong>：工具渲染是渐进增强，不是扩展启动的硬依赖。默认 <code>safe</code> profile 不覆写任何 Pi 默认工具；显式 <code>full</code> profile 才覆盖 <code>read / bash / edit / write / grep / find / ls</code> 的 UI render。</p>
+<p><code>safe</code> 保留 theme/editor/footer/working indicator，只使用 theme token 控制工具框背景、工具标题、输出与 diff 颜色；不注册同名工具，因此不提供 compact row、Nerd glyph、per-tool 头部颜色、summary/duration、read compact 资源显示。</p>
+<p><code>full</code> 保留当前完整工具体验：执行层继续委托 Pi built-in tools。<code>renderShell: "default"</code>；保留内置 <code>parameters/description/promptSnippet/promptGuidelines</code>（<code>...initial.&lt;tool&gt;</code> spread）。代价是会覆写同名工具，可能与其他扩展冲突。</p>
 <p>架构边界：Pi execution-layer 更新通常自动继承；Pi native renderer 新特性不会自动进入，需要人工 review/port。升级 <code>@earendil-works/pi-coding-agent</code> 后优先 diff <code>core/tools/read</code>，避免丢失 <code>SKILL.md</code> / resource / docs compact 语义。</p>
+
+<table>
+  <thead><tr><th>能力</th><th>safe</th><th>full</th></tr></thead>
+  <tbody>
+    <tr><td>theme / editor / footer / working</td><td>✅</td><td>✅</td></tr>
+    <tr><td>工具框背景 / 输出 / diff 颜色</td><td>✅ theme token</td><td>✅ theme token</td></tr>
+    <tr><td>工具标题全局颜色 <code>toolTitle</code></td><td>✅</td><td>✅</td></tr>
+    <tr><td>每个工具独立颜色语义</td><td>—</td><td>✅</td></tr>
+    <tr><td>compact 单行工具渲染</td><td>—</td><td>✅</td></tr>
+    <tr><td>Nerd glyph / summary / duration</td><td>—</td><td>✅</td></tr>
+    <tr><td>避免默认工具覆写冲突</td><td>✅</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<p>配置入口：<code>/cyber-profile [safe|full|toggle|status]</code> 写入全局用户级配置 <code>~/.pi/agent/pi-cyber-ui.json</code> 并自动 <code>reload</code>；默认 <code>safe</code>。<code>PI_CYBER_UI_PROFILE=safe|full</code> 可作为环境变量覆盖；命令切换时会同步当前进程环境变量以便本次 reload 生效。未知值回退 <code>safe</code>。本设计不引入 <code>search-safe</code> 中间模式，不做自动冲突探测。</p>
 
 <div class="grid2">
   <div class="card">
@@ -333,8 +350,10 @@
   </div>
 </div>
 
+<p>以下 compact mock 仅适用于 <code>full</code> profile。</p>
+
 <div class="demo">
-  <div class="dim" style="margin-bottom:6px">collapsed（默认 · 单行）</div>
+  <div class="dim" style="margin-bottom:6px">collapsed（full · 单行）</div>
   <span class="cyan">󰈙 read</span> <span style="color:var(--fg);font-weight:600">working.ts</span><br>
   <span class="purple">󰏫 edit</span> <span style="color:var(--fg);font-weight:600">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">84ms</span><br>
   <span class="orange"> bash</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="muted">128 lines</span> <span class="dim">2.4s</span>
@@ -355,6 +374,7 @@
 </div>
 
 <ul>
+  <li>以下规则仅在 <code>full</code> profile 生效；<code>safe</code> profile 使用 Pi 默认工具 renderer。</li>
   <li>所有工具成功折叠态采用单行：<code>icon + tool/header + inline summary + duration</code>；取消旧的 call line / result line 两段式。</li>
   <li>左侧语义图标使用单宽 Nerd glyph，图标与 tool label 同色：<code>󰈙 read</code>、<code>󰏫 edit</code>、<code>󰝒 write</code>、<code>󰍉 grep/find</code>、<code>󰉋 ls</code>、<code> bash</code>。</li>
   <li>实现约束：Pi 固定渲染 <code>renderCall</code> + <code>renderResult</code> 两个 slot；可见单行始终由 <code>renderCall</code> 持有，<code>renderResult</code> 只写 summary/body state，避免 execution start 时 call→result 交接闪烁。</li>
@@ -396,22 +416,23 @@
     <tr><td>working verb wave</td><td>1800ms</td><td>120ms / char</td><td>raised cosine · 4:3 错相 spinner</td></tr>
     <tr><td>working message refresh</td><td>—</td><td>16ms</td><td>~60fps，承载动画</td></tr>
     <tr><td>verb 轮换</td><td>8000ms</td><td>—</td><td>多语 20 词</td></tr>
-    <tr><td>tool duration</td><td>—</td><td>120ms tick</td><td>running 期全局 registry 刷新 elapsed time</td></tr>
+    <tr><td>tool duration</td><td>—</td><td>120ms tick</td><td>仅 full profile；running 期全局 registry 刷新 elapsed time</td></tr>
     <tr><td>footer dirty refresh</td><td>—</td><td>cache + agent_end 强刷</td><td>异步</td></tr>
   </tbody>
 </table>
 
 <h2>5 · 文件地图</h2>
 <pre><code>extensions/pi-cyber-ui/
-  index.ts          # 注册顺序：tool-registry → tool-render → footer → editor → working
+  index.ts          # profile gating；safe 默认，full 才激活 tool-registry/tool-render
+  profile.ts        # /cyber-profile 命令 + 全局持久化
   editor-state.ts   # cyberState 单例（token/tps/turn）
   cyber-editor.ts   # ❯ + border，纯净
   editor.ts         # editor 注入
   working.ts        # working line + idle summary
   footer.ts         # 左右双栏 + fold
-  tool-registry.ts  # 工具运行态 + duration（runningIds 优化）
-  tool-render.ts    # 7 个工具 compact renderer
-  read-compact.ts   # Pi read compact 兼容层（skill/resource）
+  tool-registry.ts  # full only：工具运行态 + duration（runningIds 优化）
+  tool-render.ts    # full only：7 个工具 compact renderer
+  read-compact.ts   # full only：Pi read compact 兼容层（skill/resource）
   path-utils.ts     # shortenPathToWidth / stylePath / homeRelative
 
 themes/cyber-ui-dark.json
@@ -420,13 +441,14 @@ design/DESIGN.html  # 本文档</code></pre>
 <h2>6 · 不变量</h2>
 <div class="invariant">① TPS 算法（cumulative）和 token 计算逻辑 — <strong>不动</strong>。</div>
 <div class="invariant">② 注册顺序：<code>editor(pi)</code> 必须在 <code>working(pi)</code> 之前（producer → consumer）。</div>
-<div class="invariant">③ 工具内置 <code>parameters / description / promptSnippet / promptGuidelines</code> 必须 spread 保留；<code>execute</code> 必须委托 Pi built-in。</div>
-<div class="invariant">④ 工具 render 是本包定制层；Pi native renderer 新特性必须 review/port，不能假设自动继承。</div>
-<div class="invariant">⑤ <code>read</code> 必须保留 Pi compact 语义：<code>SKILL.md</code> → <code>[skill] name</code>；<code>AGENTS.md</code>/<code>CLAUDE.md</code> → resource。</div>
-<div class="invariant">⑥ 不在 working line 重复展示工具运行（HUD 已有）。</div>
-<div class="invariant">⑦ <code>cyan</code> 不下放到普通文本/路径/工具状态符。</div>
-<div class="invariant">⑧ silver 系仅限 working line 内部使用。</div>
-<div class="invariant">⑨ 不引入二进制串 / emoji 串 / CSS gradient 类视觉噱头。</div>
+<div class="invariant">③ <code>safe</code> 是默认 profile，且不得注册任何 Pi 默认同名工具；<code>/cyber-profile</code> 必须在 safe/full 都可用。</div>
+<div class="invariant">④ <code>full</code> profile 中，工具内置 <code>parameters / description / promptSnippet / promptGuidelines</code> 必须 spread 保留；<code>execute</code> 必须委托 Pi built-in。</div>
+<div class="invariant">⑤ 工具 render 是本包定制层；Pi native renderer 新特性必须 review/port，不能假设自动继承。</div>
+<div class="invariant">⑥ <code>full</code> profile 中，<code>read</code> 必须保留 Pi compact 语义：<code>SKILL.md</code> → <code>[skill] name</code>；<code>AGENTS.md</code>/<code>CLAUDE.md</code> → resource。</div>
+<div class="invariant">⑦ 不在 working line 重复展示工具运行（HUD 已有）。</div>
+<div class="invariant">⑧ <code>cyan</code> 不下放到普通文本/路径/工具状态符。</div>
+<div class="invariant">⑨ silver 系仅限 working line 内部使用。</div>
+<div class="invariant">⑩ 不引入二进制串 / emoji 串 / CSS gradient 类视觉噱头。</div>
 
 <h2>7 · 流程</h2>
 <ol>
