@@ -262,10 +262,27 @@
 
 <h3>3.1 Editor</h3>
 <ul>
-  <li>形态：纯 prompt glyph <code>❯</code> + border。</li>
-  <li>不嵌 HUD。所有动态状态外移到 working line / footer。</li>
+  <li>形态：prompt glyph <code>❯</code> + border；保持输入壳体克制。</li>
+  <li>不嵌动态 HUD。所有 token / tps / tool / elapsed 状态外移到 working line / footer。</li>
+  <li>允许一个静态身份标签例外：显式设置的 <code>session name</code> 可嵌入 top border 右上角。</li>
   <li>文件：<code>cyber-editor.ts</code> · <code>editor.ts</code> · <code>editor-state.ts</code>（共享 <code>cyberState</code> 单例）。</li>
 </ul>
+<div class="demo">
+  <span class="cyan">──────────────────────────────────────────</span><span class="cyan">⟦ refactor-ui ⟧</span><span class="cyan">────</span>
+</div>
+<table>
+  <thead><tr><th>元素</th><th>规则</th></tr></thead>
+  <tbody>
+    <tr><td>session label source</td><td>Pi session display name：<code>ctx.sessionManager.getSessionName()</code> / <code>pi.getSessionName()</code>。由 Pi <code>/name &lt;name&gt;</code> 或 session selector rename 写入 <code>session_info</code>。</td></tr>
+    <tr><td>empty state</td><td>未设置 name 时完全隐藏；不 fallback 到 session id / file name。</td></tr>
+    <tr><td>format</td><td><code>⟦ name ⟧</code>；仅展示名称，不加 <code>session:</code> 前缀。</td></tr>
+    <tr><td>placement</td><td>top border 右侧；标签右边保留 4 格 border，让右上角视觉更对齐；editor 可见即显示。</td></tr>
+    <tr><td>colour</td><td>继承当前动态 border 色（thinking / bash mode），不引入新 palette。</td></tr>
+    <tr><td>width</td><td>最长占 terminal width 的 1/3；使用 ANSI-safe 宽度计算与截断。</td></tr>
+    <tr><td>narrow fallback</td><td>放不下最小可读标签时隐藏，优先保证 editor 输入壳体。</td></tr>
+    <tr><td>config</td><td>无额外开关；有显式 name 即默认启用。</td></tr>
+  </tbody>
+</table>
 
 <h3>3.2 Working line（运行中）</h3>
 <div class="demo">
@@ -426,7 +443,7 @@
   index.ts          # profile gating；native 默认，full 才激活 tool-registry/tool-render
   profile.ts        # /cyber-profile 命令 + 全局持久化
   editor-state.ts   # cyberState 单例（token/tps/turn）
-  cyber-editor.ts   # ❯ + border，纯净
+  cyber-editor.ts   # ❯ + border + static session label
   editor.ts         # editor 注入
   working.ts        # working line + idle summary
   footer.ts         # 左右双栏 + fold

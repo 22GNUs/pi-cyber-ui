@@ -1,11 +1,11 @@
 /**
  * Cyber Editor
  *
- * Cyber shell around Pi's CustomEditor. Owns only the silver ❯ prompt glyph
- * and the dynamic border colour. All dynamic info (turn / tokens / tps /
- * tools) now lives in the working area (above editor), and static
- * environment info (cwd / git / model / context / thinking) lives in the
- * footer. The editor itself is kept visually pure.
+ * Cyber shell around Pi's CustomEditor. Owns the silver ❯ prompt glyph,
+ * dynamic border colour, and one static session identity label. All dynamic
+ * info (turn / tokens / tps / tools) lives in the working area (above editor),
+ * and environment info (cwd / git / model / context / thinking) lives in the
+ * footer.
  */
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
@@ -17,9 +17,13 @@ type RGB = [number, number, number];
 const SILVER: RGB = [170, 184, 202];
 const RESET = "\x1b[39m";
 const GLYPH_GAP = 1;
+const SESSION_LABEL_RIGHT_BORDER_WIDTH = 4;
+const SESSION_LABEL_MIN_LEFT_BORDER_WIDTH = 8;
+const SESSION_LABEL_MAX_WIDTH_RATIO = 1 / 3;
 
 export interface CyberEditorOptions {
   getBorderColor?: (text: string) => ((value: string) => string) | undefined;
+  getSessionName?: () => string | undefined;
 }
 
 function rgb(c: RGB): string {
@@ -42,8 +46,13 @@ function findBorderLineIndex(lines: string[]): number {
   return Math.max(0, lines.length - 1);
 }
 
+function normalizeSessionName(name: string | undefined): string {
+  return name?.replace(/\s+/g, " ").trim() ?? "";
+}
+
 export default class CyberEditor extends CustomEditor {
   private readonly getBorderColor: (text: string) => ((value: string) => string) | undefined;
+  private readonly getSessionName: () => string | undefined;
 
   constructor(
     tui: TUI,
@@ -53,6 +62,7 @@ export default class CyberEditor extends CustomEditor {
   ) {
     super(tui, theme, kb);
     this.getBorderColor = options.getBorderColor ?? (() => undefined);
+    this.getSessionName = options.getSessionName ?? (() => undefined);
   }
 
   private promptColor(): RGB {
@@ -63,10 +73,45 @@ export default class CyberEditor extends CustomEditor {
     return "❯";
   }
 
+  private sessionLabel(width: number): string {
+    const name = normalizeSessionName(this.getSessionName());
+    if (!name) return "";
+
+    const wrapperWidth = visibleWidth("⟦  ⟧");
+    const maxLabelWidth = Math.floor(width * SESSION_LABEL_MAX_WIDTH_RATIO);
+    const maxNameWidth = maxLabelWidth - wrapperWidth;
+    if (maxNameWidth < 1) return "";
+
+    return `⟦ ${truncateToWidth(name, maxNameWidth, "…")} ⟧`;
+  }
+
+  private renderTopBorderLabel(line: string, width: number): string {
+    if (!isBorderLine(line)) return line;
+
+    const label = this.sessionLabel(width);
+    if (!label) return line;
+
+    const plain = stripAnsi(line);
+    const lineWidth = Math.min(width, visibleWidth(plain));
+    const labelWidth = visibleWidth(label);
+    const leftBorderWidth = lineWidth - SESSION_LABEL_RIGHT_BORDER_WIDTH - labelWidth;
+
+    if (leftBorderWidth < SESSION_LABEL_MIN_LEFT_BORDER_WIDTH) return line;
+
+    const next =
+      "─".repeat(leftBorderWidth) +
+      label +
+      "─".repeat(SESSION_LABEL_RIGHT_BORDER_WIDTH);
+
+    return this.borderColor(next);
+  }
+
   override render(width: number): string[] {
     this.borderColor = this.getBorderColor(this.getText()) ?? this.borderColor;
     const lines = super.render(width);
     if (lines.length <= 0) return lines;
+
+    lines[0] = this.renderTopBorderLabel(lines[0]!, width);
 
     const borderIndex = findBorderLineIndex(lines);
     const marker = this.modeMarker();
