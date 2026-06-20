@@ -1,5 +1,5 @@
 /**
- * Cyber Editor — pure ❯ prompt glyph + dynamic border.
+ * Cyber Editor — ❯ prompt glyph + dynamic border + static session label.
  *
  * Dynamic HUD data lives in working/footer; editor owns input chrome only.
  */
@@ -20,6 +20,13 @@ function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
             return theme.getThinkingBorderColor(pi.getThinkingLevel());
           } catch {
             return theme.getThinkingBorderColor("off");
+          }
+        },
+        getSessionName: () => {
+          try {
+            return ctx.sessionManager.getSessionName();
+          } catch {
+            return undefined;
           }
         },
       });

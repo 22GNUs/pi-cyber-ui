@@ -12,9 +12,10 @@ Concise working notes for this repository.
 - `extensions/pi-cyber-ui/` — extension entrypoint and UI modules
 - Token/streaming logic lives in `extensions/pi-cyber-ui/token-usage.ts`
 - Editor state lives in `extensions/pi-cyber-ui/editor-state.ts`
-- HUD rendering lives in `extensions/pi-cyber-ui/editor-hud.ts`
+- Working/HUD rendering lives in `extensions/pi-cyber-ui/working.ts`
 
 ## Workflow
+- Design-first for UI changes: update `design/DESIGN.html` before implementation, let the user review the visual/design effect, then implement only after explicit approval.
 - Before changing any code, confirm `design/DESIGN.html` is current and explicitly user-approved for review.
 - Keep code changes synchronized with `design/DESIGN.html`.
 - Use `npm run typecheck` after code changes.

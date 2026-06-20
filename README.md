@@ -6,7 +6,7 @@ The visual direction was inspired by Tokyo Night, but this is a new project with
 
 The extension is split into small modules for easier maintenance:
 - `editor.ts` wires editor/session events
-- `cyber-editor.ts` owns the pure prompt shell and prompt marker
+- `cyber-editor.ts` owns the prompt shell, prompt marker, dynamic border, and optional session name label
 - `editor-state.ts` handles session state and token accounting
 - `working.ts` renders prompt progress and idle summaries
 - `footer.ts` renders cwd, git dirty state, model, thinking level, and context usage
@@ -122,6 +122,7 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 ## Commands
 
 - `/cyber-profile [native|full|toggle|status]` — show or switch the global `pi-cyber-ui` profile. Changes are persisted and followed by an automatic reload.
+- Pi's built-in `/name <name>` sets the session display name. When present, `pi-cyber-ui` shows it in the editor's top-right border as `⟦ name ⟧`.
 
 ## Notes
 
