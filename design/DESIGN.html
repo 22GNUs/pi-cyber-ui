@@ -1,8 +1,8 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8" />
-<title>pi-cyber-ui · Design Language</title>
+<meta charset="UTF-8">
+<title>Cyber UI · Design Reference</title>
 <style>
   :root {
     --bg: #0a0a0d;
@@ -22,146 +22,127 @@
     --cyanBright: #b4f9f8;
     --purple: #bb9af7;
     --pink: #f7768e;
-    --silverDim: rgb(111,119,148);
-    --silver: rgb(200,211,234);
-    --silverHi: rgb(230,236,250);
+    --silverDim: #6f7794;
+    --silver: #c8d3ea;
+    --silverHi: #e6ecfa;
+    --hotPink: #ff82b8;
+    --promptSilver: #aab8ca;
     --greenSoft: #5ec27e;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
-    background: var(--bg);
     color: var(--fg);
     font: 14px/1.65 -apple-system, "SF Pro Text", "JetBrainsMono Nerd Font", ui-monospace, monospace;
   }
   body {
-    max-width: 920px;
+    max-width: 1040px;
     margin: 0 auto;
-    padding: 56px 32px 96px;
+    padding: 72px 36px 96px;
+    background:
+      radial-gradient(900px 420px at 50% -120px, rgba(125,207,255,0.07), transparent 70%),
+      radial-gradient(700px 380px at 100% 0%, rgba(187,154,247,0.05), transparent 60%),
+      var(--bg);
   }
-  h1 {
-    font-size: 28px;
-    margin: 0 0 8px;
-    color: var(--cyan);
-    letter-spacing: 0.5px;
+
+  /* ---- Typography ---- */
+  .hero { margin-bottom: 64px; }
+  .hero .kicker {
+    color: var(--cyan); font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
+    font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px;
   }
-  h1::before { content: "❯ "; color: var(--cyan); }
-  .subtitle { color: var(--fgMuted); margin-bottom: 48px; font-size: 13px; }
+  .hero h1 {
+    font-size: 44px; line-height: 1.1; margin: 0 0 12px;
+    color: var(--fg); font-weight: 600; letter-spacing: -0.5px;
+  }
+  .hero h1 .accent { color: var(--cyan); }
+  .hero h1::before { content: "❯ "; color: var(--promptSilver); font-weight: 400; }
+  .hero .lede { color: var(--fgMuted); font-size: 15px; max-width: 620px; margin: 0 0 18px; }
+  .hero .meta {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
+    font-size: 12px; color: var(--fgDim);
+    padding-top: 16px; border-top: 1px solid var(--fgDim);
+  }
+  .hero .meta b { color: var(--teal); font-weight: 500; }
+
   h2 {
-    font-size: 18px;
-    margin: 48px 0 16px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--fgDim);
-    color: var(--cyanBright);
+    font-size: 13px; margin: 64px 0 22px;
+    color: var(--cyanBright); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 2px;
+    display: flex; align-items: center; gap: 14px;
   }
-  h3 {
-    font-size: 14px;
-    margin: 24px 0 10px;
-    color: var(--purple);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  p { color: var(--fgMuted); }
-  code, .mono {
-    font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
-    font-size: 13px;
-    color: var(--teal);
-    background: var(--bgAlt);
-    padding: 1px 6px;
-    border-radius: 3px;
-  }
-  pre {
-    background: var(--bgAlt);
-    color: var(--fg);
-    padding: 12px 16px;
-    border-radius: 6px;
-    border-left: 2px solid var(--tealDark);
-    overflow-x: auto;
-    font-size: 12.5px;
-    line-height: 1.55;
-  }
-  pre code { background: none; padding: 0; color: inherit; }
-  ul, ol { color: var(--fgMuted); padding-left: 22px; }
-  li { margin: 4px 0; }
-  li strong { color: var(--fg); font-weight: 600; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 12px 0;
-    font-size: 13px;
-  }
-  th, td {
-    text-align: left;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--fgDim);
-  }
-  th {
-    color: var(--cyan);
-    font-weight: 500;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-  }
-  td { color: var(--fgMuted); }
-  td.role { color: var(--fg); }
-  .swatch {
-    display: inline-block;
-    width: 14px; height: 14px;
-    border-radius: 3px;
-    vertical-align: -2px;
-    margin-right: 8px;
-    border: 1px solid rgba(255,255,255,0.08);
-  }
-  .hex { font-family: ui-monospace, monospace; color: var(--orange); }
-  .principles {
-    counter-reset: pcount;
-    list-style: none; padding: 0;
-  }
-  .principles li {
-    counter-increment: pcount;
-    padding: 10px 14px 10px 48px;
-    margin: 8px 0;
+  h2 .num {
+    color: var(--cyan); font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
+    font-size: 12px; padding: 3px 8px; border: 1px solid var(--fgDim); border-radius: 4px;
     background: var(--bgCard);
-    border-left: 2px solid var(--cyan);
-    border-radius: 4px;
-    position: relative;
   }
-  .principles li::before {
-    content: counter(pcount, decimal-leading-zero);
-    position: absolute;
-    left: 14px; top: 10px;
-    color: var(--cyan);
-    font-family: ui-monospace, monospace;
-    font-size: 12px;
+  h2 .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--fgDim), transparent); }
+
+  h3 {
+    font-size: 12px; margin: 32px 0 12px;
+    color: var(--purple); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 1.5px;
   }
-  .demo {
-    background: var(--bg);
-    border: 1px solid var(--fgDim);
-    border-radius: 6px;
-    padding: 14px 18px;
+  p { color: var(--fgMuted); margin: 8px 0; }
+  p.note { font-size: 12.5px; color: var(--fgDim); margin: 8px 0 0; }
+  code {
     font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
-    font-size: 13px;
-    margin: 12px 0;
+    font-size: 12px; color: var(--teal);
+    background: var(--bgAlt); padding: 1px 6px; border-radius: 3px;
   }
-  .demo .verb {
+
+  /* ---- Color chips ---- */
+  .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+  .chip {
+    background: var(--bgCard); border: 1px solid var(--fgDim);
+    border-radius: 8px; overflow: hidden; transition: transform .15s, border-color .15s;
+  }
+  .chip:hover { transform: translateY(-2px); border-color: var(--blueDark, #3d59a1); }
+  .chip .sw { height: 54px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .chip .meta { padding: 9px 11px 11px; }
+  .chip .name { color: var(--fg); font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace; font-size: 12.5px; }
+  .chip .hx { color: var(--orange); font-family: ui-monospace, monospace; font-size: 11px; margin-top: 2px; }
+  .chip .role { color: var(--fgDim); font-size: 11px; margin-top: 5px; line-height: 1.4; }
+
+  /* ---- Terminal window demo ---- */
+  .term {
+    background: var(--bg); border: 1px solid var(--fgDim);
+    border-radius: 9px; overflow: hidden; margin: 12px 0 4px;
+    box-shadow: 0 6px 24px -12px rgba(0,0,0,0.6);
+  }
+  .term .tbar {
+    background: var(--bgAlt); padding: 8px 13px;
+    display: flex; align-items: center; gap: 9px;
+    border-bottom: 1px solid var(--fgDim);
+  }
+  .term .dots { display: flex; gap: 6px; }
+  .term .dots i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+  .term .dots i:nth-child(1) { background: #f7768e; }
+  .term .dots i:nth-child(2) { background: #e0af68; }
+  .term .dots i:nth-child(3) { background: #9ece6a; }
+  .term .ttitle { color: var(--fgDim); font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace; font-size: 11px; margin-left: 6px; }
+  .term .body {
+    padding: 16px 20px;
+    font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
+    font-size: 13px; line-height: 1.95;
+  }
+  .term .label { color: var(--fgDim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+  .verb {
     background: linear-gradient(90deg, var(--silverDim), var(--silverHi), var(--silverDim));
     background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
     animation: wave 1.8s linear infinite;
   }
   @keyframes wave { from { background-position: 200% 0; } to { background-position: 0 0; } }
-  .demo .pulse {
-    color: var(--silverHi);
-    animation: pulse 2.4s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { color: var(--fgDim); }
-    50%      { color: var(--silverHi); }
-  }
+  .pulse { color: var(--silverHi); animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { color: var(--fgDim); } 50% { color: var(--silverHi); } }
+
+  /* ---- Color tokens ---- */
   .dim { color: var(--fgDim); }
   .muted { color: var(--fgMuted); }
+  .fg { color: var(--fg); }
   .cyan { color: var(--cyan); }
   .green { color: var(--green); }
   .purple { color: var(--purple); }
@@ -171,312 +152,250 @@
   .red { color: var(--red); }
   .greenSoft { color: var(--greenSoft); }
   .pink { color: var(--pink); }
-  .invariant {
-    background: var(--bgCard);
-    border-left: 2px solid var(--red);
-    padding: 8px 14px;
-    margin: 6px 0;
-    color: var(--fgMuted);
-    border-radius: 3px;
-  }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .hotPink { color: var(--hotPink); }
+  .silver { color: var(--promptSilver); }
+  .bold { font-weight: 600; }
+
+  /* ---- Cards ---- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0 4px; }
   .card {
-    background: var(--bgCard);
-    border: 1px solid var(--fgDim);
-    border-radius: 6px;
-    padding: 14px 16px;
+    background: var(--bgCard); border: 1px solid var(--fgDim);
+    border-radius: 8px; padding: 15px 17px;
   }
-  .card h4 { margin: 0 0 6px; color: var(--cyan); font-size: 13px; }
-  .card p { margin: 0; font-size: 12.5px; }
+  .card h4 { margin: 0 0 9px; color: var(--cyan); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500; }
+  .card p { margin: 0; font-size: 12.5px; line-height: 2; }
+
+  /* ---- Footer demo ---- */
+  .footer-demo { display: flex; justify-content: space-between; gap: 24px; }
+  .footer-demo .side { white-space: nowrap; }
+  .sep { color: var(--fgDim); padding: 0 4px; }
+  .bar { display: inline-block; vertical-align: -1px; }
+
+  /* ---- Scale bars ---- */
+  .scale-row { margin: 14px 0; }
+  .scale-bar { display: flex; border-radius: 6px; overflow: hidden; height: 30px; }
+  .scale-bar span { flex: 1; display: flex; align-items: center; justify-content: center; font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace; font-size: 11px; }
+  .scale-cap { display: flex; justify-content: space-between; color: var(--fgDim); font-size: 11px; margin-top: 6px; font-family: ui-monospace, monospace; }
+
+  /* ---- Motion table ---- */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--fgDim); }
+  th { color: var(--cyan); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  td { color: var(--fgMuted); }
+  td:first-child { color: var(--fg); font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace; font-size: 12.5px; }
+  td .ms { color: var(--orange); font-family: ui-monospace, monospace; font-size: 11.5px; }
+
   .footer-note {
-    margin-top: 64px;
-    padding-top: 18px;
+    margin-top: 80px; padding-top: 20px;
     border-top: 1px dashed var(--fgDim);
-    color: var(--fgDim);
-    font-size: 12px;
-    text-align: center;
+    color: var(--fgDim); font-size: 12px; text-align: center;
+    font-family: "JetBrainsMono Nerd Font", ui-monospace, monospace;
   }
+  .footer-note .accent { color: var(--cyan); }
 </style>
 </head>
 <body>
 
-<h1>pi-cyber-ui</h1>
-<div class="subtitle">Design Language · Tokyo Night cyber 派生 · 终端 TUI 沉淀</div>
+<header class="hero">
+  <div class="kicker">Design Reference</div>
+  <h1>Cyber <span class="accent">UI</span></h1>
+  <p class="lede">Tokyo Night cyber 派生的终端 TUI 设计语言：一色一职的调色板、克制的组件、呼吸式动效。</p>
+  <div class="meta">
+    <span>theme · <b>cyber-ui-dark</b></span>
+    <span>font · <b>JetBrainsMono Nerd Font</b></span>
+    <span>mode · <b>truecolor</b></span>
+  </div>
+</header>
 
-<p>克制、低饱和、有层级。每个颜色绑定一个语义角色；同一区域不出现两个相同色级；动效低频不抢戏。</p>
+<h2><span class="num">01</span> 调色板 <span class="rule"></span></h2>
 
-<h2>1 · 设计原则</h2>
-<ol class="principles">
-  <li><strong>语义优先</strong>。颜色不是装饰，是状态/角色标签。<code>cyan</code> 仅留给主品牌 / 当前焦点 / 进度主调。</li>
-  <li><strong>层级唯一</strong>。同一行/区域不重复同色级。读 → 看 → 操作三层视觉权重必须有明显落差。</li>
-  <li><strong>克制动效</strong>。动效服务于"还在跑"的信号，不喧宾夺主。呼吸/letter-wave 周期 ≥ 1.8s，不闪。</li>
-  <li><strong>可降级</strong>。宽度不足时从右向左丢段；颜色失败回落到 <code>fg</code>/<code>fgDim</code>；不依赖 24-bit color 的形状/语义。</li>
-  <li><strong>设计先行</strong>。UI 改动先写 HTML mock，review 通过再落 code。</li>
-</ol>
-
-<h2>2 · 调色板</h2>
-<p>源自 <code>themes/cyber-ui-dark.json</code>。</p>
-
-<h3>2.1 Base</h3>
-<table>
-  <thead><tr><th>token</th><th>hex</th><th>角色</th></tr></thead>
-  <tbody>
-    <tr><td><span class="swatch" style="background:#0a0a0d"></span><code>bg</code></td><td class="hex">#0a0a0d</td><td class="role">主背景</td></tr>
-    <tr><td><span class="swatch" style="background:#1f2335"></span><code>bgAlt</code></td><td class="hex">#1f2335</td><td class="role">用户消息底</td></tr>
-    <tr><td><span class="swatch" style="background:#33467c"></span><code>bgSelection</code></td><td class="hex">#33467c</td><td class="role">选区</td></tr>
-    <tr><td><span class="swatch" style="background:#c0caf5"></span><code>fg</code></td><td class="hex">#c0caf5</td><td class="role">主文本</td></tr>
-    <tr><td><span class="swatch" style="background:#a9b1d6"></span><code>fgMuted</code></td><td class="hex">#a9b1d6</td><td class="role">次文本</td></tr>
-    <tr><td><span class="swatch" style="background:#565f89"></span><code>fgDim</code></td><td class="hex">#565f89</td><td class="role">边框 / 弱信息</td></tr>
-  </tbody>
-</table>
-
-<h3>2.2 Accent — 一色一职</h3>
-<table>
-  <thead><tr><th>token</th><th>hex</th><th>唯一角色</th></tr></thead>
-  <tbody>
-    <tr><td><span class="swatch" style="background:#7dcfff"></span><code>cyan</code></td><td class="hex">#7dcfff</td><td class="role">品牌 / 主进度 / 焦点</td></tr>
-    <tr><td><span class="swatch" style="background:#b4f9f8"></span><code>cyanBright</code></td><td class="hex">#b4f9f8</td><td class="role">强调（少用）</td></tr>
-    <tr><td><span class="swatch" style="background:#7aa2f7"></span><code>blue</code></td><td class="hex">#7aa2f7</td><td class="role">tool: ls · 链接 · function 名</td></tr>
-    <tr><td><span class="swatch" style="background:#41a6b5"></span><code>tealDark</code></td><td class="hex">#41a6b5</td><td class="role">tool: grep/find · 引用边 · minimal thinking</td></tr>
-    <tr><td><span class="swatch" style="background:#4fd6be"></span><code>teal</code></td><td class="hex">#4fd6be</td><td class="role">code 内联 · context bar 起点</td></tr>
-    <tr><td><span class="swatch" style="background:#bb9af7"></span><code>purple</code></td><td class="hex">#bb9af7</td><td class="role">tool: edit/write · keyword · customLabel</td></tr>
-    <tr><td><span class="swatch" style="background:#9ece6a"></span><code>green</code></td><td class="hex">#9ece6a</td><td class="role">diff added · 字符串</td></tr>
-    <tr><td><span class="swatch" style="background:#5ec27e"></span><code>greenSoft</code></td><td class="hex">#5ec27e</td><td class="role">tool done 状态符 <code>╴</code></td></tr>
-    <tr><td><span class="swatch" style="background:#e0af68"></span><code>orange</code></td><td class="hex">#e0af68</td><td class="role">tool: bash · number · warning</td></tr>
-    <tr><td><span class="swatch" style="background:#f7768e"></span><code>red / pink</code></td><td class="hex">#f7768e</td><td class="role">error · xhigh thinking</td></tr>
-  </tbody>
-</table>
-
-<h3>2.3 Silver — 仅 working line 局部</h3>
-<p>不进 theme.json，是 <code>working.ts</code> 局部 const。其余 UI 不得使用，避免泛滥。</p>
-<table>
-  <thead><tr><th>token</th><th>rgb</th><th>用途</th></tr></thead>
-  <tbody>
-    <tr><td><span class="swatch" style="background:rgb(111,119,148)"></span><code>silverDim</code></td><td class="hex">111,119,148</td><td class="role">呼吸谷 · 字符波静止</td></tr>
-    <tr><td><span class="swatch" style="background:rgb(200,211,234)"></span><code>silver</code></td><td class="hex">200,211,234</td><td class="role">呼吸中位</td></tr>
-    <tr><td><span class="swatch" style="background:rgb(230,236,250)"></span><code>silverHi</code></td><td class="hex">230,236,250</td><td class="role">呼吸峰 · 字符波高亮</td></tr>
-  </tbody>
-</table>
-
-<h2>3 · 区域规范</h2>
-
-<h3>3.1 Editor</h3>
-<ul>
-  <li>形态：prompt glyph <code>❯</code> + border；保持输入壳体克制。</li>
-  <li>不嵌动态 HUD。所有 token / tps / tool / elapsed 状态外移到 working line / footer。</li>
-  <li>允许一个静态身份标签例外：显式设置的 <code>session name</code> 可嵌入 top border 右上角。</li>
-  <li>文件：<code>cyber-editor.ts</code> · <code>editor.ts</code> · <code>editor-state.ts</code>（共享 <code>cyberState</code> 单例）。</li>
-</ul>
-<div class="demo">
-  <span class="cyan">──────────────────────────────────────────</span><span class="cyan">⟦ refactor-ui ⟧</span><span class="cyan">────</span>
-</div>
-<table>
-  <thead><tr><th>元素</th><th>规则</th></tr></thead>
-  <tbody>
-    <tr><td>session label source</td><td>Pi session display name：<code>ctx.sessionManager.getSessionName()</code> / <code>pi.getSessionName()</code>。由 Pi <code>/name &lt;name&gt;</code> 或 session selector rename 写入 <code>session_info</code>。</td></tr>
-    <tr><td>empty state</td><td>未设置 name 时完全隐藏；不 fallback 到 session id / file name。</td></tr>
-    <tr><td>format</td><td><code>⟦ name ⟧</code>；仅展示名称，不加 <code>session:</code> 前缀。</td></tr>
-    <tr><td>placement</td><td>top border 右侧；标签右边保留 4 格 border，让右上角视觉更对齐；editor 可见即显示。</td></tr>
-    <tr><td>colour</td><td>继承当前动态 border 色（thinking / bash mode），不引入新 palette。</td></tr>
-    <tr><td>width</td><td>最长占 terminal width 的 1/3；使用 ANSI-safe 宽度计算与截断。</td></tr>
-    <tr><td>narrow fallback</td><td>放不下最小可读标签时隐藏，优先保证 editor 输入壳体。</td></tr>
-    <tr><td>config</td><td>无额外开关；有显式 name 即默认启用。</td></tr>
-  </tbody>
-</table>
-
-<h3>3.2 Working line（运行中）</h3>
-<div class="demo">
-  <span class="pulse">●</span>
-  <span class="verb">Reasoning...</span>
-  <span class="dim">(</span><span class="muted">12s</span>
-  <span class="dim">·</span> <span class="dim">↑45k</span> <span class="muted">↓1.5k</span>
-  <span class="dim">·</span> <span class="green">182 tps</span>
-  <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
+<h3>Base</h3>
+<div class="chips">
+  <div class="chip"><div class="sw" style="background:#0a0a0d"></div><div class="meta"><div class="name">bg</div><div class="hx">#0a0a0d</div><div class="role">主背景</div></div></div>
+  <div class="chip"><div class="sw" style="background:#1f2335"></div><div class="meta"><div class="name">bgAlt</div><div class="hx">#1f2335</div><div class="role">用户消息底</div></div></div>
+  <div class="chip"><div class="sw" style="background:#33467c"></div><div class="meta"><div class="name">bgSelection</div><div class="hx">#33467c</div><div class="role">选区</div></div></div>
+  <div class="chip"><div class="sw" style="background:#c0caf5"></div><div class="meta"><div class="name">fg</div><div class="hx">#c0caf5</div><div class="role">主文本</div></div></div>
+  <div class="chip"><div class="sw" style="background:#a9b1d6"></div><div class="meta"><div class="name">fgMuted</div><div class="hx">#a9b1d6</div><div class="role">次文本</div></div></div>
+  <div class="chip"><div class="sw" style="background:#565f89"></div><div class="meta"><div class="name">fgDim</div><div class="hx">#565f89</div><div class="role">边框 / 弱信息</div></div></div>
 </div>
 
-<table>
-  <thead><tr><th>元素</th><th>规则</th></tr></thead>
-  <tbody>
-    <tr><td>spinner</td><td><code>●</code> 静形不变；32 帧 cosine 呼吸；周期 2400ms；<code>fgDim ↔ silverHi</code>；FRAME 75ms；MESSAGE refresh 16ms。</td></tr>
-    <tr><td>verb</td><td><code>paintLetterWave</code> 字符波；周期 1800ms；120ms/char delay；peak 32%；<code>fgMuted ↔ silverHi</code>；无 bold。</td></tr>
-    <tr><td>verb 池</td><td>20 词，多语言（EN/ES/FR/IT/DE/Latin），统一 9 字符宽避免抖动；<code>VERB_ROTATE_MS = 8_000</code>。</td></tr>
-    <tr><td>label</td><td><code>&lt;verb&gt;...</code> 固定宽度 <code>padWorkingLabel</code>。</td></tr>
-    <tr><td>metrics</td><td>第一段后括号内分组：<code>(elapsed · tokens · tps · turn)</code>。</td></tr>
-    <tr><td>elapsed</td><td><code>&lt;60s</code> 整秒 <code>Ns</code>；<code>&gt;=60s</code> 用 <code>m:ss</code>。无 ms / 小数。</td></tr>
-    <tr><td>tokens</td><td><code>↑in</code> = <span class="dim">dim</span> · <code>↓out</code> = <span class="muted">muted</span>。无颜色语义。</td></tr>
-    <tr><td>tps</td><td>高=佳。&lt;30 <span class="red">red</span> · 30–59 <span class="orange">orange</span> · 60–99 <span class="teal">teal/mdCode</span> · ≥100 <span class="green">green</span>。算法不变（cumulative）；保留最低档 red，不使用 dim。</td></tr>
-    <tr><td>turn</td><td><code>󰄉 N</code> 用 <span class="dim">dim</span>，低优先级。</td></tr>
-    <tr><td>降级</td><td><code>fitSegments</code> 按 importance 从右向左丢。</td></tr>
-    <tr><td>取消提示</td><td>10s 后追加 <span class="dim">esc to cancel</span>。</td></tr>
-  </tbody>
-</table>
-
-<h3>3.3 Idle summary（aboveEditor widget）</h3>
-<div class="demo">
-  <span class="green" style="font-weight:600">✓</span>
-  <span class="muted">done</span>
-  <span class="dim">·</span> <span class="muted">2:14</span>
-  <span class="dim">·</span> <span class="muted">↑45k ↓3.2k</span>
-  <span class="dim">·</span> <span class="muted">156 tps</span>
+<h3>Accent — 一色一职</h3>
+<div class="chips">
+  <div class="chip"><div class="sw" style="background:#7dcfff"></div><div class="meta"><div class="name">cyan</div><div class="hx">#7dcfff</div><div class="role">品牌 / 焦点</div></div></div>
+  <div class="chip"><div class="sw" style="background:#b4f9f8"></div><div class="meta"><div class="name">cyanBright</div><div class="hx">#b4f9f8</div><div class="role">强调（少用）</div></div></div>
+  <div class="chip"><div class="sw" style="background:#7aa2f7"></div><div class="meta"><div class="name">blue</div><div class="hx">#7aa2f7</div><div class="role">ls · 链接 · function</div></div></div>
+  <div class="chip"><div class="sw" style="background:#41a6b5"></div><div class="meta"><div class="name">tealDark</div><div class="hx">#41a6b5</div><div class="role">grep/find · 引用边</div></div></div>
+  <div class="chip"><div class="sw" style="background:#4fd6be"></div><div class="meta"><div class="name">teal</div><div class="hx">#4fd6be</div><div class="role">内联 code · context</div></div></div>
+  <div class="chip"><div class="sw" style="background:#bb9af7"></div><div class="meta"><div class="name">purple</div><div class="hx">#bb9af7</div><div class="role">edit/write · keyword</div></div></div>
+  <div class="chip"><div class="sw" style="background:#9ece6a"></div><div class="meta"><div class="name">green</div><div class="hx">#9ece6a</div><div class="role">diff added · 字符串</div></div></div>
+  <div class="chip"><div class="sw" style="background:#5ec27e"></div><div class="meta"><div class="name">greenSoft</div><div class="hx">#5ec27e</div><div class="role">tool done 状态符</div></div></div>
+  <div class="chip"><div class="sw" style="background:#e0af68"></div><div class="meta"><div class="name">orange</div><div class="hx">#e0af68</div><div class="role">bash · number · warning</div></div></div>
+  <div class="chip"><div class="sw" style="background:#f7768e"></div><div class="meta"><div class="name">red / pink</div><div class="hx">#f7768e</div><div class="role">error · xhigh thinking</div></div></div>
 </div>
-<ul>
-  <li>仅在 <code>agent_end</code> 后展示，下次 prompt 开始清除。</li>
-  <li><code>✓</code> green bold；其余 muted。<strong>不显示 tool 成功/失败 tally</strong>。</li>
-  <li><code>lastSummary</code> 仅当 <code>event.reason === "reload"</code> 复用；跨 session 清空。</li>
-</ul>
 
-<h3>3.4 Tool rendering</h3>
-<p><strong>Profile gating</strong>：工具渲染是渐进增强，不是扩展启动的硬依赖。默认 <code>native</code> profile 保留 Pi native tool definitions/renderers，不覆写任何 Pi 默认工具；显式 <code>full</code> profile 才覆盖 <code>read / bash / edit / write / grep / find / ls</code> 的 UI render。</p>
-<p><code>native</code> 保留 theme/editor/footer/working indicator，只使用 theme token 控制工具框背景、工具标题、输出与 diff 颜色；不注册同名工具，因此不提供 compact row、Nerd glyph、per-tool 头部颜色、summary/duration、read compact 资源显示。</p>
-<p><code>full</code> 保留当前完整工具体验：执行层继续委托 Pi built-in tools。<code>renderShell: "default"</code>；保留内置 <code>parameters/description/promptSnippet/promptGuidelines</code>（<code>...initial.&lt;tool&gt;</code> spread）。代价是会覆写同名工具，可能与其他扩展冲突。</p>
-<p>架构边界：Pi execution-layer 更新通常自动继承；Pi native renderer 新特性不会自动进入，需要人工 review/port。升级 <code>@earendil-works/pi-coding-agent</code> 后优先 diff <code>core/tools/read</code>，避免丢失 <code>SKILL.md</code> / resource / docs compact 语义。</p>
+<h3>Silver / Path / Prompt</h3>
+<p class="note">并入 <code>themes/cyber-ui-dark.json</code> 的 <code>vars</code>，经 <code>palette.ts</code> 单一来源读取；限 working 呼吸 / path / prompt glyph，不下放普通文本。</p>
+<div class="chips">
+  <div class="chip"><div class="sw" style="background:#6f7794"></div><div class="meta"><div class="name">silverDim</div><div class="hx">#6f7794</div><div class="role">呼吸谷 · path 分隔符</div></div></div>
+  <div class="chip"><div class="sw" style="background:#c8d3ea"></div><div class="meta"><div class="name">silver</div><div class="hx">#c8d3ea</div><div class="role">呼吸中位（参考）</div></div></div>
+  <div class="chip"><div class="sw" style="background:#e6ecfa"></div><div class="meta"><div class="name">silverHi</div><div class="hx">#e6ecfa</div><div class="role">呼吸峰 · 字符波高亮</div></div></div>
+  <div class="chip"><div class="sw" style="background:#ff82b8"></div><div class="meta"><div class="name">hotPink</div><div class="hx">#ff82b8</div><div class="role">path 的 home <code>~</code></div></div></div>
+  <div class="chip"><div class="sw" style="background:#aab8ca"></div><div class="meta"><div class="name">promptSilver</div><div class="hx">#aab8ca</div><div class="role">prompt glyph <code>❯</code></div></div></div>
+</div>
 
-<table>
-  <thead><tr><th>能力</th><th>native</th><th>full</th></tr></thead>
-  <tbody>
-    <tr><td>theme / editor / footer / working</td><td>✅</td><td>✅</td></tr>
-    <tr><td>工具框背景 / 输出 / diff 颜色</td><td>✅ theme token</td><td>✅ theme token</td></tr>
-    <tr><td>工具标题全局颜色 <code>toolTitle</code></td><td>✅</td><td>✅</td></tr>
-    <tr><td>每个工具独立颜色语义</td><td>—</td><td>✅</td></tr>
-    <tr><td>compact 单行工具渲染</td><td>—</td><td>✅</td></tr>
-    <tr><td>Nerd glyph / summary / duration</td><td>—</td><td>✅</td></tr>
-    <tr><td>避免默认工具覆写冲突</td><td>✅</td><td>—</td></tr>
-  </tbody>
-</table>
+<h2><span class="num">02</span> 组件 <span class="rule"></span></h2>
 
-<p>配置入口：<code>/cyber-profile [native|full|toggle|status]</code> 写入全局用户级配置 <code>~/.pi/agent/pi-cyber-ui.json</code> 并自动 <code>reload</code>；默认 <code>native</code>。<code>PI_CYBER_UI_PROFILE=native|full</code> 可作为环境变量覆盖；命令切换时会同步当前进程环境变量以便本次 reload 生效。未知值回退 <code>native</code>。本设计不引入中间模式，不做自动冲突探测。</p>
+<h3>Editor</h3>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">editor</div></div>
+  <div class="body">
+    <span class="cyan">──────────────────────────────────────────</span><span class="cyan">⟦ refactor-ui ⟧</span><span class="cyan">────</span><br>
+    <span class="silver">❯</span> <span class="fg">让 working line 的 tps 在 idle 时也保留</span>
+  </div>
+</div>
+<p class="note">prompt glyph <code>❯</code> = promptSilver · border 跟随 thinking / bash 动态色 · 右上角静态 session label</p>
 
+<h3>Working line · 运行中</h3>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">working</div></div>
+  <div class="body">
+    <span class="pulse">●</span>
+    <span class="verb">Reasoning...</span>
+    <span class="dim">(</span><span class="muted">12s</span>
+    <span class="dim">·</span> <span class="dim">↑45k</span> <span class="muted">↓1.5k</span>
+    <span class="dim">·</span> <span class="green">182 tps</span>
+    <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
+  </div>
+</div>
+<p class="note">spinner 32 帧 cosine 呼吸（fgDim ↔ silverHi）· verb 字符波（fgMuted ↔ silverHi）· 括号内 elapsed · tokens · tps · turn · 10s 后追加 <code>esc to cancel</code></p>
+
+<h3>Idle summary</h3>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">idle</div></div>
+  <div class="body">
+    <span class="green bold">✓</span>
+    <span class="muted">done</span>
+    <span class="dim">·</span> <span class="muted">2:14</span>
+    <span class="dim">·</span> <span class="muted">↑45k ↓3.2k</span>
+    <span class="dim">·</span> <span class="muted">156 tps</span>
+  </div>
+</div>
+<p class="note">agent_end 后展示至下个 prompt · 仅 <code>✓</code> green，其余 muted</p>
+
+<h3>Tool rendering</h3>
 <div class="grid2">
   <div class="card">
-    <h4>状态表达</h4>
-    <p>
-      running: 无左侧 spinner；右侧 duration 持续刷新<br>
-      done: 无左侧状态符；只保留 header + summary<br>
-      error: 无左侧状态符；依赖 error shell / 内容色
-    </p>
-  </div>
-  <div class="card">
-    <h4>语义分色（头）</h4>
+    <h4>语义分色</h4>
     <p>
       <span class="cyan">󰈙 read</span> ·
-      <span class="orange"> bash</span> ·
+      <span class="orange"> bash</span> ·
       <span class="purple">󰏫 edit / 󰝒 write</span> ·
       <span class="teal">󰍉 grep / find</span> ·
       <span class="blue">󰉋 ls</span>
     </p>
   </div>
+  <div class="card">
+    <h4>状态</h4>
+    <p>
+      <span class="dim">running</span> 右侧 duration 刷新<br>
+      <span class="greenSoft">done</span> 仅 header + summary<br>
+      <span class="red">error</span> 依赖 error shell / 内容色
+    </p>
+  </div>
 </div>
 
-<p>以下 compact mock 仅适用于 <code>full</code> profile。</p>
-
-<div class="demo">
-  <div class="dim" style="margin-bottom:6px">collapsed（full · 单行）</div>
-  <span class="cyan">󰈙 read</span> <span style="color:var(--fg);font-weight:600">working.ts</span><br>
-  <span class="purple">󰏫 edit</span> <span style="color:var(--fg);font-weight:600">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">84ms</span><br>
-  <span class="orange"> bash</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="muted">128 lines</span> <span class="dim">2.4s</span>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">collapsed · 单行</div></div>
+  <div class="body">
+    <span class="cyan">󰈙 read</span> <span class="fg bold">working.ts</span><br>
+    <span class="purple">󰏫 edit</span> <span class="fg bold">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">84ms</span><br>
+    <span class="orange"> bash</span> <span class="fg bold">npm run typecheck</span> <span class="muted">128 lines</span> <span class="dim">2.4s</span>
+  </div>
 </div>
 
-<div class="demo">
-  <div class="dim" style="margin-bottom:6px">running（单行）</div>
-  <span class="cyan">󰈙 read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="dim">1.2s</span><br>
-  <span class="orange"> bash</span> <span style="color:var(--fg);font-weight:600">npm run typecheck</span> <span class="dim">4.8s</span>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">running</div></div>
+  <div class="body">
+    <span class="cyan">󰈙 read</span> <span class="fg bold">working.ts</span> <span class="dim">1.2s</span><br>
+    <span class="orange"> bash</span> <span class="fg bold">npm run typecheck</span> <span class="dim">4.8s</span>
+  </div>
 </div>
 
-<div class="demo">
-  <div class="dim" style="margin-bottom:6px">expanded（Ctrl+O）</div>
-  <span class="cyan">󰈙 read</span> <span style="color:var(--fg);font-weight:600">working.ts</span> <span class="muted">573 lines · 18.2KB</span> <span class="dim">12ms</span><br>
-  <span class="muted">001  import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";</span><br>
-  <span class="muted">002  import editor from "./editor.js";</span><br>
-  <span class="dim">…</span>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">expanded · Ctrl+O</div></div>
+  <div class="body">
+    <span class="cyan">󰈙 read</span> <span class="fg bold">working.ts</span> <span class="muted">573 lines · 18.2KB</span> <span class="dim">12ms</span><br>
+    <span class="muted">001  import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";</span><br>
+    <span class="muted">002  import editor from "./editor.js";</span><br>
+    <span class="dim">…</span>
+  </div>
+</div>
+<p class="note">icon + header + inline summary + duration · <code>read</code> 折叠态仅显示文件名</p>
+
+<h3>Footer</h3>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">footer</div></div>
+  <div class="body footer-demo">
+    <span class="side">
+      <span class="muted">gpt-5</span><span class="sep">·</span><span class="purple">thinking medium</span><span class="sep">·</span><span class="bar"><span class="teal">▓▓▓▓</span><span class="dim">░░░░░░</span></span> <span class="muted">42%</span><span class="sep">·</span><span class="green">⚡ 87%</span>
+    </span>
+    <span class="side">
+      <span class="hotPink">~</span><span class="dim">/</span><span class="dim">dev</span><span class="dim">/</span><span class="fg bold">pi-cyber-ui</span><span class="sep">·</span><span class="green">+12</span> <span class="orange">~3</span> <span class="red">−1</span><span class="sep">·</span><span class="dim">+2</span>
+    </span>
+  </div>
+</div>
+<p class="note">左 model · thinking · context · cache ｜ 右 path · git · 扩展 statuses · 窄时折叠 <code>+N</code></p>
+
+<h2><span class="num">03</span> 语义色阶 <span class="rule"></span></h2>
+
+<h3>TPS · 高 = 佳</h3>
+<div class="scale-row">
+  <div class="scale-bar">
+    <span style="background:rgba(247,118,142,0.18);color:#f7768e">&lt;30</span>
+    <span style="background:rgba(224,175,104,0.18);color:#e0af68">30–59</span>
+    <span style="background:rgba(65,166,181,0.18);color:#41a6b5">60–99</span>
+    <span style="background:rgba(158,206,106,0.18);color:#9ece6a">≥100</span>
+  </div>
+  <div class="scale-cap"><span>bad</span><span>exceptional</span></div>
 </div>
 
-<ul>
-  <li>以下规则仅在 <code>full</code> profile 生效；<code>native</code> profile 使用 Pi 默认工具 renderer。</li>
-  <li>所有工具成功折叠态采用单行：<code>icon + tool/header + inline summary + duration</code>；取消旧的 call line / result line 两段式。</li>
-  <li>左侧语义图标使用单宽 Nerd glyph，图标与 tool label 同色：<code>󰈙 read</code>、<code>󰏫 edit</code>、<code>󰝒 write</code>、<code>󰍉 grep/find</code>、<code>󰉋 ls</code>、<code> bash</code>。</li>
-  <li>实现约束：Pi 固定渲染 <code>renderCall</code> + <code>renderResult</code> 两个 slot；可见单行始终由 <code>renderCall</code> 持有，<code>renderResult</code> 只写 summary/body state，避免 execution start 时 call→result 交接闪烁。</li>
-  <li><code>read</code> 同步 Pi 0.75.5 的低噪音意图：成功折叠态只显示 <code>read line</code>，不显示状态符/行数/大小；<code>Ctrl+O</code> 展开后显示 <code>summary + body</code>。</li>
-  <li>非 <code>read</code> 工具在同一行内保留关键信息：<code>edit</code> diff stats、<code>bash</code> output lines、<code>write</code> size、<code>grep/find/ls</code> counts。</li>
-  <li><code>read</code> 保留 Pi 内置 compact 分类：<code>SKILL.md</code> 显示 <code>[skill] name</code>；Pi docs / <code>AGENTS.md</code> / <code>CLAUDE.md</code> 显示 <code>read docs/resource</code>；成功折叠态隐藏 result line。</li>
-  <li>duration 来自 <code>tool-registry</code>：<code>startedAt → endedAt</code>；running 期作为唯一动态状态提示；<code>write</code> 从 args streaming 起算（<code>ctx.state.writeArgsStartedAt</code>）。</li>
-  <li>running duration 基于 registry ticker 全局 120ms 刷新；无左侧 spinner。</li>
-  <li><code>edit</code> 解析 unified diff，仅前两行 <code>--- / +++</code> 视作 header；显示 <code>+N ~N −N</code>。</li>
-  <li>grep/find 空结果显示 <code>0 matches/files</code>。</li>
-  <li><code>write</code> header streaming 期保留 <code>+N lines</code> hint；sum 行存 <code>formatSize(bytes)</code> 兜底 reload。</li>
-  <li>primary arg <code>fg</code>；path basename <code>fg+bold</code>；<code>~</code> 保留 <span style="color:#ff6ec7">hotPink</span>。</li>
-</ul>
+<h3>Context · 低 = 佳</h3>
+<div class="scale-row">
+  <div class="scale-bar">
+    <span style="background:rgba(158,206,106,0.18);color:#9ece6a">&lt;30%</span>
+    <span style="background:rgba(65,166,181,0.18);color:#41a6b5">&lt;55%</span>
+    <span style="background:rgba(125,207,255,0.18);color:#7dcfff">&lt;75%</span>
+    <span style="background:rgba(224,175,104,0.18);color:#e0af68">&lt;90%</span>
+    <span style="background:rgba(247,118,142,0.18);color:#f7768e">≥90%</span>
+  </div>
+  <div class="scale-cap"><span>fresh</span><span>crowded</span></div>
+</div>
 
-<h3>3.5 Footer</h3>
-<p><strong>左</strong>：modelLabel · thinking · context · cache &nbsp;|&nbsp; <strong>右</strong>：path · git · 扩展 statuses / +N</p>
+<h3>Cache · 高 = 佳</h3>
+<div class="scale-row">
+  <div class="scale-bar">
+    <span style="background:rgba(247,118,142,0.18);color:#f7768e">&lt;30%</span>
+    <span style="background:rgba(224,175,104,0.18);color:#e0af68">≥30%</span>
+    <span style="background:rgba(125,207,255,0.18);color:#7dcfff">≥60%</span>
+    <span style="background:rgba(65,166,181,0.18);color:#41a6b5">≥85%</span>
+    <span style="background:rgba(158,206,106,0.18);color:#9ece6a">≥95%</span>
+  </div>
+  <div class="scale-cap"><span>cold</span><span>hot</span></div>
+</div>
+
+<h2><span class="num">04</span> 动效 <span class="rule"></span></h2>
 <table>
-  <thead><tr><th>段</th><th>规则</th></tr></thead>
+  <thead><tr><th>元素</th><th>周期</th><th>说明</th></tr></thead>
   <tbody>
-    <tr><td>path</td><td>basename <code>fg+bold</code>；<code>~</code> hotPink；<code>shortenPathToWidth</code> 自适应。</td></tr>
-    <tr><td>git</td><td>Compact counts：<code>\uf126 +A ~M −D</code>，仅显示非零项，顺序固定 added → modified → deleted；无 dirty 时隐藏；无 branch name。新增用 <span class="green">green</span>，修改用 <span class="orange">orange</span>，删除用 <span class="red">red</span>。异步缓存，<code>agent_end</code> 强刷；<code>try/catch + disposed</code> 防 stale ctx。</td></tr>
-    <tr><td>context bar</td><td>低=佳。&lt;30% <span class="green">green</span> · &lt;55% <span class="teal">teal/mdCode</span> · &lt;75% <span class="cyan">cyan</span> · &lt;90% <span class="orange">orange</span> · ≥90% <span class="red">red</span>。</td></tr>
-    <tr><td>cache</td><td>每轮 prompt 缓存命中率，紧贴 context 右侧。文案 <code> NN%</code>（闪电图标 + 整数百分比）。公式 <code>cacheRead / (input + cacheRead + cacheWrite)</code>，数据源最近一次 assistant <code>message_end</code> usage。高=佳：≥95% <span class="green">green</span> · ≥85% <span class="teal">teal/mdCode</span> · ≥60% <span class="cyan">cyan</span> · ≥30% <span class="orange">orange</span> · &lt;30% <span class="red">red</span>。隐藏规则：（1）无数据或分母为 0；（2）冷启动門禁——上下文重置后第 1 轮且 <code>cacheRead === 0</code>（避免展示无意义的 0%；若 server-side cache 存活，cacheRead&gt;0 仍正常显示）。重置触发：<code>session_start</code>（含 startup/new/resume/fork/reload）、<code>session_compact</code>、<code>session_tree</code>、<code>model_select</code>。每轮覆盖更新，<code>agent_start</code> 不清，保留上轮便于对比。fold 时与其他左侧字段一同参与折叠 <code>+N</code>。</td></tr>
-    <tr><td>thinking</td><td>off=<code>thinkingOff</code> · minimal=<span class="teal">tealDark</span> · low=<span class="blue">blue</span> · medium=<span class="cyan">cyan</span> · high=<span class="purple">purple</span> · xhigh=<span class="pink">pink</span>+bold；high 及以上彩虹。</td></tr>
-    <tr><td>fold</td><td><code>fitStatusText</code> 把 git/thinking/context/cache/path/扩展 statuses 全计入折叠 <code>+N</code>。优先级（先丢后保）：cache → context → thinking → git → path → modelLabel。</td></tr>
+    <tr><td>spinner pulse</td><td><span class="ms">2400ms</span></td><td>32 帧 cosine 呼吸 · 75ms/帧</td></tr>
+    <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 错相 spinner</td></tr>
+    <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 承载动画</td></tr>
+    <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
+    <tr><td>tool duration</td><td><span class="ms">120ms</span></td><td>running 期刷新 elapsed</td></tr>
   </tbody>
 </table>
 
-<h3>3.6 Editor 全局</h3>
-<ul>
-  <li><code>terminal.showImages = false</code>：避免内联图片撑高，LLM 仍能收到内容。</li>
-</ul>
-
-<h2>4 · 动效节拍</h2>
-<table>
-  <thead><tr><th>元素</th><th>周期</th><th>帧间隔</th><th>说明</th></tr></thead>
-  <tbody>
-    <tr><td>working spinner pulse</td><td>2400ms</td><td>75ms × 32 帧</td><td>cosine 呼吸</td></tr>
-    <tr><td>working verb wave</td><td>1800ms</td><td>120ms / char</td><td>raised cosine · 4:3 错相 spinner</td></tr>
-    <tr><td>working message refresh</td><td>—</td><td>16ms</td><td>~60fps，承载动画</td></tr>
-    <tr><td>verb 轮换</td><td>8000ms</td><td>—</td><td>多语 20 词</td></tr>
-    <tr><td>tool duration</td><td>—</td><td>120ms tick</td><td>仅 full profile；running 期全局 registry 刷新 elapsed time</td></tr>
-    <tr><td>footer dirty refresh</td><td>—</td><td>cache + agent_end 强刷</td><td>异步</td></tr>
-  </tbody>
-</table>
-
-<h2>5 · 文件地图</h2>
-<pre><code>extensions/pi-cyber-ui/
-  index.ts          # profile gating；native 默认，full 才激活 tool-registry/tool-render
-  profile.ts        # /cyber-profile 命令 + 全局持久化
-  editor-state.ts   # cyberState 单例（token/tps/turn）
-  cyber-editor.ts   # ❯ + border + static session label
-  editor.ts         # editor 注入
-  working.ts        # working line + idle summary
-  footer.ts         # 左右双栏 + fold
-  tool-registry.ts  # full only：工具运行态 + duration（runningIds 优化）
-  tool-render.ts    # full only：7 个工具 compact renderer
-  read-compact.ts   # full only：Pi read compact 兼容层（skill/resource）
-  path-utils.ts     # shortenPathToWidth / stylePath / homeRelative
-
-themes/cyber-ui-dark.json
-design/DESIGN.html  # 本文档</code></pre>
-
-<h2>6 · 不变量</h2>
-<div class="invariant">① TPS 算法（cumulative）和 token 计算逻辑 — <strong>不动</strong>。</div>
-<div class="invariant">② 注册顺序：<code>editor(pi)</code> 必须在 <code>working(pi)</code> 之前（producer → consumer）。</div>
-<div class="invariant">③ <code>native</code> 是默认 profile，且不得注册任何 Pi 默认同名工具；<code>/cyber-profile</code> 必须在 native/full 都可用。</div>
-<div class="invariant">④ <code>full</code> profile 中，工具内置 <code>parameters / description / promptSnippet / promptGuidelines</code> 必须 spread 保留；<code>execute</code> 必须委托 Pi built-in。</div>
-<div class="invariant">⑤ 工具 render 是本包定制层；Pi native renderer 新特性必须 review/port，不能假设自动继承。</div>
-<div class="invariant">⑥ <code>full</code> profile 中，<code>read</code> 必须保留 Pi compact 语义：<code>SKILL.md</code> → <code>[skill] name</code>；<code>AGENTS.md</code>/<code>CLAUDE.md</code> → resource。</div>
-<div class="invariant">⑦ 不在 working line 重复展示工具运行（HUD 已有）。</div>
-<div class="invariant">⑧ <code>cyan</code> 不下放到普通文本/路径/工具状态符。</div>
-<div class="invariant">⑨ silver 系仅限 working line 内部使用。</div>
-<div class="invariant">⑩ 不引入二进制串 / emoji 串 / CSS gradient 类视觉噱头。</div>
-
-<h2>7 · 流程</h2>
-<ol>
-  <li>UI 改动 → 先写/改 design HTML mock。</li>
-  <li>用户 review HTML → 确认。</li>
-  <li>落 code，<code>npm run typecheck</code>。</li>
-  <li>版本：<code>npm version patch --no-git-tag-version</code>。</li>
-  <li>不创建 git tag；不要 <code>npm pack</code>。</li>
-</ol>
-
-<div class="footer-note">pi-cyber-ui · design language v1 · 浏览器直接打开此文件即可阅读</div>
+<div class="footer-note"><span class="accent">cyber-ui-dark</span> · design reference</div>
 
 </body>
 </html>
