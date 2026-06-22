@@ -18,6 +18,8 @@ Concise working notes for this repository.
 - Design-first for UI changes: update `design/DESIGN.html` before implementation, let the user review the visual/design effect, then implement only after explicit approval.
 - Before changing any code, confirm `design/DESIGN.html` is current and explicitly user-approved for review.
 - Keep code changes synchronized with `design/DESIGN.html`.
+- `design/DESIGN.html` is an effect-first visual reference: render every visible surface (palette / components / motion / color scales) as live demos with minimal one-line notes; add a demo for any new UI surface before coding it; keep out implementation details, engineering invariants, file maps, architecture notes, and changelog-style prose.
+- Colors must not be hardcoded as scattered RGB tables in individual modules — all UI colors go through `extensions/pi-cyber-ui/palette.ts`, which derives them from `themes/cyber-ui-dark.json` `vars` as the single source.
 - Use `npm run typecheck` after code changes.
 - Update `README.md` when public structure or usage changes.
 - Prefer small, surgical edits over rewrites.

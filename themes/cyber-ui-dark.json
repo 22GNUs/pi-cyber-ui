@@ -25,7 +25,12 @@
     "toolSuccessBg": "#0b1020",
     "toolPendingBg": "#0d1b2e",
     "toolErrorBg":   "#1a0d12",
-    "customBg":      "#2a2040"
+    "customBg":      "#2a2040",
+    "silverDim":     "#6f7794",
+    "silver":        "#c8d3ea",
+    "silverHi":      "#e6ecfa",
+    "hotPink":       "#ff82b8",
+    "promptSilver":  "#aab8ca"
   },
   "colors": {
     "accent":           "cyan",
