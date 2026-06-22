@@ -23,52 +23,10 @@ import type {
 import { Text, visibleWidth } from "@earendil-works/pi-tui";
 
 import { cyberState, type CyberHudSnapshot } from "./editor-state.js";
+import { palette as C, paint, mix, rgb, RESET_FG, type RGB } from "./palette.js";
 
-// ---------------------------------------------------------------------------
-// Cyber palette — working-specific UI colours. Pure presentation layer; token
-// accounting / tps logic remains untouched.
-// ---------------------------------------------------------------------------
-
-type RGB = readonly [number, number, number];
-
-const C = {
-  fg: [192, 202, 245] as RGB,
-  fgMuted: [169, 177, 214] as RGB,
-  fgDim: [86, 95, 137] as RGB,
-  cyan: [125, 207, 255] as RGB,
-  teal: [79, 214, 190] as RGB,
-  green: [158, 206, 106] as RGB,
-  orange: [224, 175, 104] as RGB,
-  red: [247, 118, 142] as RGB,
-  // Silver palette — working line uses cool silver tones for a restrained,
-  // refined "server breathing-light" feel. No cyan/pink in the working line
-  // proper; cyan is reserved for the tps gradient and footer accents.
-  silverDim: [111, 119, 148] as RGB,
-  silverHi: [230, 236, 250] as RGB,
-};
-
-const RESET_FG = "\x1b[39m";
-const BOLD = "\x1b[1m";
-const UNBOLD = "\x1b[22m";
-
-function rgb(c: RGB): string {
-  return `\x1b[38;2;${c[0]};${c[1]};${c[2]}m`;
-}
-
-function paint(color: RGB, text: string, bold = false): string {
-  const open = bold ? `${BOLD}${rgb(color)}` : rgb(color);
-  const close = bold ? `${RESET_FG}${UNBOLD}` : RESET_FG;
-  return `${open}${text}${close}`;
-}
-
-function mix(a: RGB, b: RGB, t: number): RGB {
-  const clamped = Math.max(0, Math.min(1, t));
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * clamped),
-    Math.round(a[1] + (b[1] - a[1]) * clamped),
-    Math.round(a[2] + (b[2] - a[2]) * clamped),
-  ] as RGB;
-}
+// Cyber palette (RGB + paint/mix helpers) — see palette.ts; colors sourced
+// from theme vars, single source of truth.
 
 /**
  * Letter-wave verb. Each character glows up in turn, with a fixed

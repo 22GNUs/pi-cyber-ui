@@ -11,11 +11,8 @@ import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { palette, rgb, RESET_FG, type RGB } from "./palette.js";
 
-type RGB = [number, number, number];
-
-const SILVER: RGB = [170, 184, 202];
-const RESET = "\x1b[39m";
 const GLYPH_GAP = 1;
 const SESSION_LABEL_RIGHT_BORDER_WIDTH = 4;
 const SESSION_LABEL_MIN_LEFT_BORDER_WIDTH = 8;
@@ -24,10 +21,6 @@ const SESSION_LABEL_MAX_WIDTH_RATIO = 1 / 3;
 export interface CyberEditorOptions {
   getBorderColor?: (text: string) => ((value: string) => string) | undefined;
   getSessionName?: () => string | undefined;
-}
-
-function rgb(c: RGB): string {
-  return `\x1b[38;2;${c[0]};${c[1]};${c[2]}m`;
 }
 
 function stripAnsi(text: string): string {
@@ -66,7 +59,7 @@ export default class CyberEditor extends CustomEditor {
   }
 
   private promptColor(): RGB {
-    return SILVER;
+    return palette.promptSilver;
   }
 
   private modeMarker(): string {
@@ -117,7 +110,7 @@ export default class CyberEditor extends CustomEditor {
     const marker = this.modeMarker();
     const promptColor = this.promptColor();
     const promptStr = `${marker}${" ".repeat(GLYPH_GAP)}`;
-    const glyph = `${rgb(promptColor)}${marker}${RESET}${" ".repeat(GLYPH_GAP)}`;
+    const glyph = `${rgb(promptColor)}${marker}${RESET_FG}${" ".repeat(GLYPH_GAP)}`;
     const promptWidth = visibleWidth(promptStr);
     const innerWidth = Math.max(0, width - promptWidth);
 
