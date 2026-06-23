@@ -40,6 +40,13 @@ export interface CyberHudSnapshot {
  * editor wiring so the rendering layer stays mostly pure.
  */
 export class CyberEditorState {
+  /**
+   * EMA time constant for live TPS smoothing (ms). Larger = smoother but
+   * laggier. Dampens the sawtooth from stepwise token arrival vs the
+   * continuously growing elapsed denominator.
+   */
+  private static readonly TPS_TAU_MS = 500;
+
   private agentState: AgentState = "idle";
 
   // prompt-level accumulators (reset on agent_start)
@@ -66,6 +73,9 @@ export class CyberEditorState {
   private toolDepth = 0;
 
   // display cache
+  // smoothedTps: time-based EMA of live TPS, reset per assistant message.
+  private smoothedTps: number | undefined;
+  private smoothedTpsAt = 0;
   private tps: number | undefined;
   private estTps: number | undefined;
   private snapOut: number | undefined;
@@ -266,6 +276,8 @@ export class CyberEditorState {
     this.liveTpsActive = false;
     this.msgUsageMode = "estimated";
     this.msgEstimator.reset();
+    this.smoothedTps = undefined;
+    this.smoothedTpsAt = 0;
   }
 
   private elapsed(): number {
@@ -310,8 +322,21 @@ export class CyberEditorState {
     const seconds = this.elapsed() / 1000;
     if (seconds <= 0) return undefined;
 
+    // Time-based EMA: alpha scales with real elapsed since last sample, so
+    // smoothing stays consistent regardless of the 16ms snapshot cadence.
+    const instant = output / seconds;
+    const now = Date.now();
+    if (this.smoothedTps === undefined || this.smoothedTpsAt === 0) {
+      this.smoothedTps = instant;
+    } else {
+      const dt = Math.max(0, now - this.smoothedTpsAt);
+      const alpha = 1 - Math.exp(-dt / CyberEditorState.TPS_TAU_MS);
+      this.smoothedTps = this.smoothedTps * (1 - alpha) + instant * alpha;
+    }
+    this.smoothedTpsAt = now;
+
     return {
-      value: output / seconds,
+      value: this.smoothedTps,
       estimated,
     };
   }
