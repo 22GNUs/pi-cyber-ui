@@ -392,8 +392,53 @@
     <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 承载动画</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
     <tr><td>tool duration</td><td><span class="ms">120ms</span></td><td>running 期刷新 elapsed</td></tr>
+    <tr><td>tps smoothing</td><td><span class="ms">200ms</span></td><td>EMA α=0.2 低通滤波 · 消除 token 阶梯到达导致的锯齿</td></tr>
   </tbody>
 </table>
+
+<h3>TPS 平滑 · raw vs EMA</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>raw · 未平滑</h4>
+    <p style="font-size:18px;line-height:1.4">
+      <span id="tpsRaw" class="bold">— tps</span>
+    </p>
+    <p class="note" style="margin-top:6px">token 阶梯到达 + 16ms 高频刷新 → 数值与颜色锯齿抖动</p>
+  </div>
+  <div class="card">
+    <h4>ema α=0.2 · 平滑</h4>
+    <p style="font-size:18px;line-height:1.4">
+      <span id="tpsEma" class="bold">— tps</span>
+    </p>
+    <p class="note" style="margin-top:6px">低通滤波 · 平滑收敛 · 颜色稳定不闪</p>
+  </div>
+</div>
+<p class="note">模拟实时 tps：基础漂移 + token 到达噪声 · 左侧跳变，右侧 EMA 追赶</p>
+<script>
+  (function(){
+    const rawEl = document.getElementById('tpsRaw');
+    const emaEl = document.getElementById('tpsEma');
+    if (!rawEl || !emaEl) return;
+    function tpsColor(v){
+      if (v >= 100) return '#9ece6a';
+      if (v >= 60) return '#41a6b5';
+      if (v >= 30) return '#e0af68';
+      return '#f7768e';
+    }
+    let ema = null, t = 0;
+    setInterval(() => {
+      t += 1;
+      const base = 75 + 35 * Math.sin(t / 12);
+      const noise = (Math.random() - 0.5) * 70;
+      const raw = Math.max(5, Math.round(base + noise));
+      ema = ema === null ? raw : ema * 0.8 + raw * 0.2;
+      rawEl.textContent = raw + ' tps';
+      rawEl.style.color = tpsColor(raw);
+      emaEl.textContent = Math.round(ema) + ' tps';
+      emaEl.style.color = tpsColor(ema);
+    }, 200);
+  })();
+</script>
 
 <div class="footer-note"><span class="accent">cyber-ui-dark</span> · design reference</div>
 
