@@ -23,6 +23,7 @@ import type {
 import { Text, visibleWidth } from "@earendil-works/pi-tui";
 
 import { cyberState, type CyberHudSnapshot } from "./editor-state.js";
+import { formatCompactNumber } from "./format.js";
 import { palette as C, paint, mix, rgb, RESET_FG, type RGB } from "./palette.js";
 
 // Cyber palette (RGB + paint/mix helpers) — see palette.ts; colors sourced
@@ -201,11 +202,14 @@ function formatWorkingElapsed(ms: number): string {
 }
 
 function formatTokens(value: number | undefined): string {
-  if (value === undefined || !Number.isFinite(value) || value <= 0) return "";
-  if (value < 1_000) return `${value}`;
-  if (value < 10_000) return `${(value / 1_000).toFixed(1)}k`;
-  if (value < 1_000_000) return `${Math.round(value / 1_000)}k`;
-  return `${(value / 1_000_000).toFixed(1)}M`;
+  // 3 significant figures improve visible movement across common scales:
+  //   9_100     -> 9.10k   (10-token granularity)
+  //   47_342    -> 47.3k   (100-token granularity)
+  //   128_000   -> 128k    (1k-token granularity)
+  //   1_050_000 -> 1.05M   (10k-token granularity)
+  // Trailing zeros are kept on purpose: "9.10k" advertises a 10-token
+  // last-digit step.
+  return formatCompactNumber(value, { significantFigures: 3 });
 }
 
 function formatTps(value: number | undefined): string {
