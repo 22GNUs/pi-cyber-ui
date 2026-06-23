@@ -392,7 +392,7 @@
     <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 承载动画</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
     <tr><td>tool duration</td><td><span class="ms">120ms</span></td><td>running 期刷新 elapsed</td></tr>
-    <tr><td>tps smoothing</td><td><span class="ms">200ms</span></td><td>EMA α=0.2 低通滤波 · 消除 token 阶梯到达导致的锯齿</td></tr>
+    <tr><td>tps smoothing</td><td><span class="ms">τ 500ms</span></td><td>基于时间的 EMA + 分母下限 0.5s · 消除首帧尖峰与阶梯锯齿</td></tr>
   </tbody>
 </table>
 

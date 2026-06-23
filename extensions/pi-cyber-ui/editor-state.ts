@@ -47,6 +47,17 @@ export class CyberEditorState {
    */
   private static readonly TPS_TAU_MS = 500;
 
+  /**
+   * Minimum denominator (seconds) for live TPS = output/seconds. When
+   * elapsed since first output is below this, the rate estimate is
+   * statistically unreliable (a single batch delta over a few ms spikes to
+   * thousands), so the denominator is floored here. This is a statistical
+   * window floor, not an environment assumption: the estimate converges
+   * to the true rate once real elapsed exceeds it, adapting to any model
+   * or network without a fixed time-based warmup.
+   */
+  private static readonly TPS_MIN_WINDOW_S = 0.5;
+
   private agentState: AgentState = "idle";
 
   // prompt-level accumulators (reset on agent_start)
@@ -320,11 +331,13 @@ export class CyberEditorState {
     if (output === undefined || output <= 0 || !this.firstOutMs) return undefined;
 
     const seconds = this.elapsed() / 1000;
-    if (seconds <= 0) return undefined;
-
-    // Time-based EMA: alpha scales with real elapsed since last sample, so
-    // smoothing stays consistent regardless of the 16ms snapshot cadence.
-    const instant = output / seconds;
+    // Floor the denominator at a minimum statistical window: when elapsed
+    // is tiny, output/seconds spikes to thousands (a single batch delta
+    // over ~16ms). The floor yields a conservative estimate that converges
+    // to the true rate as seconds grows past it — no time-based warmup,
+    // adapts to any model/network.
+    const denom = Math.max(seconds, CyberEditorState.TPS_MIN_WINDOW_S);
+    const instant = output / denom;
     const now = Date.now();
     if (this.smoothedTps === undefined || this.smoothedTpsAt === 0) {
       this.smoothedTps = instant;
