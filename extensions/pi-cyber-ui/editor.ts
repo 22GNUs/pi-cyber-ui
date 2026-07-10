@@ -17,6 +17,10 @@ function attach(pi: ExtensionAPI, ctx: ExtensionContext): void {
         getBorderColor: (text) => {
           if (text.trimStart().startsWith("!")) return theme.getBashModeBorderColor();
           try {
+            const thinkingLevel = pi.getThinkingLevel() as string;
+            // Keep max visibly distinct even when this extension is loaded by
+            // an older pi runtime that does not yet map max in Theme.
+            if (thinkingLevel === "max") return (value) => theme.fg("error", value);
             return theme.getThinkingBorderColor(pi.getThinkingLevel());
           } catch {
             return theme.getThinkingBorderColor("off");

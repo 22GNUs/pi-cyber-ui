@@ -146,6 +146,7 @@ const KNOWN_THINKING_LEVELS = new Set([
   "medium",
   "high",
   "xhigh",
+  "max",
 ]);
 
 const SEP = " ∷ ";
@@ -194,8 +195,9 @@ function formatModelLabel(model: { name?: string; id: string } | undefined): str
 function thinkingText(theme: Theme, level: string): string {
   const normalized = normalizeThinkingLevel(level);
   // xhigh distinguishes itself from high via bold weight on the same
-  // rainbow palette — keeps the spectrum consistent while still showing
-  // "one notch above high".
+  // rainbow palette. max is the terminal rung, rendered in the dedicated
+  // error/red semantic color with bold weight.
+  if (normalized === "max") return theme.bold(theme.fg("error", normalized));
   if (normalized === "xhigh") return theme.bold(rainbow(theme, normalized));
   if (normalized === "high") return rainbow(theme, normalized);
   switch (normalized) {
