@@ -115,19 +115,6 @@ function renderCache(theme: Theme, percent: number | null): string {
   return `${icon} ${num}${sign}`;
 }
 
-// True spectrum, no hue duplicates. The previous palette repeated `accent`
-// and `success` (both cyan in this theme) and ended on `muted`, so "high"
-// looked half cyan, half gray. Now each slot is a distinct hue: cyan →
-// teal → purple → orange → red — a clean cool-to-warm sweep that reads
-// as escalating intensity rather than a random colour mix.
-const THINKING_HIGH_COLORS: readonly ThemeColor[] = [
-  "accent",         // cyan
-  "mdCode",         // teal
-  "syntaxKeyword",  // purple
-  "warning",        // orange
-  "error",          // red
-];
-
 // Context-window heat. Unified 5-tier palette across TPS / context / cache:
 // green=exceptional · teal=good · cyan=ok · orange=warn · red=bad. Context
 // is lower=better, so green sits at the very low end.
@@ -157,21 +144,6 @@ const DIRTY_TIMEOUT_MS = 800;
 // Tiny helpers reused from v1 footer
 // ---------------------------------------------------------------------------
 
-function rainbow(theme: Theme, text: string): string {
-  let out = "";
-  let i = 0;
-  for (const ch of text) {
-    if (ch.trim().length === 0 || ch === ":") {
-      out += ch;
-      continue;
-    }
-    const color = THINKING_HIGH_COLORS[i % THINKING_HIGH_COLORS.length] ?? "accent";
-    out += theme.fg(color, ch);
-    i += 1;
-  }
-  return out;
-}
-
 function formatTokens(value: number): string {
   if (value < 1_000) return `${value}`;
   if (value < 10_000) return `${(value / 1_000).toFixed(1)}k`;
@@ -194,12 +166,13 @@ function formatModelLabel(model: { name?: string; id: string } | undefined): str
 
 function thinkingText(theme: Theme, level: string): string {
   const normalized = normalizeThinkingLevel(level);
-  // xhigh distinguishes itself from high via bold weight on the same
-  // rainbow palette. max is the terminal rung, rendered in the dedicated
-  // error/red semantic color with bold weight.
+  // Cool→warm hue ladder, one color per rung. xhigh uses hotPink (magenta,
+  // the hue-wheel midpoint between purple high and red max) so it stays
+  // distinct from max without borrowing the warning-orange semantic. max is
+  // the terminal rung: red + bold.
   if (normalized === "max") return theme.bold(theme.fg("error", normalized));
-  if (normalized === "xhigh") return theme.bold(rainbow(theme, normalized));
-  if (normalized === "high") return rainbow(theme, normalized);
+  if (normalized === "xhigh") return theme.fg("thinkingXhigh", normalized);
+  if (normalized === "high") return theme.fg("thinkingHigh", normalized);
   switch (normalized) {
     case "off":
       return theme.fg("thinkingOff", normalized);

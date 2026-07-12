@@ -87,7 +87,7 @@
     "thinkingLow":      "blue",
     "thinkingMedium":   "cyan",
     "thinkingHigh":     "purple",
-    "thinkingXhigh":    "pink",
+    "thinkingXhigh":    "hotPink",
     "thinkingMax":      "red",
 
     "bashMode":         "orange"
