@@ -262,12 +262,12 @@
     <span class="pulse">●</span>
     <span class="verb">Reasoning...</span>
     <span class="dim">(</span><span class="muted">12s</span>
-    <span class="dim">·</span> <span class="dim">↑47.3k</span> <span id="streamOut" class="muted">~↓1.50k</span>
-    <span class="dim">·</span> <span id="streamTps" class="teal">~82 tok/s</span>
+    <span class="dim">·</span> <span class="dim">↑47.3k</span> <span class="muted">↓1.50k</span>
+    <span class="dim">·</span> <span class="green">182 tps</span>
     <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
   </div>
 </div>
-<p class="note">沿用原版 prompt 累计展示 · 未知输入直接隐藏 · <code>~↓</code> / <code>~TPS</code> 仅估算可见文本 delta，不计 thinking / tool call · reasoning 不做实时估算</p>
+<p class="note">spinner 32 帧 cosine 呼吸（fgDim ↔ silverHi）· verb 字符波（fgMuted ↔ silverHi）· 括号内 elapsed · tokens · tps · turn · 10s 后追加 <code>esc to cancel</code></p>
 
 <h3>Idle summary</h3>
 <div class="term">
@@ -277,12 +277,10 @@
     <span class="muted">done</span>
     <span class="dim">·</span> <span class="muted">2:14</span>
     <span class="dim">·</span> <span class="muted">↑47.3k ↓3.20k</span>
-    <span class="dim">·</span> <span class="muted">r2.41k</span>
-    <span class="dim">·</span> <span class="muted">24 tok/s</span>
-    <span class="dim">·</span> <span class="dim">󰄉 3</span>
+    <span class="dim">·</span> <span class="muted">156 tps</span>
   </div>
 </div>
-<p class="note">最终 output / reasoning 采用 provider 权威 usage，且 <code>reasoning ⊆ output</code> · 未报告 reasoning 的 Provider 隐藏 <code>r</code> · TPS = 精确 output ÷ prompt wall-clock</p>
+<p class="note">agent_end 后展示至下个 prompt · 仅 <code>✓</code> green，其余 muted</p>
 
 <h3>Tool rendering</h3>
 <div class="grid2">
@@ -409,55 +407,51 @@
     <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 承载动画</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
     <tr><td>tool duration</td><td><span class="ms">120ms</span></td><td>running 期刷新 elapsed</td></tr>
-    <tr><td>stream rate</td><td><span class="ms">window 1500ms</span></td><td>仅在 delta 到达时采样 · rolling rate + EMA · chunk 间保持上一稳定值</td></tr>
+    <tr><td>tps smoothing</td><td><span class="ms">τ 500ms</span></td><td>基于时间的 EMA + 分母下限 0.5s · 消除首帧尖峰与阶梯锯齿</td></tr>
   </tbody>
 </table>
 
-<h3>Stream rate · delta 驱动</h3>
+<h3>TPS 平滑 · raw vs EMA</h3>
 <div class="grid2">
   <div class="card">
-    <h4>delta arriving</h4>
+    <h4>raw · 未平滑</h4>
     <p style="font-size:18px;line-height:1.4">
-      <span id="rateActive" class="bold teal">~46 tok/s</span>
+      <span id="tpsRaw" class="bold">— tps</span>
     </p>
-    <p class="note" style="margin-top:6px">新 chunk 到达时才更新 token 与速率</p>
+    <p class="note" style="margin-top:6px">token 阶梯到达 + 16ms 高频刷新 → 数值与颜色锯齿抖动</p>
   </div>
   <div class="card">
-    <h4>between chunks</h4>
+    <h4>ema α=0.2 · 平滑</h4>
     <p style="font-size:18px;line-height:1.4">
-      <span id="rateStable" class="bold teal">~46 tok/s</span>
+      <span id="tpsEma" class="bold">— tps</span>
     </p>
-    <p class="note" style="margin-top:6px">保持最后一次采样，不让时间分母制造虚假漂移</p>
+    <p class="note" style="margin-top:6px">低通滤波 · 平滑收敛 · 颜色稳定不闪</p>
   </div>
 </div>
-<p class="note">模拟 chunk 到达与静默：输出计数和速率同步阶梯更新，静默时保持稳定</p>
+<p class="note">模拟实时 tps：基础漂移 + token 到达噪声 · 左侧跳变，右侧 EMA 追赶</p>
 <script>
   (function(){
-    const outEl = document.getElementById('streamOut');
-    const tpsEl = document.getElementById('streamTps');
-    const activeEl = document.getElementById('rateActive');
-    const stableEl = document.getElementById('rateStable');
-    if (!outEl || !tpsEl || !activeEl || !stableEl) return;
-    const colors = { red:'#f7768e', orange:'#e0af68', teal:'#41a6b5', green:'#9ece6a' };
-    function rateColor(v){
-      if (v >= 100) return colors.green;
-      if (v >= 60) return colors.teal;
-      if (v >= 30) return colors.orange;
-      return colors.red;
+    const rawEl = document.getElementById('tpsRaw');
+    const emaEl = document.getElementById('tpsEma');
+    if (!rawEl || !emaEl) return;
+    function tpsColor(v){
+      if (v >= 100) return '#9ece6a';
+      if (v >= 60) return '#41a6b5';
+      if (v >= 30) return '#e0af68';
+      return '#f7768e';
     }
-    let tokens = 1500;
+    let ema = null, t = 0;
     setInterval(() => {
-      const delta = 3 + Math.floor(Math.random() * 9);
-      const rate = 32 + Math.floor(Math.random() * 55);
-      tokens += delta;
-      outEl.textContent = '~↓' + (tokens / 1000).toFixed(2) + 'k';
-      tpsEl.textContent = '~' + rate + ' tok/s';
-      tpsEl.style.color = rateColor(rate);
-      activeEl.textContent = '~' + rate + ' tok/s';
-      activeEl.style.color = rateColor(rate);
-      stableEl.textContent = '~' + rate + ' tok/s';
-      stableEl.style.color = rateColor(rate);
-    }, 650 + Math.floor(Math.random() * 350));
+      t += 1;
+      const base = 75 + 35 * Math.sin(t / 12);
+      const noise = (Math.random() - 0.5) * 70;
+      const raw = Math.max(5, Math.round(base + noise));
+      ema = ema === null ? raw : ema * 0.8 + raw * 0.2;
+      rawEl.textContent = raw + ' tps';
+      rawEl.style.color = tpsColor(raw);
+      emaEl.textContent = Math.round(ema) + ' tps';
+      emaEl.style.color = tpsColor(ema);
+    }, 200);
   })();
 </script>
 

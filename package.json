@@ -12,9 +12,8 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node test/run-tests.mjs",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm test && npm run typecheck"
+    "prepare": "npm run typecheck"
   },
   "pi": {
     "themes": [

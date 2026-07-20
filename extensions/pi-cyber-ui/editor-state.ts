@@ -1,8 +1,16 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 
-import { StreamingTokenEstimator, StreamingTokenRate } from "./token-usage.js";
+import { getUsageMode, type UsageMode, StreamingTokenEstimator } from "./token-usage.js";
+
+export type CyberEditorStateApi = CyberEditorState;
 
 export type AgentState = "idle" | "running" | "thinking";
+export type ResetNoticeKind = "compact" | "tree";
+
+export interface ResetNotice {
+  kind: ResetNoticeKind;
+  startedAt: number;
+}
 
 export interface DisplayValue {
   value?: number;
@@ -17,96 +25,137 @@ export interface CyberHudSnapshot {
   agentState: AgentState;
   promptActive: boolean;
   promptTurns: number;
+  promptIn: number;
   inputValue?: number;
   output: OutputDisplayValue;
-  reasoningValue?: number;
   tps: DisplayValue;
   toolDepth: number;
+  resetNotice?: ResetNotice;
 }
 
 /**
- * Prompt-scoped token and timing state for the cyber HUD.
+ * Centralized session state for the cyber editor HUD.
  *
- * The UI keeps the original cumulative prompt presentation across tool turns.
- * Live rate is delta-driven, while the settled prompt rate uses Pi's reference
- * output / wall-clock convention. Terminal provider usage always reconciles
- * any visible-stream estimate.
+ * Keeps token accounting, pause windows, and request lifecycle logic out of the
+ * editor wiring so the rendering layer stays mostly pure.
  */
 export class CyberEditorState {
+  /**
+   * EMA time constant for live TPS smoothing (ms). Larger = smoother but
+   * laggier. Dampens the sawtooth from stepwise token arrival vs the
+   * continuously growing elapsed denominator.
+   */
+  private static readonly TPS_TAU_MS = 500;
+
+  /**
+   * Minimum denominator (seconds) for live TPS = output/seconds. When
+   * elapsed since first output is below this, the rate estimate is
+   * statistically unreliable (a single batch delta over a few ms spikes to
+   * thousands), so the denominator is floored here. This is a statistical
+   * window floor, not an environment assumption: the estimate converges
+   * to the true rate once real elapsed exceeds it, adapting to any model
+   * or network without a fixed time-based warmup.
+   */
+  private static readonly TPS_MIN_WINDOW_S = 0.5;
+
   private agentState: AgentState = "idle";
 
-  // Prompt totals shown continuously across turns.
+  // prompt-level accumulators (reset on agent_start)
   private promptIn = 0;
   private promptOut = 0;
   private promptTurns = 0;
   private promptActive = false;
-  private promptStartedAt = 0;
-  private promptTps: number | undefined;
-  private promptOutputEstimated = false;
-  private promptReasoning = 0;
-  private promptReasoningKnown = false;
-  private lastTurnTps: number | undefined;
-  private lastTurnTpsEstimated = false;
 
-  // Current assistant message.
+  // current assistant message
   private msgActive = false;
   private msgStartMs = 0;
-  private firstOutMs = 0;
-  private msgDoneMs = 0;
   private msgIn: number | undefined;
   private msgOut: number | undefined;
-  private msgReasoning: number | undefined;
   private estOut: number | undefined;
-  private msgUsageKnown = false;
+  private msgHasAccurateOut = false;
   private liveTpsActive = false;
-  private readonly msgEstimator = new StreamingTokenEstimator();
-  private readonly msgRate = new StreamingTokenRate();
+  private msgUsageMode: UsageMode = "estimated";
+  private msgEstimator = new StreamingTokenEstimator();
 
+  // timing
+  private firstOutMs = 0;
+  private pausedAt = 0;
+  private pausedTotal = 0;
   private toolDepth = 0;
+
+  // display cache
+  // smoothedTps: time-based EMA of live TPS, reset per assistant message.
+  private smoothedTps: number | undefined;
+  private smoothedTpsAt = 0;
+  private tps: number | undefined;
+  private estTps: number | undefined;
+  private snapOut: number | undefined;
+  private snapOutEst = false;
+  private snapTps: number | undefined;
+  private snapTpsEst = false;
+
+  private resetNotice: ResetNotice | undefined;
+
+  getAgentState(): AgentState {
+    return this.agentState;
+  }
+
+  getResetNotice(): ResetNotice | undefined {
+    return this.resetNotice;
+  }
 
   resetAll(): void {
     this.promptIn = 0;
     this.promptOut = 0;
     this.promptTurns = 0;
     this.promptActive = false;
-    this.promptStartedAt = 0;
-    this.promptTps = undefined;
-    this.promptOutputEstimated = false;
-    this.promptReasoning = 0;
-    this.promptReasoningKnown = false;
-    this.lastTurnTps = undefined;
-    this.lastTurnTpsEstimated = false;
+
+    this.firstOutMs = 0;
+    this.pausedAt = 0;
+    this.pausedTotal = 0;
     this.toolDepth = 0;
+
+    this.tps = undefined;
+    this.estTps = undefined;
+    this.snapOut = undefined;
+    this.snapTps = undefined;
+    this.snapOutEst = false;
+    this.snapTpsEst = false;
+    this.resetNotice = undefined;
 
     this.resetMsg();
     this.agentState = "idle";
   }
 
+  setResetNotice(kind: ResetNoticeKind): void {
+    this.resetNotice = { kind, startedAt: Date.now() };
+  }
+
   onSessionStart(): void {
     this.resetAll();
+    this.promptActive = true;
+    this.agentState = "idle";
   }
 
   onSessionSwitch(): void {
     this.resetAll();
+    this.promptActive = true;
+    this.agentState = "idle";
   }
 
   onSessionCompact(): void {
     this.resetAll();
+    this.setResetNotice("compact");
   }
 
   onSessionTree(): void {
     this.resetAll();
+    this.setResetNotice("tree");
   }
 
-  onPromptStart(at = Date.now()): void {
+  onAgentStart(): void {
     this.resetAll();
     this.promptActive = true;
-    this.promptStartedAt = at;
-    this.agentState = "running";
-  }
-
-  onAgentStart(at = Date.now()): void {
-    if (!this.promptActive) this.onPromptStart(at);
     this.agentState = "running";
   }
 
@@ -115,227 +164,254 @@ export class CyberEditorState {
     this.agentState = "running";
   }
 
-  onAgentEnd(at = Date.now()): void {
-    if (!this.promptActive) return;
+  onAgentEnd(): void {
+    this.resumeClock();
     this.promptActive = false;
-    this.toolDepth = 0;
     this.agentState = "idle";
-
-    const elapsedSeconds = (at - this.promptStartedAt) / 1_000;
-    if (this.promptOut > 0 && elapsedSeconds > 0) {
-      this.promptTps = this.promptOut / elapsedSeconds;
-    }
+    this.refreshTps();
+    this.refreshEstTps();
   }
 
   onToolCall(): void {
     this.toolDepth += 1;
+    if (this.firstOutMs && !this.pausedAt) this.pausedAt = Date.now();
     this.agentState = "thinking";
   }
 
   onToolResult(): void {
     this.toolDepth = Math.max(0, this.toolDepth - 1);
-    if (this.toolDepth === 0) this.agentState = "running";
+    if (this.toolDepth === 0) {
+      this.resumeClock();
+      this.refreshTps();
+      this.refreshEstTps();
+      this.agentState = "running";
+    }
   }
 
-  onAssistantStart(message: AssistantMessage, at = Date.now()): void {
+  onAssistantStart(message: AssistantMessage): void {
     if (message.role !== "assistant") return;
     this.resetMsg();
     this.msgActive = true;
-    this.msgStartMs = at;
-    this.observePartialUsage(message, at);
+    this.msgStartMs = Date.now();
+    this.msgUsageMode = getUsageMode(message.api);
+    this.syncMessage(message);
   }
 
-  onAssistantTextDelta(delta: string, partial: AssistantMessage, at = Date.now()): void {
-    if (!this.firstOutMs) {
-      this.firstOutMs = at;
-      this.msgRate.addCumulative(0, at);
-    }
+  onAssistantDelta(delta: string, partial: AssistantMessage): void {
+    if (!this.firstOutMs) this.firstOutMs = Date.now();
     this.liveTpsActive = true;
     this.msgEstimator.add(delta);
     this.estOut = this.msgEstimator.value();
-    this.msgRate.addCumulative(this.estOut, at);
-    this.observePartialUsage(partial);
+    this.syncMessage(partial);
+    this.refreshEstTps();
   }
 
-  onAssistantPartial(partial: AssistantMessage, at = Date.now()): void {
-    this.observePartialUsage(partial, at);
+  onAssistantPartial(partial: AssistantMessage): void {
+    if (partial.usage.output > 0 || partial.usage.input > 0) {
+      this.liveTpsActive = true;
+    }
+    this.syncMessage(partial);
   }
 
-  onAssistantDone(message: AssistantMessage, at = Date.now()): void {
-    this.finalizeMessage(message, at);
+  onAssistantDone(message: AssistantMessage): void {
+    this.liveTpsActive = false;
+    if (!this.firstOutMs && message.usage.output > 0) {
+      this.firstOutMs = this.msgStartMs || Date.now();
+    }
+    this.syncMessage(message, true);
+    this.refreshTps();
   }
 
-  onAssistantError(message: AssistantMessage, at = Date.now()): void {
-    this.finalizeMessage(message, at);
+  onAssistantError(message: AssistantMessage): void {
+    this.liveTpsActive = false;
+    if (!this.firstOutMs && message.usage.output > 0) {
+      this.firstOutMs = this.msgStartMs || Date.now();
+    }
+    this.syncMessage(message, true);
+    this.refreshTps();
   }
 
-  onAssistantTurnEnd(message: AssistantMessage, at = Date.now()): void {
+  onAssistantTurnEnd(message: AssistantMessage): void {
     if (message.role !== "assistant") return;
-    this.finalizeMessage(message, at);
-    this.commitTurn();
+    this.liveTpsActive = false;
+    this.resumeClock();
+    if (!this.firstOutMs && message.usage.output > 0) {
+      this.firstOutMs = this.msgStartMs || Date.now();
+    }
+    this.syncMessage(message, true);
+    this.commit();
+    this.refreshTps();
   }
 
   snapshot(): CyberHudSnapshot {
-    if (!this.promptActive) return this.promptSnapshot();
-    if (this.msgActive) return this.messageSnapshot();
-    return this.runningPromptSnapshot();
-  }
+    const exactIn = this.exactIn();
+    const exactOut = this.exactOut();
+    const estOut = this.estDisplayOut();
+    const displayOut = exactOut ?? estOut ?? this.snapOut;
+    const outputEstimated = exactOut === undefined && (estOut !== undefined || this.snapOutEst);
 
-  private baseSnapshot(): Omit<CyberHudSnapshot, "inputValue" | "output" | "tps"> {
+    const liveTps = this.liveTpsActive
+      ? this.computeLiveTps(displayOut, outputEstimated)
+      : undefined;
+    const displayTps = liveTps?.value ?? this.tps ?? this.estTps ?? this.snapTps;
+    const tpsEstimated = liveTps?.estimated
+      ?? (this.tps === undefined && (this.estTps !== undefined || this.snapTpsEst));
+
     return {
       agentState: this.agentState,
       promptActive: this.promptActive,
       promptTurns: this.promptTurns,
-      toolDepth: this.toolDepth,
-    };
-  }
-
-  private runningPromptSnapshot(): CyberHudSnapshot {
-    return {
-      ...this.baseSnapshot(),
-      inputValue: this.promptIn > 0 ? this.promptIn : undefined,
+      promptIn: this.promptIn,
+      inputValue: exactIn,
       output: {
-        value: this.promptOut > 0 ? this.promptOut : undefined,
-        estimated: this.promptOutputEstimated,
+        value: displayOut,
+        estimated: outputEstimated,
         frozen: this.toolDepth > 0,
       },
       tps: {
-        value: this.lastTurnTps,
-        estimated: this.lastTurnTpsEstimated,
+        value: displayTps,
+        estimated: tpsEstimated,
       },
-    };
-  }
-
-  private messageSnapshot(): CyberHudSnapshot {
-    const exactOutput = this.msgUsageKnown ? this.msgOut : undefined;
-    const currentOutput = exactOutput ?? this.estOut;
-    const currentEstimated = exactOutput === undefined && currentOutput !== undefined;
-    const displayOutput = this.promptOut + (currentOutput ?? 0);
-
-    const liveTps = this.liveTpsActive ? this.msgRate.value() : undefined;
-    const settledTps = this.liveTpsActive ? undefined : this.settledMessageTps();
-
-    return {
-      ...this.baseSnapshot(),
-      inputValue: this.positiveOrUndefined(this.promptIn + (this.msgIn ?? 0)),
-      output: {
-        value: this.positiveOrUndefined(displayOutput),
-        estimated: this.promptOutputEstimated || currentEstimated,
-        frozen: this.toolDepth > 0 || !this.liveTpsActive,
-      },
-      reasoningValue: this.promptReasoningValue(),
-      tps: {
-        value: liveTps ?? settledTps ?? this.lastTurnTps,
-        estimated:
-          liveTps !== undefined
-            ? true
-            : settledTps !== undefined
-              ? currentEstimated
-              : this.lastTurnTpsEstimated,
-      },
-    };
-  }
-
-  private promptSnapshot(): CyberHudSnapshot {
-    return {
-      ...this.baseSnapshot(),
-      inputValue: this.promptIn > 0 ? this.promptIn : undefined,
-      output: {
-        value: this.promptOut > 0 ? this.promptOut : undefined,
-        estimated: this.promptOutputEstimated,
-        frozen: false,
-      },
-      reasoningValue: this.promptReasoningValue(),
-      tps: {
-        value: this.promptTps,
-        estimated: this.promptOutputEstimated,
-      },
+      toolDepth: this.toolDepth,
+      resetNotice: this.resetNotice,
     };
   }
 
   private resetMsg(): void {
     this.msgActive = false;
     this.msgStartMs = 0;
-    this.firstOutMs = 0;
-    this.msgDoneMs = 0;
     this.msgIn = undefined;
     this.msgOut = undefined;
-    this.msgReasoning = undefined;
     this.estOut = undefined;
-    this.msgUsageKnown = false;
+    this.msgHasAccurateOut = false;
     this.liveTpsActive = false;
+    this.msgUsageMode = "estimated";
     this.msgEstimator.reset();
-    this.msgRate.reset();
+    this.smoothedTps = undefined;
+    this.smoothedTpsAt = 0;
   }
 
-  private observePartialUsage(message: AssistantMessage, _at?: number): void {
-    const usage = message.usage;
-    if (usage.input > 0) this.msgIn = usage.input;
+  private elapsed(): number {
+    if (!this.firstOutMs) return 0;
+    const activePause = this.pausedAt ? Date.now() - this.pausedAt : 0;
+    return Math.max(0, Date.now() - this.firstOutMs - this.pausedTotal - activePause);
   }
 
-  private finalizeMessage(message: AssistantMessage, at: number): void {
-    this.liveTpsActive = false;
-    this.msgDoneMs = this.msgDoneMs || at;
+  private resumeClock(): void {
+    if (!this.pausedAt) return;
+    this.pausedTotal += Date.now() - this.pausedAt;
+    this.pausedAt = 0;
+  }
 
-    const usage = message.usage;
-    this.msgUsageKnown =
-      usage.totalTokens > 0 ||
-      usage.input > 0 ||
-      usage.output > 0 ||
-      usage.cacheRead > 0 ||
-      usage.cacheWrite > 0;
+  private exactOut(): number | undefined {
+    if (this.msgActive) {
+      if (!this.msgHasAccurateOut || this.msgOut === undefined) return undefined;
+      return this.promptOut + this.msgOut;
+    }
+    return this.promptOut > 0 ? this.promptOut : undefined;
+  }
 
-    if (this.msgUsageKnown) {
-      this.msgIn = usage.input;
-      this.msgOut = usage.output;
-      const reasoning = this.reasoningUsage(usage);
-      if (reasoning !== undefined) {
-        this.msgReasoning = Math.min(usage.output, Math.max(0, reasoning));
+  private estDisplayOut(): number | undefined {
+    if (!this.msgActive || this.estOut === undefined) return undefined;
+    return this.promptOut + this.estOut;
+  }
+
+  private exactIn(): number | undefined {
+    if (this.msgActive) {
+      if (this.msgIn === undefined) return this.promptIn > 0 ? this.promptIn : undefined;
+      return this.promptIn + this.msgIn;
+    }
+    return this.promptIn > 0 ? this.promptIn : undefined;
+  }
+
+  private computeLiveTps(
+    output: number | undefined,
+    estimated: boolean,
+  ): DisplayValue | undefined {
+    if (output === undefined || output <= 0 || !this.firstOutMs) return undefined;
+
+    const seconds = this.elapsed() / 1000;
+    // Floor the denominator at a minimum statistical window: when elapsed
+    // is tiny, output/seconds spikes to thousands (a single batch delta
+    // over ~16ms). The floor yields a conservative estimate that converges
+    // to the true rate as seconds grows past it — no time-based warmup,
+    // adapts to any model/network.
+    const denom = Math.max(seconds, CyberEditorState.TPS_MIN_WINDOW_S);
+    const instant = output / denom;
+    const now = Date.now();
+    if (this.smoothedTps === undefined || this.smoothedTpsAt === 0) {
+      this.smoothedTps = instant;
+    } else {
+      const dt = Math.max(0, now - this.smoothedTpsAt);
+      const alpha = 1 - Math.exp(-dt / CyberEditorState.TPS_TAU_MS);
+      this.smoothedTps = this.smoothedTps * (1 - alpha) + instant * alpha;
+    }
+    this.smoothedTpsAt = now;
+
+    return {
+      value: this.smoothedTps,
+      estimated,
+    };
+  }
+
+  private refreshTps(): void {
+    const out = this.exactOut();
+    if (out !== undefined && out > 0) {
+      this.snapOut = out;
+      this.snapOutEst = false;
+    }
+    if (out === undefined || out <= 0 || !this.firstOutMs) return;
+
+    const seconds = this.elapsed() / 1000;
+    if (seconds > 0) {
+      this.tps = out / seconds;
+      this.snapTps = this.tps;
+      this.snapTpsEst = false;
+    }
+  }
+
+  private refreshEstTps(): void {
+    const out = this.estDisplayOut();
+    if (out === undefined || out <= 0 || !this.firstOutMs) return;
+
+    if (this.snapOut === undefined) {
+      this.snapOut = out;
+      this.snapOutEst = true;
+    }
+
+    const seconds = this.elapsed() / 1000;
+    if (seconds > 0) {
+      this.estTps = out / seconds;
+      if (this.snapTps === undefined) {
+        this.snapTps = this.estTps;
+        this.snapTpsEst = true;
       }
     }
   }
 
-  private settledMessageTps(): number | undefined {
-    const output = this.msgUsageKnown ? this.msgOut : this.estOut;
-    if (output === undefined || output <= 0) return undefined;
-    const seconds = ((this.msgDoneMs || Date.now()) - this.msgStartMs) / 1_000;
-    return seconds > 0 ? output / seconds : undefined;
+  private syncMessage(message: AssistantMessage, final = false): void {
+    const usage = message.usage;
+    if (final || usage.input > 0) this.msgIn = usage.input;
+    if (final || usage.output > 0 || this.msgOut !== undefined) {
+      this.msgOut = usage.output;
+      if (final || (this.msgUsageMode === "exact" && usage.output > 0)) {
+        this.msgHasAccurateOut = true;
+      }
+      this.refreshTps();
+    }
   }
 
-  private commitTurn(): void {
-    const output = this.msgUsageKnown ? this.msgOut : this.estOut;
-    const outputEstimated = !this.msgUsageKnown && output !== undefined;
-
-    if (this.msgUsageKnown) this.promptIn += this.msgIn ?? 0;
-    if (output !== undefined) this.promptOut += output;
-    if (outputEstimated) this.promptOutputEstimated = true;
-    if (this.msgReasoning !== undefined) {
-      this.promptReasoning += this.msgReasoning;
-      this.promptReasoningKnown = true;
-    }
-
-    const turnTps = this.settledMessageTps();
-    if (turnTps !== undefined) {
-      this.lastTurnTps = turnTps;
-      this.lastTurnTpsEstimated = outputEstimated;
-    }
-
+  private commit(): void {
+    this.promptIn += this.msgIn ?? 0;
+    this.promptOut += this.msgOut ?? 0;
+    this.estTps = undefined;
     this.resetMsg();
-  }
-
-  private promptReasoningValue(): number | undefined {
-    return this.promptReasoningKnown && this.promptReasoning > 0
-      ? this.promptReasoning
-      : undefined;
-  }
-
-  private reasoningUsage(usage: AssistantMessage["usage"]): number | undefined {
-    return (usage as AssistantMessage["usage"] & { reasoning?: number }).reasoning;
-  }
-
-  private positiveOrUndefined(value: number): number | undefined {
-    return value > 0 ? value : undefined;
+    this.refreshTps();
   }
 }
 
+/**
+ * Shared session-scoped state singleton. Consumed by editor.ts (lifecycle
+ * hooks) and working.ts (snapshot for the working message + idle summary).
+ */
 export const cyberState = new CyberEditorState();

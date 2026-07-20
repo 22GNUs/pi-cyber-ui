@@ -5,14 +5,14 @@
  *
  *   running — pi's built-in working Loader is active. We feed it a single
  *     line via `setWorkingMessage`:
- *       <verb> · <prompt-elapsed> · ↑in ↓out · <tok/s>
+ *       <verb> · <prompt-elapsed> · ↑in ↓out · <tps>
  *     followed by a soft "esc to cancel" hint after 10s.
  *     Segments are ordered by priority and dropped right-to-left when the
  *     terminal is too narrow.
  *
  *   idle — Loader is hidden. A single-line widget above the editor shows the
  *     last prompt's summary, persisting until the next prompt:
- *       ✓ done · <total> · ↑in ↓out · <avg tok/s>
+ *       ✓ done · <total> · ↑in ↓out · <avg tps>
  *
  * Verb pool is cyber-themed and rotates every few seconds for ambient variety.
  */
@@ -214,7 +214,7 @@ function formatTokens(value: number | undefined): string {
 
 function formatTps(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value) || value <= 0) return "";
-  return value < 1 ? `${value.toFixed(1)} tok/s` : `${Math.round(value)} tok/s`;
+  return value < 1 ? `${value.toFixed(1)}t/s` : `${Math.round(value)}t/s`;
 }
 
 function joinDim(parts: string[]): string {
@@ -244,7 +244,7 @@ const TURN_ICON = "󰄉";
  * Importance scale (higher = keep longer):
  *   100 verb + elapsed (always kept)
  *    70 tokens ↑/↓
- *    60 tok/s
+ *    60 tps
  *    50 turn marker (≥2)
  *    20 esc hint
  */
@@ -270,21 +270,21 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   segments.push(seg(label, 100));
   segments.push(seg(time, 95));
 
-  // 70 — cumulative prompt tokens, preserving the original stable display.
-  // Unknown input stays hidden; only live estimates receive a ~ prefix.
-  const inTokens = formatTokens(snapshot.inputValue);
+  // 70 — tokens
+  const inTokens = formatTokens(snapshot.inputValue ?? snapshot.promptIn);
   const outTokens = formatTokens(snapshot.output.value);
   if (inTokens || outTokens) {
     const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
     let outColor: RGB = C.fgMuted;
     if (snapshot.output.frozen) outColor = C.fgDim;
+    else if (snapshot.output.estimated) outColor = C.fgMuted;
     const outPrefix = snapshot.output.estimated ? "~" : "";
     const outPart = outTokens ? paint(outColor, `${outPrefix}↓${outTokens}`) : "";
     const both = [inPart, outPart].filter(Boolean).join(" ");
     if (both) segments.push(seg(both, 70));
   }
 
-  // 60 — delta-driven rate. Between chunks the last value remains stable.
+  // 60 — tps (graded by speed, dim while idle/thinking)
   const tpsValue = snapshot.tps.value;
   if (tpsValue !== undefined && Number.isFinite(tpsValue) && tpsValue > 0) {
     const tpsLabel = `${snapshot.tps.estimated ? "~" : ""}${formatTps(tpsValue)}`;
@@ -363,10 +363,7 @@ interface PromptSummary {
   turns: number;
   inputTokens: number | undefined;
   outputTokens: number | undefined;
-  reasoningTokens: number | undefined;
-  outputEstimated: boolean;
   avgTps: number | undefined;
-  tpsEstimated: boolean;
 }
 
 let lastSummary: PromptSummary | undefined;
@@ -389,19 +386,14 @@ function buildIdleSummary(summary: PromptSummary): string {
   const outTokens = formatTokens(summary.outputTokens);
   if (inTokens || outTokens) {
     const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
-    const prefix = summary.outputEstimated ? "~" : "";
-    const outPart = outTokens ? paint(C.fgMuted, `${prefix}↓${outTokens}`) : "";
+    const outPart = outTokens ? paint(C.fgMuted, `↓${outTokens}`) : "";
     const both = [inPart, outPart].filter(Boolean).join(" ");
     if (both) parts.push(both);
   }
 
-  const reasoningTokens = formatTokens(summary.reasoningTokens);
-  if (reasoningTokens) parts.push(paint(C.fgDim, `r${reasoningTokens}`));
-
-  // Prompt wall-clock TPS, matching Pi's reference convention.
+  // avg tps
   if (summary.avgTps !== undefined && summary.avgTps > 0) {
-    const prefix = summary.tpsEstimated ? "~" : "";
-    parts.push(paint(C.fgDim, `${prefix}${formatTps(summary.avgTps)}`));
+    parts.push(paint(C.fgDim, formatTps(summary.avgTps)));
   }
 
   // turn count tail — always show, matching v1 HUD
@@ -499,7 +491,7 @@ function endPromptTimer(ctx: ExtensionContext): void {
   if (!prompt) return;
   const totalElapsedMs = Date.now() - prompt.startedAt;
   const snapshot = cyberState.snapshot();
-  const inputTokens = snapshot.inputValue;
+  const inputTokens = snapshot.inputValue ?? snapshot.promptIn;
   const outputTokens = snapshot.output.value;
   const avgTps = snapshot.tps.value;
 
@@ -508,10 +500,7 @@ function endPromptTimer(ctx: ExtensionContext): void {
     turns: snapshot.promptTurns,
     inputTokens: inputTokens && inputTokens > 0 ? inputTokens : undefined,
     outputTokens,
-    reasoningTokens: snapshot.reasoningValue,
-    outputEstimated: snapshot.output.estimated,
     avgTps,
-    tpsEstimated: snapshot.tps.estimated,
   };
 
   prompt = undefined;
@@ -552,15 +541,10 @@ export default function working(pi: ExtensionAPI) {
     }
   });
 
-  pi.on("before_agent_start", (_event, ctx) => {
-    if (!hasUsableUi(ctx) || prompt) return;
-    startPromptTimer(ctx);
-  });
-
   pi.on("agent_start", (_event, ctx) => {
     if (!hasUsableUi(ctx)) return;
-    if (!prompt) startPromptTimer(ctx);
-    if (messageTimer) return;
+    startPromptTimer(ctx);
+    stopMessageTimer();
     const token = sessionToken;
     const timer = setInterval(() => {
       if (token !== sessionToken || !updateWorkingMessage(ctx)) stopMessageTimer(timer);
