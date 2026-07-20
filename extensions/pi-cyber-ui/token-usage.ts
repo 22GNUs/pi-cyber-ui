@@ -1,10 +1,9 @@
 /**
  * Token usage helpers for the cyber HUD.
  *
- * Exact mode is determined by the API/protocol, not the provider name.
- * Anthropic Messages API (and any provider using the same request protocol)
- * can expose cumulative streaming usage, so we can display exact in-flight
- * output tokens.
+ * Providers may expose cumulative usage during streaming, but that capability
+ * is detected from the partial messages at runtime rather than assumed from a
+ * provider or protocol name.
  *
  * Token estimation uses a zero-dependency BPE-inspired heuristic that
  * achieves ~85% accuracy without loading any encoder tables. Characters are
@@ -22,20 +21,6 @@
  * Accumulated counts are stored as raw character counts so the final
  * formula can be applied once, keeping per-delta cost to O(n) char scans.
  */
-import type { Api } from "@earendil-works/pi-ai";
-
-export type UsageMode = "exact" | "estimated";
-
-const EXACT_USAGE_APIS = new Set<Api | string>(["anthropic-messages"]);
-
-export function supportsExactUsage(api?: Api | string): boolean {
-  return api !== undefined && EXACT_USAGE_APIS.has(api);
-}
-
-export function getUsageMode(api?: Api | string): UsageMode {
-  return supportsExactUsage(api) ? "exact" : "estimated";
-}
-
 // ---------------------------------------------------------------------------
 // Character classification
 // ---------------------------------------------------------------------------
@@ -192,5 +177,94 @@ export class StreamingTokenEstimator {
 
   value(): number {
     return estimateTokensFromBuckets(this.b);
+  }
+}
+
+interface RateInterval {
+  startedAt: number;
+  endedAt: number;
+  tokens: number;
+}
+
+/**
+ * Delta-driven rolling token rate.
+ *
+ * The rate changes only when cumulative token progress increases. Rendering
+ * between chunks therefore cannot create artificial movement by continuously
+ * growing a denominator. A short EMA smooths provider batching while the
+ * rolling window keeps the value responsive to current stream throughput.
+ */
+export class StreamingTokenRate {
+  private readonly intervals: RateInterval[] = [];
+  private previousTokens: number | undefined;
+  private previousAt = 0;
+  private smoothed: number | undefined;
+  private smoothedAt = 0;
+  private lastProgressAt = 0;
+
+  constructor(
+    private readonly windowMs = 1_500,
+    private readonly smoothingTauMs = 600,
+  ) {}
+
+  reset(): void {
+    this.intervals.length = 0;
+    this.previousTokens = undefined;
+    this.previousAt = 0;
+    this.smoothed = undefined;
+    this.smoothedAt = 0;
+    this.lastProgressAt = 0;
+  }
+
+  addCumulative(tokens: number, at = Date.now()): number | undefined {
+    if (!Number.isFinite(tokens) || tokens < 0) return this.smoothed;
+
+    if (this.previousTokens === undefined) {
+      this.previousTokens = tokens;
+      this.previousAt = at;
+      if (tokens > 0) this.lastProgressAt = at;
+      return this.smoothed;
+    }
+
+    const delta = tokens - this.previousTokens;
+    const startedAt = this.previousAt;
+    this.previousTokens = tokens;
+    this.previousAt = at;
+    if (delta <= 0) return this.smoothed;
+
+    this.lastProgressAt = at;
+    if (at <= startedAt) return this.smoothed;
+    this.intervals.push({ startedAt, endedAt: at, tokens: delta });
+    const cutoff = at - this.windowMs;
+    while (this.intervals.length > 0 && this.intervals[0]!.endedAt < cutoff) {
+      this.intervals.shift();
+    }
+
+    let windowTokens = 0;
+    let windowStartedAt = at;
+    for (const interval of this.intervals) {
+      windowTokens += interval.tokens;
+      windowStartedAt = Math.min(windowStartedAt, Math.max(cutoff, interval.startedAt));
+    }
+
+    const durationMs = Math.max(250, at - windowStartedAt);
+    const instant = windowTokens / (durationMs / 1_000);
+    if (this.smoothed === undefined || this.smoothedAt === 0) {
+      this.smoothed = instant;
+    } else {
+      const dt = Math.max(0, at - this.smoothedAt);
+      const alpha = 1 - Math.exp(-dt / this.smoothingTauMs);
+      this.smoothed = this.smoothed * (1 - alpha) + instant * alpha;
+    }
+    this.smoothedAt = at;
+    return this.smoothed;
+  }
+
+  value(): number | undefined {
+    return this.smoothed;
+  }
+
+  lastProgressTimestamp(): number {
+    return this.lastProgressAt;
   }
 }
