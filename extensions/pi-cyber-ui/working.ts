@@ -5,14 +5,14 @@
  *
  *   running — pi's built-in working Loader is active. We feed it a single
  *     line via `setWorkingMessage`:
- *       <verb> · <prompt-elapsed> · ↑in Rcache ↓out · <tok/s>
+ *       <verb> · <prompt-elapsed> · ↑in ↓out · <tok/s>
  *     followed by a soft "esc to cancel" hint after 10s.
  *     Segments are ordered by priority and dropped right-to-left when the
  *     terminal is too narrow.
  *
  *   idle — Loader is hidden. A single-line widget above the editor shows the
  *     last prompt's summary, persisting until the next prompt:
- *       ✓ done · <total> · ↑in Rcache ↓out · <avg tok/s>
+ *       ✓ done · <total> · ↑in ↓out · <avg tok/s>
  *
  * Verb pool is cyber-themed and rotates every few seconds for ambient variety.
  */
@@ -270,31 +270,23 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   segments.push(seg(label, 100));
   segments.push(seg(time, 95));
 
-  // 70 — current-turn tokens. Input remains explicitly pending until the
-  // provider reports usage; cache fields follow Pi's R/W notation.
+  // 70 — cumulative prompt tokens, preserving the original stable display.
+  // Unknown input stays hidden; only live estimates receive a ~ prefix.
   const inTokens = formatTokens(snapshot.inputValue);
-  const cacheRead = formatTokens(snapshot.cacheReadValue);
-  const cacheWrite = formatTokens(snapshot.cacheWriteValue);
   const outTokens = formatTokens(snapshot.output.value);
-  const tokenParts: string[] = [];
-  if (snapshot.inputPending) tokenParts.push(paint(C.fgDim, "↑pending"));
-  else if (inTokens) tokenParts.push(paint(C.fgDim, `↑${inTokens}`));
-  if (cacheRead) tokenParts.push(paint(C.fgDim, `R${cacheRead}`));
-  if (cacheWrite) tokenParts.push(paint(C.fgDim, `W${cacheWrite}`));
-  if (outTokens) {
+  if (inTokens || outTokens) {
+    const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
     let outColor: RGB = C.fgMuted;
     if (snapshot.output.frozen) outColor = C.fgDim;
     const outPrefix = snapshot.output.estimated ? "~" : "";
-    tokenParts.push(paint(outColor, `${outPrefix}↓${outTokens}`));
+    const outPart = outTokens ? paint(outColor, `${outPrefix}↓${outTokens}`) : "";
+    const both = [inPart, outPart].filter(Boolean).join(" ");
+    if (both) segments.push(seg(both, 70));
   }
-  if (tokenParts.length > 0) segments.push(seg(tokenParts.join(" "), 70));
 
-  // 60 — delta-driven stream rate. Quiet streams show an explicit idle dash
-  // instead of continuously changing a denominator without token progress.
+  // 60 — delta-driven rate. Between chunks the last value remains stable.
   const tpsValue = snapshot.tps.value;
-  if (snapshot.tps.quiet) {
-    segments.push(seg(paint(C.fgDim, "— tok/s"), 60));
-  } else if (tpsValue !== undefined && Number.isFinite(tpsValue) && tpsValue > 0) {
+  if (tpsValue !== undefined && Number.isFinite(tpsValue) && tpsValue > 0) {
     const tpsLabel = `${snapshot.tps.estimated ? "~" : ""}${formatTps(tpsValue)}`;
     const idle = snapshot.agentState === "thinking" || snapshot.agentState === "idle";
     const color: RGB = idle ? C.fgDim : tpsColor(tpsValue);
@@ -370,8 +362,6 @@ interface PromptSummary {
   totalElapsedMs: number;
   turns: number;
   inputTokens: number | undefined;
-  cacheReadTokens: number | undefined;
-  cacheWriteTokens: number | undefined;
   outputTokens: number | undefined;
   outputEstimated: boolean;
   avgTps: number | undefined;
@@ -395,18 +385,14 @@ function buildIdleSummary(summary: PromptSummary): string {
 
   // tokens
   const inTokens = formatTokens(summary.inputTokens);
-  const cacheRead = formatTokens(summary.cacheReadTokens);
-  const cacheWrite = formatTokens(summary.cacheWriteTokens);
   const outTokens = formatTokens(summary.outputTokens);
-  const tokenParts: string[] = [];
-  if (inTokens) tokenParts.push(paint(C.fgDim, `↑${inTokens}`));
-  if (cacheRead) tokenParts.push(paint(C.fgDim, `R${cacheRead}`));
-  if (cacheWrite) tokenParts.push(paint(C.fgDim, `W${cacheWrite}`));
-  if (outTokens) {
+  if (inTokens || outTokens) {
+    const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
     const prefix = summary.outputEstimated ? "~" : "";
-    tokenParts.push(paint(C.fgMuted, `${prefix}↓${outTokens}`));
+    const outPart = outTokens ? paint(C.fgMuted, `${prefix}↓${outTokens}`) : "";
+    const both = [inPart, outPart].filter(Boolean).join(" ");
+    if (both) parts.push(both);
   }
-  if (tokenParts.length > 0) parts.push(tokenParts.join(" "));
 
   // Prompt wall-clock TPS, matching Pi's reference convention.
   if (summary.avgTps !== undefined && summary.avgTps > 0) {
@@ -517,8 +503,6 @@ function endPromptTimer(ctx: ExtensionContext): void {
     totalElapsedMs,
     turns: snapshot.promptTurns,
     inputTokens: inputTokens && inputTokens > 0 ? inputTokens : undefined,
-    cacheReadTokens: snapshot.cacheReadValue,
-    cacheWriteTokens: snapshot.cacheWriteValue,
     outputTokens,
     outputEstimated: snapshot.output.estimated,
     avgTps,
@@ -580,11 +564,7 @@ export default function working(pi: ExtensionAPI) {
     if (typeof timer.unref === "function") timer.unref();
   });
 
-  const onAgentSettled = pi.on as unknown as (
-    event: "agent_settled",
-    handler: (event: unknown, ctx: ExtensionContext) => void,
-  ) => void;
-  onAgentSettled("agent_settled", (_event, ctx) => {
+  pi.on("agent_end", (_event, ctx) => {
     stopMessageTimer();
     endPromptTimer(ctx);
   });

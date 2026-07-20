@@ -130,7 +130,7 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 - Package name: `pi-cyber-ui`
 - Theme name: `cyber-ui-dark`
 - Extension entrypoint: `extensions/pi-cyber-ui/index.ts`
-- Running token metrics are scoped to the current model turn: input stays `pending` until provider usage arrives, output/rate estimates use `~`, and quiet streams show `— tok/s`
+- Running token metrics keep the original prompt-cumulative presentation across tool turns; unknown input stays hidden and live output/rate estimates use `~`
 - Live exact usage is detected from cumulative partial usage at runtime; providers that report usage only at completion use visible-stream estimates and reconcile to terminal usage
 - Settled prompt TPS follows Pi's reference convention: summed output usage divided by full prompt wall-clock time, including tool execution
 - Working indicator uses Pi's official `ctx.ui.setWorkingIndicator()` / `ctx.ui.setWorkingMessage()` APIs

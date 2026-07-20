@@ -14,7 +14,7 @@
   "scripts": {
     "test": "node test/run-tests.mjs",
     "typecheck": "tsc --noEmit",
-    "prepare": "npm run typecheck"
+    "prepublishOnly": "npm test && npm run typecheck"
   },
   "pi": {
     "themes": [
