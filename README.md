@@ -15,7 +15,7 @@ The extension is split into small modules for easier maintenance:
 - `read-compact.ts` preserves Pi read compact compatibility for skills and agent resource files in `full` profile
 - `tool-registry.ts` tracks tool lifecycle, durations, and per-turn tallies in `full` profile
 - `path-utils.ts` contains shared path shortening/styling helpers
-- `token-usage.ts` contains protocol-aware exact/estimated token helpers
+- `token-usage.ts` contains provider-neutral visible-text estimation and streaming-rate helpers
 
 ## Contents
 
@@ -130,9 +130,10 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 - Package name: `pi-cyber-ui`
 - Theme name: `cyber-ui-dark`
 - Extension entrypoint: `extensions/pi-cyber-ui/index.ts`
-- Running token metrics keep the original prompt-cumulative presentation across tool turns; unknown input stays hidden and live output/rate estimates use `~`
-- Live exact usage is detected from cumulative partial usage at runtime; providers that report usage only at completion use visible-stream estimates and reconcile to terminal usage
-- Settled prompt TPS follows Pi's reference convention: summed output usage divided by full prompt wall-clock time, including tool execution
+- Running token metrics keep the original prompt-cumulative presentation across tool turns; unknown input stays hidden, while live `~↓` and `~tok/s` estimate visible text deltas only
+- Thinking summaries and tool-call arguments do not affect live throughput; terminal provider usage remains authoritative for final output
+- Idle summaries show exact `r` reasoning tokens only when the provider reports them; reasoning is already a subset of output and is never added twice
+- Settled prompt TPS follows Pi's reference convention: summed terminal output usage divided by full prompt wall-clock time, including reasoning and tool execution
 - Working indicator uses Pi's official `ctx.ui.setWorkingIndicator()` / `ctx.ui.setWorkingMessage()` APIs
 - Default profile is `native`, which does not re-register built-in tools
 - Use `/cyber-profile full` or `PI_CYBER_UI_PROFILE=full` to re-register built-in tools for compact rendering while preserving their original execution behavior and prompt metadata
