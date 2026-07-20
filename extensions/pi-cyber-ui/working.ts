@@ -363,6 +363,7 @@ interface PromptSummary {
   turns: number;
   inputTokens: number | undefined;
   outputTokens: number | undefined;
+  reasoningTokens: number | undefined;
   outputEstimated: boolean;
   avgTps: number | undefined;
   tpsEstimated: boolean;
@@ -393,6 +394,9 @@ function buildIdleSummary(summary: PromptSummary): string {
     const both = [inPart, outPart].filter(Boolean).join(" ");
     if (both) parts.push(both);
   }
+
+  const reasoningTokens = formatTokens(summary.reasoningTokens);
+  if (reasoningTokens) parts.push(paint(C.fgDim, `r${reasoningTokens}`));
 
   // Prompt wall-clock TPS, matching Pi's reference convention.
   if (summary.avgTps !== undefined && summary.avgTps > 0) {
@@ -504,6 +508,7 @@ function endPromptTimer(ctx: ExtensionContext): void {
     turns: snapshot.promptTurns,
     inputTokens: inputTokens && inputTokens > 0 ? inputTokens : undefined,
     outputTokens,
+    reasoningTokens: snapshot.reasoningValue,
     outputEstimated: snapshot.output.estimated,
     avgTps,
     tpsEstimated: snapshot.tps.estimated,

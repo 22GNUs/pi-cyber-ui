@@ -101,13 +101,15 @@ export default function editor(pi: ExtensionAPI) {
   pi.on("message_update", async (event) => {
     const e = event.assistantMessageEvent;
 
-    if (e.type === "text_delta" || e.type === "thinking_delta" || e.type === "toolcall_delta") {
-      state.onAssistantDelta(e.delta, e.partial);
+    if (e.type === "text_delta") {
+      state.onAssistantTextDelta(e.delta, e.partial);
       return;
     }
 
     if (
       e.type === "start" ||
+      e.type === "thinking_delta" ||
+      e.type === "toolcall_delta" ||
       e.type === "text_start" ||
       e.type === "text_end" ||
       e.type === "thinking_start" ||

@@ -3,7 +3,6 @@ import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { StreamingTokenEstimator, StreamingTokenRate } from "./token-usage.js";
 
 export type AgentState = "idle" | "running" | "thinking";
-type LiveUsageMode = "exact" | "estimated";
 
 export interface DisplayValue {
   value?: number;
@@ -20,6 +19,7 @@ export interface CyberHudSnapshot {
   promptTurns: number;
   inputValue?: number;
   output: OutputDisplayValue;
+  reasoningValue?: number;
   tps: DisplayValue;
   toolDepth: number;
 }
@@ -43,6 +43,8 @@ export class CyberEditorState {
   private promptStartedAt = 0;
   private promptTps: number | undefined;
   private promptOutputEstimated = false;
+  private promptReasoning = 0;
+  private promptReasoningKnown = false;
   private lastTurnTps: number | undefined;
   private lastTurnTpsEstimated = false;
 
@@ -53,12 +55,10 @@ export class CyberEditorState {
   private msgDoneMs = 0;
   private msgIn: number | undefined;
   private msgOut: number | undefined;
+  private msgReasoning: number | undefined;
   private estOut: number | undefined;
   private msgUsageKnown = false;
   private liveTpsActive = false;
-  private liveUsageMode: LiveUsageMode = "estimated";
-  private lastPartialUsageOut = 0;
-  private lastPartialUsageAt = 0;
   private readonly msgEstimator = new StreamingTokenEstimator();
   private readonly msgRate = new StreamingTokenRate();
 
@@ -72,6 +72,8 @@ export class CyberEditorState {
     this.promptStartedAt = 0;
     this.promptTps = undefined;
     this.promptOutputEstimated = false;
+    this.promptReasoning = 0;
+    this.promptReasoningKnown = false;
     this.lastTurnTps = undefined;
     this.lastTurnTpsEstimated = false;
     this.toolDepth = 0;
@@ -143,7 +145,7 @@ export class CyberEditorState {
     this.observePartialUsage(message, at);
   }
 
-  onAssistantDelta(delta: string, partial: AssistantMessage, at = Date.now()): void {
+  onAssistantTextDelta(delta: string, partial: AssistantMessage, at = Date.now()): void {
     if (!this.firstOutMs) {
       this.firstOutMs = at;
       this.msgRate.addCumulative(0, at);
@@ -151,11 +153,8 @@ export class CyberEditorState {
     this.liveTpsActive = true;
     this.msgEstimator.add(delta);
     this.estOut = this.msgEstimator.value();
-
-    this.observePartialUsage(partial, at);
-    if (this.liveUsageMode === "estimated") {
-      this.msgRate.addCumulative(this.estOut, at);
-    }
+    this.msgRate.addCumulative(this.estOut, at);
+    this.observePartialUsage(partial);
   }
 
   onAssistantPartial(partial: AssistantMessage, at = Date.now()): void {
@@ -208,8 +207,7 @@ export class CyberEditorState {
   }
 
   private messageSnapshot(): CyberHudSnapshot {
-    const exactOutput =
-      this.msgUsageKnown || this.liveUsageMode === "exact" ? this.msgOut : undefined;
+    const exactOutput = this.msgUsageKnown ? this.msgOut : undefined;
     const currentOutput = exactOutput ?? this.estOut;
     const currentEstimated = exactOutput === undefined && currentOutput !== undefined;
     const displayOutput = this.promptOut + (currentOutput ?? 0);
@@ -225,11 +223,12 @@ export class CyberEditorState {
         estimated: this.promptOutputEstimated || currentEstimated,
         frozen: this.toolDepth > 0 || !this.liveTpsActive,
       },
+      reasoningValue: this.promptReasoningValue(),
       tps: {
         value: liveTps ?? settledTps ?? this.lastTurnTps,
         estimated:
           liveTps !== undefined
-            ? this.liveUsageMode === "estimated"
+            ? true
             : settledTps !== undefined
               ? currentEstimated
               : this.lastTurnTpsEstimated,
@@ -246,6 +245,7 @@ export class CyberEditorState {
         estimated: this.promptOutputEstimated,
         frozen: false,
       },
+      reasoningValue: this.promptReasoningValue(),
       tps: {
         value: this.promptTps,
         estimated: this.promptOutputEstimated,
@@ -260,36 +260,17 @@ export class CyberEditorState {
     this.msgDoneMs = 0;
     this.msgIn = undefined;
     this.msgOut = undefined;
+    this.msgReasoning = undefined;
     this.estOut = undefined;
     this.msgUsageKnown = false;
     this.liveTpsActive = false;
-    this.liveUsageMode = "estimated";
-    this.lastPartialUsageOut = 0;
-    this.lastPartialUsageAt = 0;
     this.msgEstimator.reset();
     this.msgRate.reset();
   }
 
-  private observePartialUsage(message: AssistantMessage, at: number): void {
+  private observePartialUsage(message: AssistantMessage, _at?: number): void {
     const usage = message.usage;
     if (usage.input > 0) this.msgIn = usage.input;
-
-    if (usage.output > this.lastPartialUsageOut) {
-      if (this.liveUsageMode === "exact") {
-        this.msgRate.addCumulative(usage.output, at);
-        this.msgOut = usage.output;
-      } else if (this.lastPartialUsageOut > 0) {
-        // Require two increasing observations before trusting cumulative live
-        // usage; one late partial value must not freeze the visible estimate.
-        this.liveUsageMode = "exact";
-        this.msgRate.reset();
-        this.msgRate.addCumulative(this.lastPartialUsageOut, this.lastPartialUsageAt);
-        this.msgRate.addCumulative(usage.output, at);
-        this.msgOut = usage.output;
-      }
-      this.lastPartialUsageOut = usage.output;
-      this.lastPartialUsageAt = at;
-    }
   }
 
   private finalizeMessage(message: AssistantMessage, at: number): void {
@@ -307,14 +288,17 @@ export class CyberEditorState {
     if (this.msgUsageKnown) {
       this.msgIn = usage.input;
       this.msgOut = usage.output;
+      const reasoning = this.reasoningUsage(usage);
+      if (reasoning !== undefined) {
+        this.msgReasoning = Math.min(usage.output, Math.max(0, reasoning));
+      }
     }
   }
 
   private settledMessageTps(): number | undefined {
     const output = this.msgUsageKnown ? this.msgOut : this.estOut;
     if (output === undefined || output <= 0) return undefined;
-    const startedAt = this.firstOutMs || this.msgStartMs;
-    const seconds = ((this.msgDoneMs || Date.now()) - startedAt) / 1_000;
+    const seconds = ((this.msgDoneMs || Date.now()) - this.msgStartMs) / 1_000;
     return seconds > 0 ? output / seconds : undefined;
   }
 
@@ -325,6 +309,10 @@ export class CyberEditorState {
     if (this.msgUsageKnown) this.promptIn += this.msgIn ?? 0;
     if (output !== undefined) this.promptOut += output;
     if (outputEstimated) this.promptOutputEstimated = true;
+    if (this.msgReasoning !== undefined) {
+      this.promptReasoning += this.msgReasoning;
+      this.promptReasoningKnown = true;
+    }
 
     const turnTps = this.settledMessageTps();
     if (turnTps !== undefined) {
@@ -333,6 +321,16 @@ export class CyberEditorState {
     }
 
     this.resetMsg();
+  }
+
+  private promptReasoningValue(): number | undefined {
+    return this.promptReasoningKnown && this.promptReasoning > 0
+      ? this.promptReasoning
+      : undefined;
+  }
+
+  private reasoningUsage(usage: AssistantMessage["usage"]): number | undefined {
+    return (usage as AssistantMessage["usage"] & { reasoning?: number }).reasoning;
   }
 
   private positiveOrUndefined(value: number): number | undefined {

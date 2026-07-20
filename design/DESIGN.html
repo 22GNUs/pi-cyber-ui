@@ -267,7 +267,7 @@
     <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
   </div>
 </div>
-<p class="note">沿用原版 prompt 累计展示 · 未知输入直接隐藏 · token 仅向上累计 · 实时估算保留 <code>~</code> · TPS 仅随新 delta 更新</p>
+<p class="note">沿用原版 prompt 累计展示 · 未知输入直接隐藏 · <code>~↓</code> / <code>~TPS</code> 仅估算可见文本 delta，不计 thinking / tool call · reasoning 不做实时估算</p>
 
 <h3>Idle summary</h3>
 <div class="term">
@@ -277,11 +277,12 @@
     <span class="muted">done</span>
     <span class="dim">·</span> <span class="muted">2:14</span>
     <span class="dim">·</span> <span class="muted">↑47.3k ↓3.20k</span>
+    <span class="dim">·</span> <span class="muted">r2.41k</span>
     <span class="dim">·</span> <span class="muted">24 tok/s</span>
     <span class="dim">·</span> <span class="dim">󰄉 3</span>
   </div>
 </div>
-<p class="note">agent_end 后恢复原版 summary · token 汇总所有 turn · 最终 TPS = 精确 output ÷ prompt wall-clock</p>
+<p class="note">最终 output / reasoning 采用 provider 权威 usage，且 <code>reasoning ⊆ output</code> · 未报告 reasoning 的 Provider 隐藏 <code>r</code> · TPS = 精确 output ÷ prompt wall-clock</p>
 
 <h3>Tool rendering</h3>
 <div class="grid2">

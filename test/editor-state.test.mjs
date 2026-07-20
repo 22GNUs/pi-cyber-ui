@@ -4,10 +4,11 @@ import test from "node:test";
 import { CyberEditorState } from "../.test-dist/pi-cyber-ui/editor-state.js";
 import { StreamingTokenRate } from "../.test-dist/pi-cyber-ui/token-usage.js";
 
-function usage({ input = 0, output = 0, cacheRead = 0, cacheWrite = 0, totalTokens } = {}) {
+function usage({ input = 0, output = 0, reasoning, cacheRead = 0, cacheWrite = 0, totalTokens } = {}) {
   return {
     input,
     output,
+    ...(reasoning === undefined ? {} : { reasoning }),
     cacheRead,
     cacheWrite,
     totalTokens: totalTokens ?? input + output + cacheRead + cacheWrite,
@@ -34,7 +35,7 @@ function completeTurn(state, values, times) {
   const final = assistant({ usage: usage(values), timestamp: times.done });
   state.onTurnStart();
   state.onAssistantStart(empty, times.start);
-  state.onAssistantDelta("streamed answer", empty, times.firstDelta);
+  state.onAssistantTextDelta("streamed answer", empty, times.firstDelta);
   state.onAssistantDone(final, times.done);
   state.onAssistantTurnEnd(final, times.done);
 }
@@ -63,10 +64,12 @@ test("final-only usage keeps live values estimated, then reconciles to exact usa
   state.onAgentStart(0);
   state.onTurnStart();
   state.onAssistantStart(empty, 100);
-  state.onAssistantDelta("Reasoning about the requested change.", empty, 200);
-  state.onAssistantDelta("Writing the final answer now.", empty, 500);
+  state.onAssistantPartial(empty, 200);
+  assert.equal(state.snapshot(200).output.value, undefined);
+  state.onAssistantTextDelta("Writing the final answer", empty, 500);
+  state.onAssistantTextDelta(" now.", empty, 800);
 
-  const live = state.snapshot(600);
+  const live = state.snapshot(900);
   assert.equal(live.inputValue, undefined);
   assert.equal(live.output.estimated, true);
   assert.ok((live.output.value ?? 0) > 0);
@@ -90,7 +93,7 @@ test("final-only usage keeps live values estimated, then reconciles to exact usa
   state.onAssistantTurnEnd(final, 2_200);
 });
 
-test("partial cumulative usage dynamically enables exact live output", () => {
+test("partial cumulative usage does not replace visible-text live estimates", () => {
   const state = new CyberEditorState();
   const start = assistant({ api: "anthropic-messages", usage: usage({ input: 50 }) });
   const partial5 = assistant({ api: "anthropic-messages", usage: usage({ input: 50, output: 5 }) });
@@ -99,14 +102,14 @@ test("partial cumulative usage dynamically enables exact live output", () => {
   state.onPromptStart(0);
   state.onTurnStart();
   state.onAssistantStart(start, 100);
-  state.onAssistantDelta("hello", partial5, 200);
-  state.onAssistantDelta(" world", partial10, 500);
+  state.onAssistantTextDelta("hello", partial5, 200);
+  state.onAssistantTextDelta(" world", partial10, 500);
 
   const live = state.snapshot(500);
   assert.equal(live.inputValue, 50);
-  assert.equal(live.output.value, 10);
-  assert.equal(live.output.estimated, false);
-  assert.equal(live.tps.estimated, false);
+  assert.notEqual(live.output.value, 10);
+  assert.equal(live.output.estimated, true);
+  assert.equal(live.tps.estimated, true);
   assert.ok((live.tps.value ?? 0) > 0);
 });
 
@@ -147,7 +150,7 @@ test("missing terminal usage preserves an explicitly estimated fallback", () => 
   state.onPromptStart(0);
   state.onTurnStart();
   state.onAssistantStart(empty, 100);
-  state.onAssistantDelta("fallback output without provider usage", empty, 200);
+  state.onAssistantTextDelta("fallback output without provider usage", empty, 200);
   state.onAssistantDone(empty, 1_000);
   state.onAssistantTurnEnd(empty, 1_000);
   state.onAgentEnd(2_000);
@@ -157,4 +160,27 @@ test("missing terminal usage preserves an explicitly estimated fallback", () => 
   assert.ok((settled.output.value ?? 0) > 0);
   assert.equal(settled.output.estimated, true);
   assert.equal(settled.tps.estimated, true);
+});
+
+test("terminal reasoning usage is accumulated as an output subset", () => {
+  const state = new CyberEditorState();
+  state.onPromptStart(0);
+  state.onAgentStart(0);
+
+  completeTurn(
+    state,
+    { input: 10, output: 20, reasoning: 15 },
+    { start: 100, firstDelta: 200, done: 1_000 },
+  );
+  completeTurn(
+    state,
+    { input: 15, output: 30, reasoning: 20 },
+    { start: 2_000, firstDelta: 2_200, done: 4_000 },
+  );
+  state.onAgentEnd(10_000);
+
+  const settled = state.snapshot(10_000);
+  assert.equal(settled.output.value, 50);
+  assert.equal(settled.reasoningValue, 35);
+  assert.equal(settled.tps.value, 5);
 });
