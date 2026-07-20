@@ -69,6 +69,10 @@ export default function editor(pi: ExtensionAPI) {
     state.onSessionTree();
   });
 
+  pi.on("before_agent_start", async () => {
+    state.onPromptStart();
+  });
+
   pi.on("agent_start", async () => {
     state.onAgentStart();
   });
@@ -77,8 +81,15 @@ export default function editor(pi: ExtensionAPI) {
     state.onTurnStart();
   });
 
-  pi.on("agent_end", async () => {
-    state.onAgentEnd();
+  // agent_settled was added after the oldest supported Pi type surface. Keep
+  // the runtime subscription while allowing this package to typecheck against
+  // older peer declarations.
+  const onAgentSettled = pi.on as unknown as (
+    event: "agent_settled",
+    handler: () => Promise<void>,
+  ) => void;
+  onAgentSettled("agent_settled", async () => {
+    state.onAgentSettled();
   });
 
   pi.on("tool_call", async () => {

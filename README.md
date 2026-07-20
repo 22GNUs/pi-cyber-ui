@@ -38,6 +38,7 @@ The extension is split into small modules for easier maintenance:
 ```bash
 cd ~/Developer/pi-cyber-ui
 npm install
+npm test
 npm run typecheck
 ```
 
@@ -129,7 +130,9 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 - Package name: `pi-cyber-ui`
 - Theme name: `cyber-ui-dark`
 - Extension entrypoint: `extensions/pi-cyber-ui/index.ts`
-- Exact streaming usage is protocol-aware; Anthropic Messages API can surface cumulative in-flight usage, while other APIs fall back to estimates
+- Running token metrics are scoped to the current model turn: input stays `pending` until provider usage arrives, output/rate estimates use `~`, and quiet streams show `— tok/s`
+- Live exact usage is detected from cumulative partial usage at runtime; providers that report usage only at completion use visible-stream estimates and reconcile to terminal usage
+- Settled prompt TPS follows Pi's reference convention: summed output usage divided by full prompt wall-clock time, including tool execution
 - Working indicator uses Pi's official `ctx.ui.setWorkingIndicator()` / `ctx.ui.setWorkingMessage()` APIs
 - Default profile is `native`, which does not re-register built-in tools
 - Use `/cyber-profile full` or `PI_CYBER_UI_PROFILE=full` to re-register built-in tools for compact rendering while preserving their original execution behavior and prompt metadata
