@@ -7,7 +7,7 @@
  *
  * Why import the theme JSON instead of pi's Theme API? Pi's `ThemeColor` is a
  * closed union and `Theme` exposes named colors only as ANSI-wrapped strings
- * (`theme.fg(name, text)`) — it cannot surface the private silver / hotPink /
+ * (`theme.fg(name, text)`) — it cannot surface the private silver / pink /
  * promptSilver tokens, nor raw RGB for interpolation. Importing the theme JSON
  * keeps `themes/cyber-ui-dark.json` as the single source for every color,
  * including the ones only this UI uses.
@@ -59,6 +59,7 @@ const resolve = (name: string): RGB => hexToRgb(v[name]);
  * Kept as a namespace object so call sites read `palette.fgDim` etc.
  */
 export const palette = {
+  bg: resolve("bg"),
   fg: resolve("fg"),
   fgMuted: resolve("fgMuted"),
   fgDim: resolve("fgDim"),
@@ -70,6 +71,6 @@ export const palette = {
   silverDim: resolve("silverDim"),
   silver: resolve("silver"),
   silverHi: resolve("silverHi"),
-  hotPink: resolve("hotPink"),
+  pink: resolve("pink"),
   promptSilver: resolve("promptSilver"),
 } as const;

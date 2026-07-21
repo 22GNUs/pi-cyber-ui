@@ -166,10 +166,10 @@ function formatModelLabel(model: { name?: string; id: string } | undefined): str
 
 function thinkingText(theme: Theme, level: string): string {
   const normalized = normalizeThinkingLevel(level);
-  // Cool→warm hue ladder, one color per rung. xhigh uses hotPink (magenta,
-  // the hue-wheel midpoint between purple high and red max) so it stays
-  // distinct from max without borrowing the warning-orange semantic. max is
-  // the terminal rung: red + bold.
+  // Cool→warm hue ladder, one color per rung. xhigh uses pink (tokyonight
+  // moon magenta, the hue-wheel midpoint between purple high and red max) so
+  // it stays distinct from max without borrowing the warning-orange semantic.
+  // max is the terminal rung: red + bold.
   if (normalized === "max") return theme.bold(theme.fg("error", normalized));
   if (normalized === "xhigh") return theme.fg("thinkingXhigh", normalized);
   if (normalized === "high") return theme.fg("thinkingHigh", normalized);

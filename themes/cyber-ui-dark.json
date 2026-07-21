@@ -21,7 +21,7 @@
     "cyanBright":    "#b4f9f8",
     "purple":        "#bb9af7",
     "purpleDark":    "#9d7cd8",
-    "pink":          "#f7768e",
+    "pink":          "#fca7ea",
     "toolSuccessBg": "#0b1020",
     "toolPendingBg": "#0d1b2e",
     "toolErrorBg":   "#1a0d12",
@@ -29,7 +29,6 @@
     "silverDim":     "#6f7794",
     "silver":        "#c8d3ea",
     "silverHi":      "#e6ecfa",
-    "hotPink":       "#ff82b8",
     "promptSilver":  "#aab8ca"
   },
   "colors": {
@@ -87,7 +86,7 @@
     "thinkingLow":      "blue",
     "thinkingMedium":   "cyan",
     "thinkingHigh":     "purple",
-    "thinkingXhigh":    "hotPink",
+    "thinkingXhigh":    "pink",
     "thinkingMax":      "red",
 
     "bashMode":         "orange"

@@ -14,7 +14,8 @@ import { palette, paint } from "./palette.js";
 const PATH_MAX_DEPTH = 3;
 
 // Path palette is intentionally muted: only the home `~` carries a hue
-// (hotPink), the basename gets weight (bold + fg) instead of an extra colour.
+// (pink · tokyonight moon magenta), the basename gets weight (bold + fg)
+// instead of an extra colour.
 // Separators use silverDim — shared with the working spinner.
 
 export function shortenPathToWidth(raw: string, maxWidth: number): string {
@@ -93,7 +94,7 @@ export function stylePath(raw: string): string {
     .map((part, index) => {
       if (part === "…") return paint(palette.silverDim, part);
       const isLast = index === parts.length - 1;
-      if (part === "~") return paint(palette.hotPink, part, true);
+      if (part === "~") return paint(palette.pink, part, true);
       // Basename: bold fg, no extra hue. Lets `~` and silverDim separators
       // carry the only colour cues, while weight signals "current location".
       if (isLast) return paint(palette.fg, part, true);
