@@ -21,11 +21,10 @@
     --cyan: #7dcfff;
     --cyanBright: #b4f9f8;
     --purple: #bb9af7;
-    --pink: #f7768e;
+    --pink: #fca7ea;
     --silverDim: #6f7794;
     --silver: #c8d3ea;
     --silverHi: #e6ecfa;
-    --hotPink: #ff82b8;
     --promptSilver: #aab8ca;
     --greenSoft: #5ec27e;
   }
@@ -136,8 +135,8 @@
     animation: wave 1.8s linear infinite;
   }
   @keyframes wave { from { background-position: 200% 0; } to { background-position: 0 0; } }
-  .pulse { color: var(--silverHi); animation: pulse 2.4s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { color: var(--fgDim); } 50% { color: var(--silverHi); } }
+  .pulse { color: var(--pink); animation: pulse 4.8s ease-in-out infinite; }
+  @keyframes pulse { 0%, 50%, 100% { color: var(--fgDim); } 25% { color: var(--pink); } 75% { color: var(--cyan); } }
 
   /* ---- Color tokens ---- */
   .dim { color: var(--fgDim); }
@@ -152,7 +151,6 @@
   .red { color: var(--red); }
   .greenSoft { color: var(--greenSoft); }
   .pink { color: var(--pink); }
-  .hotPink { color: var(--hotPink); }
   .silver { color: var(--promptSilver); }
   .bold { font-weight: 600; }
 
@@ -230,16 +228,16 @@
   <div class="chip"><div class="sw" style="background:#9ece6a"></div><div class="meta"><div class="name">green</div><div class="hx">#9ece6a</div><div class="role">diff added · 字符串</div></div></div>
   <div class="chip"><div class="sw" style="background:#5ec27e"></div><div class="meta"><div class="name">greenSoft</div><div class="hx">#5ec27e</div><div class="role">tool done 状态符</div></div></div>
   <div class="chip"><div class="sw" style="background:#e0af68"></div><div class="meta"><div class="name">orange</div><div class="hx">#e0af68</div><div class="role">bash · number · warning</div></div></div>
-  <div class="chip"><div class="sw" style="background:#f7768e"></div><div class="meta"><div class="name">red / pink</div><div class="hx">#f7768e</div><div class="role">error · max thinking</div></div></div>
+  <div class="chip"><div class="sw" style="background:#f7768e"></div><div class="meta"><div class="name">red</div><div class="hx">#f7768e</div><div class="role">error · max thinking</div></div></div>
+  <div class="chip"><div class="sw" style="background:#fca7ea"></div><div class="meta"><div class="name">pink</div><div class="hx">#fca7ea</div><div class="role">心跳呼吸峰 · path <code>~</code> · xhigh</div></div></div>
 </div>
 
 <h3>Silver / Path / Prompt</h3>
-<p class="note">并入 <code>themes/cyber-ui-dark.json</code> 的 <code>vars</code>，经 <code>palette.ts</code> 单一来源读取；限 working 呼吸 / path / prompt glyph，不下放普通文本。</p>
+<p class="note">并入 <code>themes/cyber-ui-dark.json</code> 的 <code>vars</code>，经 <code>palette.ts</code> 单一来源读取；限 working 呼吸 / path / prompt glyph，不下放普通文本。pink 已归入 Accent（tokyonight moon magenta）。</p>
 <div class="chips">
   <div class="chip"><div class="sw" style="background:#6f7794"></div><div class="meta"><div class="name">silverDim</div><div class="hx">#6f7794</div><div class="role">呼吸谷 · path 分隔符</div></div></div>
   <div class="chip"><div class="sw" style="background:#c8d3ea"></div><div class="meta"><div class="name">silver</div><div class="hx">#c8d3ea</div><div class="role">呼吸中位（参考）</div></div></div>
   <div class="chip"><div class="sw" style="background:#e6ecfa"></div><div class="meta"><div class="name">silverHi</div><div class="hx">#e6ecfa</div><div class="role">呼吸峰 · 字符波高亮</div></div></div>
-  <div class="chip"><div class="sw" style="background:#ff82b8"></div><div class="meta"><div class="name">hotPink</div><div class="hx">#ff82b8</div><div class="role">path 的 home <code>~</code></div></div></div>
   <div class="chip"><div class="sw" style="background:#aab8ca"></div><div class="meta"><div class="name">promptSilver</div><div class="hx">#aab8ca</div><div class="role">prompt glyph <code>❯</code></div></div></div>
 </div>
 
@@ -267,7 +265,7 @@
     <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
   </div>
 </div>
-<p class="note">spinner 32 帧 cosine 呼吸（fgDim ↔ silverHi）· verb 字符波（fgMuted ↔ silverHi）· 括号内 elapsed · tokens · tps · turn · 10s 后追加 <code>esc to cancel</code></p>
+<p class="note">spinner 64 帧双呼吸交替（fgDim ↔ pink / fgDim ↔ cyan，峰色逐次轮替）· verb 字符波（fgMuted ↔ silverHi）· 括号内 elapsed · tokens · tps · turn · 10s 后淡入 <code>esc to cancel</code></p>
 
 <h3>Idle summary</h3>
 <div class="term">
@@ -340,7 +338,7 @@
       <span class="muted">gpt-5</span><span class="sep">·</span><span class="red bold">thinking max</span><span class="sep">·</span><span class="bar"><span class="teal">▓▓▓▓</span><span class="dim">░░░░░░</span></span> <span class="muted">42%</span><span class="sep">·</span><span class="green">⚡ 87%</span>
     </span>
     <span class="side">
-      <span class="hotPink">~</span><span class="dim">/</span><span class="dim">dev</span><span class="dim">/</span><span class="fg bold">pi-cyber-ui</span><span class="sep">·</span><span class="green">+12</span> <span class="orange">~3</span> <span class="red">−1</span><span class="sep">·</span><span class="dim">+2</span>
+      <span class="pink">~</span><span class="dim">/</span><span class="dim">dev</span><span class="dim">/</span><span class="fg bold">pi-cyber-ui</span><span class="sep">·</span><span class="green">+12</span> <span class="orange">~3</span> <span class="red">−1</span><span class="sep">·</span><span class="dim">+2</span>
     </span>
   </div>
 </div>
@@ -353,11 +351,11 @@
     <span class="blue">low</span> <span class="sep">·</span>
     <span class="cyan">medium</span> <span class="sep">·</span>
     <span class="purple">high</span> <span class="sep">·</span>
-    <span class="hotPink">xhigh</span> <span class="sep">·</span>
+    <span class="pink">xhigh</span> <span class="sep">·</span>
     <span class="red bold">max</span>
   </div>
 </div>
-<p class="note">单色相沿暖度递增 · <code>xhigh</code> 用 hotPink（品红，紫→品红→红 连续）让出红色给 <code>max</code> · <code>max</code> 收尾于红 + 加粗 · 不再用逐字符彩虹</p>
+<p class="note">单色相沿暖度递增 · <code>xhigh</code> 用 pink（tokyonight moon magenta，紫→粉→红 连续）让出红色给 <code>max</code> · <code>max</code> 收尾于红 + 加粗 · 不再用逐字符彩虹</p>
 
 <p class="note">左 model · thinking（max 为红色加粗）· context · cache ｜ 右 path · git · 扩展 statuses · 窄时折叠 <code>+N</code></p>
 
@@ -402,12 +400,16 @@
 <table>
   <thead><tr><th>元素</th><th>周期</th><th>说明</th></tr></thead>
   <tbody>
-    <tr><td>spinner pulse</td><td><span class="ms">2400ms</span></td><td>32 帧 cosine 呼吸 · 75ms/帧</td></tr>
+    <tr><td>spinner pulse</td><td><span class="ms">4800ms</span></td><td>64 帧双呼吸 · 峰色 pink/cyan 交替 · 谷 fgDim · 75ms/帧</td></tr>
     <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 错相 spinner</td></tr>
-    <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 承载动画</td></tr>
+    <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 采样保相位精度 · 实际写入由变化驱动：强度量化 16 阶 + memo 跳过同内容帧</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
     <tr><td>tool duration</td><td><span class="ms">120ms</span></td><td>running 期刷新 elapsed</td></tr>
     <tr><td>tps smoothing</td><td><span class="ms">τ 500ms</span></td><td>基于时间的 EMA + 分母下限 0.5s · 消除首帧尖峰与阶梯锯齿</td></tr>
+    <tr><td>value odometer</td><td><span class="ms">≈250ms</span></td><td>显示值 ease-out 追赶真实值 · token 数连续滚动不跳变</td></tr>
+    <tr><td>value glow</td><td><span class="ms">hold 600 · attack 120 / release 350ms</span></td><td>数据到达续期 600ms 滞回：流内目标恒亮不翻转，仅流启/停各过渡一次 · 峰値封顶 70% · dt 钗制 64ms</td></tr>
+    <tr><td>freeze fade</td><td><span class="ms">250ms</span></td><td>进/出 tool 状态时数值颜色渐变至 dim · 不瞬间变暗</td></tr>
+    <tr><td>hint / summary fade</td><td><span class="ms">600ms</span></td><td><code>esc to cancel</code> 与 <code>✓ done</code> 总结行透明渐显</td></tr>
   </tbody>
 </table>
 
@@ -429,6 +431,61 @@
   </div>
 </div>
 <p class="note">模拟实时 tps：基础漂移 + token 到达噪声 · 左侧跳变，右侧 EMA 追赶</p>
+
+<h3>数值里程表 + 微光 · raw vs smooth</h3>
+<div class="grid2">
+  <div class="card">
+    <h4>raw · 瞬间跳变</h4>
+    <p style="font-size:16px;line-height:1.6;font-family:'JetBrainsMono Nerd Font',ui-monospace,monospace">
+      <span class="dim">↑128k</span> <span id="odoRaw" class="muted">↓0</span>
+    </p>
+    <p class="note" style="margin-top:6px">token 每批到达直接跳 · 宽度变化时整行晃动</p>
+  </div>
+  <div class="card">
+    <h4>odometer + glow · 平滑递增</h4>
+    <p style="font-size:16px;line-height:1.6;font-family:'JetBrainsMono Nerd Font',ui-monospace,monospace">
+      <span class="dim">↑128k</span> <span id="odoSmooth" class="muted" style="display:inline-block;min-width:7ch">↓0</span>
+    </p>
+    <p class="note" style="margin-top:6px">显示值 ease-out 追赶(≈250ms) · 文本变化瞬间微光衰减 · 固定宽度槽位不晃动</p>
+  </div>
+</div>
+<p class="note">跨 <code>999 → 1.02k</code> 边界演示：左侧整行左右抖，右侧槽位稳定 · 微光仅作用于变化的数值段，不波及整行</p>
+
+<h3>tool 冻结 · 淡入淡出</h3>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">running ⇄ tool · 循环演示</div></div>
+  <div class="body">
+    <span class="pulse">●</span>
+    <span class="verb">Reasoning...</span>
+    <span class="dim">(</span><span class="muted">12s</span>
+    <span class="dim">·</span> <span id="frzTokens" class="muted" style="transition:color .25s ease">↑47.3k ↓1.50k</span>
+    <span class="dim">·</span> <span id="frzTps" style="color:#9ece6a;transition:color .25s ease">182t/s</span>
+    <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
+    <span id="frzState" class="dim" style="margin-left:14px;font-size:11px"></span>
+  </div>
+</div>
+<p class="note">进入 tool：数值与 tps 颜色 250ms 渐变至 fgDim 并冻结 · 退出：同速恢复 · 取代现在的瞬间变暗</p>
+
+<h3>淡入 · esc hint / idle summary</h3>
+<div class="term">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">压缩时间线 · 循环演示</div></div>
+  <div class="body">
+    <div id="fadeWorking">
+      <span class="pulse">●</span>
+      <span class="verb">Iterating...</span>
+      <span class="dim">(</span><span class="muted" id="fadeElapsed">0s</span>
+      <span class="dim">·</span> <span class="muted">↑47.3k ↓2.80k</span><span id="fadeHint" style="opacity:0;transition:opacity .6s ease"><span class="dim"> · esc to cancel</span></span><span class="dim">)</span>
+    </div>
+    <div id="fadeSummary" style="opacity:0;transition:opacity .6s ease">
+      <span class="green bold">✓</span>
+      <span class="muted">done</span>
+      <span class="dim">·</span> <span class="muted">2:14</span>
+      <span class="dim">·</span> <span class="muted">↑47.3k ↓3.20k</span>
+      <span class="dim">·</span> <span class="dim">156t/s</span>
+    </div>
+  </div>
+</div>
+<p class="note">10s 后 <code>esc to cancel</code> 透明渐显(600ms)不再突兀弹出 · agent_end 后总结行同样淡入 · 终端实现为颜色 bg→目标色插值</p>
 <script>
   (function(){
     const rawEl = document.getElementById('tpsRaw');
@@ -452,6 +509,83 @@
       emaEl.textContent = Math.round(ema) + ' tps';
       emaEl.style.color = tpsColor(ema);
     }, 200);
+  })();
+
+  // —— 数值里程表 + 微光 ——
+  (function(){
+    const rawEl = document.getElementById('odoRaw');
+    const smoothEl = document.getElementById('odoSmooth');
+    if (!rawEl || !smoothEl) return;
+    const GLOW_MS = 300;
+    let target = 0, shown = 0, lastText = '', glowAt = 0;
+    function fmt(v){
+      if (v < 1000) return '↓' + Math.round(v);
+      return '↓' + (v/1000).toFixed(2) + 'k';
+    }
+    // token 批次到达（真实值跳升）
+    setInterval(() => {
+      target += 40 + Math.random() * 260;
+      if (target > 9000) { target = 0; shown = 0; }
+      rawEl.textContent = fmt(target);
+    }, 700);
+    // 显示值 60fps ease-out 追赶 + 变化微光
+    setInterval(() => {
+      shown += (target - shown) * 0.12;
+      const text = fmt(shown);
+      const now = performance.now();
+      if (text !== lastText) { lastText = text; glowAt = now; }
+      const k = Math.min(1, (now - glowAt) / GLOW_MS);
+      const glow = 1 - k;
+      const c0 = [169,177,214], c1 = [230,236,250]; // fgMuted → silverHi
+      const c = c0.map((v,i) => Math.round(v + (c1[i]-v) * glow));
+      smoothEl.textContent = text;
+      smoothEl.style.color = 'rgb(' + c.join(',') + ')';
+    }, 16);
+  })();
+
+  // —— tool 冻结淡入淡出 ——
+  (function(){
+    const tok = document.getElementById('frzTokens');
+    const tps = document.getElementById('frzTps');
+    const state = document.getElementById('frzState');
+    if (!tok || !tps || !state) return;
+    let frozen = false;
+    setInterval(() => {
+      frozen = !frozen;
+      tok.style.color = frozen ? 'var(--fgDim)' : 'var(--fgMuted)';
+      tps.style.color = frozen ? 'var(--fgDim)' : '#9ece6a';
+      state.textContent = frozen ? '▸ tool running · 值冻结' : '▸ streaming';
+    }, 2500);
+  })();
+
+  // —— esc hint / idle summary 淡入 ——
+  (function(){
+    const working = document.getElementById('fadeWorking');
+    const hint = document.getElementById('fadeHint');
+    const summary = document.getElementById('fadeSummary');
+    const elapsed = document.getElementById('fadeElapsed');
+    if (!working || !hint || !summary || !elapsed) return;
+    function cycle(){
+      working.style.display = '';
+      summary.style.display = 'none';
+      summary.style.opacity = '0';
+      hint.style.opacity = '0';
+      let t = 0;
+      const tick = setInterval(() => {
+        t += 1;
+        elapsed.textContent = t + 's';
+        if (t === 4) hint.style.opacity = '1'; // 模拟 10s 后淡入
+        if (t >= 7) {
+          clearInterval(tick);
+          working.style.display = 'none';
+          summary.style.display = '';
+          requestAnimationFrame(() => { summary.style.opacity = '1'; });
+          setTimeout(cycle, 3000);
+        }
+      }, 500);
+    }
+    summary.style.display = 'none';
+    cycle();
   })();
 </script>
 
