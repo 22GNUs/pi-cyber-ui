@@ -6,12 +6,14 @@
  *   running — pi's built-in working Loader is active. We feed it a single
  *     line via `setWorkingMessage`:
  *       <verb> · <prompt-elapsed> · ↑in ↓out · <tps>
- *     followed by a soft "esc to cancel" hint after 10s.
+ *     followed by a soft "esc to cancel" hint fading in after 10s.
  *     Segments are ordered by priority and dropped right-to-left when the
- *     terminal is too narrow.
+ *     terminal is too narrow. Numeric segments are display-smoothed
+ *     (odometer / glow / freeze-fade / fixed-width slots — see below).
  *
  *   idle — Loader is hidden. A single-line widget above the editor shows the
- *     last prompt's summary, persisting until the next prompt:
+ *     last prompt's summary, fading in over 600ms and persisting until the
+ *     next prompt:
  *       ✓ done · <total> · ↑in ↓out · <avg tps>
  *
  * Verb pool is cyber-themed and rotates every few seconds for ambient variety.
@@ -47,6 +49,18 @@ const LETTER_WAVE_DELAY_MS = 120;
 const LETTER_WAVE_PEAK = 0.32;
 const LETTER_WAVE_HALF = 0.25;
 
+/**
+ * Quantize animation intensities to a coarse grid. Visually identical (16
+ * steps across a subtle color ramp), but consecutive frames collapse to
+ * byte-identical strings far more often — combined with the render memo
+ * this removes most redundant terminal writes and the ±1 RGB shimmer that
+ * float rounding produced.
+ */
+const COLOR_STEPS = 16;
+function quant(v: number): number {
+  return Math.round(v * COLOR_STEPS) / COLOR_STEPS;
+}
+
 function paintLetterWave(text: string): string {
   const chars = [...text];
   if (chars.length === 0) return "";
@@ -66,7 +80,7 @@ function paintLetterWave(text: string): string {
       const intensity =
         wrapped > LETTER_WAVE_HALF
           ? 0
-          : 0.5 * (1 + Math.cos((Math.PI * wrapped) / LETTER_WAVE_HALF));
+          : quant(0.5 * (1 + Math.cos((Math.PI * wrapped) / LETTER_WAVE_HALF)));
       const color = mix(C.fgMuted, C.silverHi, intensity);
       return `${rgb(color)}${ch}`;
     })
@@ -85,20 +99,21 @@ function tpsColor(v: number): RGB {
 }
 
 // ---------------------------------------------------------------------------
-// Spinner — "Pulsar" silver breathing dot. The glyph never changes shape
-// (always ●) and never toggles bold; only its colour breathes. This is
-// what the previous pink heartbeat lacked — jumping between ·→◉ and
-// flipping bold on every crest read as "flashy" rather than refined.
+// Spinner — duotone alternating heartbeat. The glyph never changes shape
+// (always ●) and never toggles bold; only its colour breathes. One breath
+// peaks pink, the next peaks cyan — the cyber duotone on a single char.
+// Trough stays fgDim (neutral when dark, hue only near the peak), so the
+// dot reads as one calm heartbeat, not a colour strobe.
 //
-// Eight discrete frames sample an ease-in-out curve fgDim → silverDim →
-// silver → silverHi (peak hold 2 frames) → silver → silverDim → fgDim,
-// 300ms each = 2400ms cycle. Verb letter-wave runs at 1800ms (4:3 against
-// this) so layers do not crest together.
+// History: an earlier pink heartbeat was dropped because it jumped ·→◉ and
+// flipped bold at every crest — the failure was shape/bold flicker, not the
+// hue. Fixed glyph + pure colour breathing avoids that failure mode.
 // ---------------------------------------------------------------------------
 
-// 32 frames @ 75ms = 2400ms cycle. High frame count makes the breathing
-// read as continuous light rather than terminal steps. Higher peak contrast
-// (fgDim → silverHi) makes the breathing visible while staying non-bold.
+// 64 frames @ 75ms = 4800ms full cycle (two 2400ms breaths: pink then cyan).
+// High frame count keeps the breathing continuous rather than steppy. Verb
+// letter-wave runs at 1800ms (3:4 against each breath) so layers do not
+// crest together.
 const FRAME_INTERVAL_MS = 75;
 
 interface PulseFrame {
@@ -107,13 +122,16 @@ interface PulseFrame {
 }
 
 const PULSE_FRAMES: readonly PulseFrame[] = (() => {
-  const N = 32;
+  const N = 64;
   const frames: PulseFrame[] = [];
   for (let i = 0; i < N; i++) {
     const phase = i / N;
-    // Cosine breathing: 0 at start/end, 1 at midpoint.
-    const intensity = 0.5 * (1 - Math.cos(Math.PI * 2 * phase));
-    frames.push({ glyph: "●", color: mix(C.fgDim, C.silverHi, intensity) });
+    // Two breaths per cycle; breath 0 peaks pink, breath 1 peaks cyan.
+    const local = (phase * 2) % 1;
+    const peak = phase < 0.5 ? C.pink : C.cyan;
+    // Cosine breathing: 0 at start/end of each breath, 1 at its midpoint.
+    const intensity = 0.5 * (1 - Math.cos(Math.PI * 2 * local));
+    frames.push({ glyph: "●", color: mix(C.fgDim, peak, intensity) });
   }
   return frames;
 })();
@@ -217,9 +235,128 @@ function formatTps(value: number | undefined): string {
   return value < 1 ? `${value.toFixed(1)}t/s` : `${Math.round(value)}t/s`;
 }
 
-function joinDim(parts: string[]): string {
-  const sep = paint(C.fgDim, " · ");
-  return parts.filter((p) => p && p.length > 0).join(sep);
+// ---------------------------------------------------------------------------
+// Display smoothing — odometer / glow / freeze-fade / fixed-width slots.
+//
+// Pure display layer: cyberState stays the source of truth; this only shapes
+// how its snapshot reaches the eye at the 16ms refresh cadence.
+//
+//   odometer  — shown output eases toward the true value (τ 80ms ≈ 95% in
+//               250ms), so token counts roll instead of jumping.
+//   glow      — a soft sheen keyed to data arrival with a generous hold:
+//               any target increase re-arms a 600ms window, so the sheen
+//               target stays solidly on through a stream (deltas arrive
+//               far more often than that) and transitions exactly twice —
+//               once up at stream start, once down at stream end. No
+//               mid-stream target flapping, which read as pumping around
+//               mid-brightness. Stays silver on purpose: the working line
+//               keeps its monochrome-motion signature.
+//   tps EMA   — display tps low-passes raw tps (τ 500ms) so the value and
+//               its grade colour stop jittering.
+//   freeze    — entering/leaving tool state fades values to fgDim (τ 90ms
+//               ≈ 250ms settle) instead of snapping.
+//   slots     — numeric segments never shrink below their max width this
+//               prompt, so 999→1.00k cannot make the line wobble.
+// ---------------------------------------------------------------------------
+
+const ODOMETER_TAU_MS = 80;
+const TPS_EMA_TAU_MS = 500;
+const FREEZE_TAU_MS = 90;
+// Glow envelope: any data arrival re-arms a generous hold window; the
+// brightness target only drops after a real stream pause, so rise/fall
+// transitions happen at stream boundaries, never mid-stream. Peak is
+// capped below full silverHi so the sheen never reads as a highlight.
+const GLOW_HOLD_MS = 600;
+const GLOW_ATTACK_TAU_MS = 120;
+const GLOW_RELEASE_TAU_MS = 350;
+const GLOW_PEAK = 0.7;
+// Event-loop stalls (tool output flooding the TUI) can starve the 16ms
+// timer; an unclamped dt would make every time-based smoother jump through
+// its curve in a single frame. Clamp dt so recovery is still eased.
+const MAX_FRAME_DT_MS = 64;
+const HINT_FADE_MS = 600;
+const SUMMARY_FADE_MS = 600;
+
+/** Time-based exponential approach — the single smoothing primitive. */
+function ease(current: number, target: number, dt: number, tau: number): number {
+  return current + (target - current) * (1 - Math.exp(-dt / tau));
+}
+
+interface DisplaySmoothing {
+  lastAt?: number;
+  /** Odometer-smoothed output tokens. */
+  out?: number;
+  /** Last rendered output token text. */
+  outText: string;
+  /** Last seen true output value (data-arrival detector). */
+  lastTarget?: number;
+  /** Glow hold deadline — re-armed on every data arrival. */
+  glowHold: number;
+  /** Smoothed glow brightness 0..1. */
+  glowB: number;
+  /** EMA-smoothed tps. */
+  tps?: number;
+  /** 0 = live colours, 1 = fully frozen (tool running). */
+  freezeK: number;
+  tokWidth: number;
+  tpsWidth: number;
+}
+
+function newSmoothing(): DisplaySmoothing {
+  return { outText: "", glowHold: 0, glowB: 0, freezeK: 0, tokWidth: 0, tpsWidth: 0 };
+}
+
+let smooth: DisplaySmoothing = newSmoothing();
+
+function updateSmoothing(snapshot: CyberHudSnapshot, now: number): void {
+  const rawDt = smooth.lastAt === undefined ? 0 : Math.max(0, now - smooth.lastAt);
+  smooth.lastAt = now;
+  const dt = Math.min(rawDt, MAX_FRAME_DT_MS);
+
+  // Odometer — ease toward the true output count; snap on resets.
+  const target = snapshot.output.value;
+  if (target === undefined) {
+    smooth.out = undefined;
+    smooth.outText = "";
+    smooth.lastTarget = undefined;
+  } else {
+    if (smooth.out === undefined) smooth.out = 0;
+    if (target < smooth.out) {
+      smooth.out = target;
+    } else {
+      smooth.out = ease(smooth.out, target, dt, ODOMETER_TAU_MS);
+      if (target - smooth.out < 0.5) smooth.out = target;
+    }
+    smooth.outText = formatTokens(Math.round(smooth.out));
+    // Data arrival — re-arm the glow hold window.
+    if (smooth.lastTarget === undefined || target > smooth.lastTarget) {
+      smooth.glowHold = now + GLOW_HOLD_MS;
+    }
+    smooth.lastTarget = target;
+  }
+
+  // Glow envelope — hysteresis via the hold window keeps the target stable
+  // through a stream; asymmetric attack/release keeps the brightness curve
+  // continuous at the two genuine transitions.
+  const glowTarget = now < smooth.glowHold && !snapshot.output.frozen ? 1 : 0;
+  const glowTau = glowTarget > smooth.glowB ? GLOW_ATTACK_TAU_MS : GLOW_RELEASE_TAU_MS;
+  smooth.glowB = ease(smooth.glowB, glowTarget, dt, glowTau);
+  if (glowTarget === 0 && smooth.glowB < 0.01) smooth.glowB = 0;
+
+  // TPS — time-based EMA.
+  const rawTps = snapshot.tps.value;
+  if (rawTps === undefined || !Number.isFinite(rawTps)) {
+    smooth.tps = undefined;
+  } else if (smooth.tps === undefined) {
+    smooth.tps = rawTps;
+  } else {
+    smooth.tps = ease(smooth.tps, rawTps, dt, TPS_EMA_TAU_MS);
+  }
+
+  // Freeze fade — ease toward frozen/live.
+  const targetK = snapshot.output.frozen ? 1 : 0;
+  smooth.freezeK = ease(smooth.freezeK, targetK, dt, FREEZE_TAU_MS);
+  if (Math.abs(targetK - smooth.freezeK) < 0.01) smooth.freezeK = targetK;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +366,7 @@ function joinDim(parts: string[]): string {
 interface RunningLineArgs {
   verb: string;
   elapsedMs: number;
+  now: number;
   snapshot: CyberHudSnapshot;
 }
 
@@ -270,27 +408,45 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   segments.push(seg(label, 100));
   segments.push(seg(time, 95));
 
-  // 70 — tokens
+  // 70 — tokens. Output rolls via the odometer, carries the glow sheen
+  // while streaming, fades to dim while a tool runs, and sits in a
+  // non-shrinking slot.
   const inTokens = formatTokens(snapshot.inputValue ?? snapshot.promptIn);
-  const outTokens = formatTokens(snapshot.output.value);
+  const outTokens = smooth.outText;
   if (inTokens || outTokens) {
     const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
-    let outColor: RGB = C.fgMuted;
-    if (snapshot.output.frozen) outColor = C.fgDim;
-    else if (snapshot.output.estimated) outColor = C.fgMuted;
-    const outPrefix = snapshot.output.estimated ? "~" : "";
-    const outPart = outTokens ? paint(outColor, `${outPrefix}↓${outTokens}`) : "";
-    const both = [inPart, outPart].filter(Boolean).join(" ");
-    if (both) segments.push(seg(both, 70));
+    let outPart = "";
+    if (outTokens) {
+      const freezeK = quant(smooth.freezeK);
+      const base = mix(C.fgMuted, C.fgDim, freezeK);
+      const color = mix(
+        base,
+        C.silverHi,
+        quant(smooth.glowB) * GLOW_PEAK * (1 - freezeK),
+      );
+      const outPrefix = snapshot.output.estimated ? "~" : "";
+      outPart = paint(color, `${outPrefix}↓${outTokens}`);
+    }
+    let both = [inPart, outPart].filter(Boolean).join(" ");
+    if (both) {
+      const w = visibleWidth(both);
+      smooth.tokWidth = Math.max(smooth.tokWidth, w);
+      if (w < smooth.tokWidth) both += " ".repeat(smooth.tokWidth - w);
+      segments.push(seg(both, 70));
+    }
   }
 
-  // 60 — tps (graded by speed, dim while idle/thinking)
-  const tpsValue = snapshot.tps.value;
+  // 60 — tps (EMA-smoothed, graded by speed, fades to dim during tools/idle)
+  const tpsValue = smooth.tps;
   if (tpsValue !== undefined && Number.isFinite(tpsValue) && tpsValue > 0) {
     const tpsLabel = `${snapshot.tps.estimated ? "~" : ""}${formatTps(tpsValue)}`;
-    const idle = snapshot.agentState === "thinking" || snapshot.agentState === "idle";
-    const color: RGB = idle ? C.fgDim : tpsColor(tpsValue);
-    segments.push(seg(paint(color, tpsLabel), 60));
+    const dimK = quant(snapshot.agentState === "idle" ? 1 : smooth.freezeK);
+    const color = mix(tpsColor(tpsValue), C.fgDim, dimK);
+    const w = visibleWidth(tpsLabel);
+    smooth.tpsWidth = Math.max(smooth.tpsWidth, w);
+    const padded =
+      paint(color, tpsLabel) + " ".repeat(smooth.tpsWidth - w);
+    segments.push(seg(padded, 60));
   }
 
   // 50 — turn marker. Always shown while a prompt is active to match the
@@ -300,9 +456,10 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
     segments.push(seg(paint(C.fgDim, `${TURN_ICON}${turns}`), 50));
   }
 
-  // 20 — esc hint (after 10s)
+  // 20 — esc hint (fades in over 600ms after 10s instead of popping)
   if (args.elapsedMs >= ESC_HINT_AFTER_MS) {
-    segments.push(seg(paint(C.fgDim, "esc to cancel"), 20));
+    const k = quant(Math.min(1, (args.elapsedMs - ESC_HINT_AFTER_MS) / HINT_FADE_MS));
+    segments.push(seg(paint(mix(C.bg, C.fgDim, k), "esc to cancel"), 20));
   }
 
   return segments;
@@ -370,38 +527,42 @@ let lastSummary: PromptSummary | undefined;
 
 const WIDGET_KEY = "cyber-ui:summary";
 
-function buildIdleSummary(summary: PromptSummary): string {
+function buildIdleSummary(summary: PromptSummary, alpha = 1): string {
+  // Fade-in support: every colour is mixed up from the theme background so
+  // the whole line rises together instead of popping.
+  const col = (c: RGB): RGB => mix(C.bg, c, alpha);
+  const sep = paint(col(C.fgDim), " · ");
   const parts: string[] = [];
 
   // ✓ done · 1:23
   // Only the check stays green; "done" drops to muted fg so the line reads
   // as one positive event rather than a doubled-up green block.
-  const check = paint(C.green, "✓", true);
-  const doneLabel = paint(C.fgMuted, "done");
-  const time = paint(C.fgMuted, formatElapsed(summary.totalElapsedMs));
-  parts.push(`${check} ${doneLabel} ${paint(C.fgDim, "·")} ${time}`);
+  const check = paint(col(C.green), "✓", true);
+  const doneLabel = paint(col(C.fgMuted), "done");
+  const time = paint(col(C.fgMuted), formatElapsed(summary.totalElapsedMs));
+  parts.push(`${check} ${doneLabel} ${paint(col(C.fgDim), "·")} ${time}`);
 
   // tokens
   const inTokens = formatTokens(summary.inputTokens);
   const outTokens = formatTokens(summary.outputTokens);
   if (inTokens || outTokens) {
-    const inPart = inTokens ? paint(C.fgDim, `↑${inTokens}`) : "";
-    const outPart = outTokens ? paint(C.fgMuted, `↓${outTokens}`) : "";
+    const inPart = inTokens ? paint(col(C.fgDim), `↑${inTokens}`) : "";
+    const outPart = outTokens ? paint(col(C.fgMuted), `↓${outTokens}`) : "";
     const both = [inPart, outPart].filter(Boolean).join(" ");
     if (both) parts.push(both);
   }
 
   // avg tps
   if (summary.avgTps !== undefined && summary.avgTps > 0) {
-    parts.push(paint(C.fgDim, formatTps(summary.avgTps)));
+    parts.push(paint(col(C.fgDim), formatTps(summary.avgTps)));
   }
 
   // turn count tail — always show, matching v1 HUD
   if (summary.turns > 0) {
-    parts.push(paint(C.fgDim, `${TURN_ICON}${summary.turns}`));
+    parts.push(paint(col(C.fgDim), `${TURN_ICON}${summary.turns}`));
   }
 
-  return joinDim(parts);
+  return parts.filter((p) => p && p.length > 0).join(sep);
 }
 
 function hasUsableUi(ctx: ExtensionContext): boolean {
@@ -424,14 +585,43 @@ function safeUi(ctx: ExtensionContext, fn: () => void): boolean {
   }
 }
 
-function attachSummaryWidget(ctx: ExtensionContext, summary: PromptSummary): boolean {
+function attachSummaryWidget(
+  ctx: ExtensionContext,
+  summary: PromptSummary,
+  alpha = 1,
+): boolean {
   return safeUi(ctx, () => {
     ctx.ui.setWidget(
       WIDGET_KEY,
-      (_tui, _theme) => new Text(buildIdleSummary(summary), 0, 0),
+      (_tui, _theme) => new Text(buildIdleSummary(summary, alpha), 0, 0),
       { placement: "aboveEditor" },
     );
   });
+}
+
+let summaryFadeTimer: NodeJS.Timeout | undefined;
+
+function stopSummaryFade(): void {
+  if (!summaryFadeTimer) return;
+  clearInterval(summaryFadeTimer);
+  summaryFadeTimer = undefined;
+}
+
+/** Attach the summary widget and fade it in over SUMMARY_FADE_MS. */
+function fadeInSummaryWidget(ctx: ExtensionContext, summary: PromptSummary): void {
+  stopSummaryFade();
+  const startedAt = Date.now();
+  if (!attachSummaryWidget(ctx, summary, 0)) return;
+  const timer = setInterval(() => {
+    const k = Math.min(1, (Date.now() - startedAt) / SUMMARY_FADE_MS);
+    const ok = attachSummaryWidget(ctx, summary, k);
+    if (!ok || k >= 1) {
+      clearInterval(timer);
+      if (summaryFadeTimer === timer) summaryFadeTimer = undefined;
+    }
+  }, 33);
+  summaryFadeTimer = timer;
+  if (typeof timer.unref === "function") timer.unref();
 }
 
 function clearSummaryWidget(ctx: ExtensionContext): boolean {
@@ -449,10 +639,15 @@ interface PromptState {
 }
 
 const VERB_ROTATE_MS = 8_000;
-// ~60fps so the letter-wave breathes very smoothly without visible stepping.
+// ~60fps sampling for animation phase accuracy. Terminal writes are NOT
+// 60/s: the 16-step intensity quantization collapses most neighbouring
+// ticks into byte-identical strings and the render memo below skips them,
+// so write volume is governed by actual visual change, not tick rate.
 const MESSAGE_REFRESH_MS = 16;
 
 let prompt: PromptState | undefined;
+/** Last string sent to setWorkingMessage — skip identical rewrites. */
+let lastMessage: string | undefined;
 
 function updateWorkingMessage(ctx: ExtensionContext): boolean {
   if (!prompt) return true;
@@ -465,15 +660,20 @@ function updateWorkingMessage(ctx: ExtensionContext): boolean {
   }
 
   const snapshot = cyberState.snapshot();
+  updateSmoothing(snapshot, now);
   const args: RunningLineArgs = {
     verb: prompt.verb,
     elapsedMs: elapsed,
+    now,
     snapshot,
   };
 
   const segments = collectRunningSegments(args);
   const message = fitSegments(segments, MESSAGE_BUDGET);
-  return safeUi(ctx, () => ctx.ui.setWorkingMessage(message));
+  if (message === lastMessage) return true;
+  const ok = safeUi(ctx, () => ctx.ui.setWorkingMessage(message));
+  if (ok) lastMessage = message;
+  return ok;
 }
 
 function startPromptTimer(ctx: ExtensionContext): void {
@@ -483,6 +683,9 @@ function startPromptTimer(ctx: ExtensionContext): void {
     verb: pickVerb(),
     verbChangedAt: now,
   };
+  smooth = newSmoothing();
+  lastMessage = undefined;
+  stopSummaryFade();
   clearSummaryWidget(ctx);
   updateWorkingMessage(ctx);
 }
@@ -491,7 +694,7 @@ function endPromptTimer(ctx: ExtensionContext): void {
   if (!prompt) return;
   const totalElapsedMs = Date.now() - prompt.startedAt;
   const snapshot = cyberState.snapshot();
-  const inputTokens = snapshot.inputValue ?? snapshot.promptIn;
+  const inputTokens = snapshot.inputValue;
   const outputTokens = snapshot.output.value;
   const avgTps = snapshot.tps.value;
 
@@ -504,8 +707,9 @@ function endPromptTimer(ctx: ExtensionContext): void {
   };
 
   prompt = undefined;
+  lastMessage = undefined;
   safeUi(ctx, () => ctx.ui.setWorkingMessage());
-  attachSummaryWidget(ctx, lastSummary);
+  fadeInSummaryWidget(ctx, lastSummary);
 }
 
 // ---------------------------------------------------------------------------
@@ -525,7 +729,9 @@ export default function working(pi: ExtensionAPI) {
   const invalidateSession = () => {
     sessionToken += 1;
     stopMessageTimer();
+    stopSummaryFade();
     prompt = undefined;
+    lastMessage = undefined;
   };
 
   pi.on("session_start", (event, ctx) => {

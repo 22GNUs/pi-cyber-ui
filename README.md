@@ -7,7 +7,7 @@ The visual direction was inspired by Tokyo Night, but this is a new project with
 The extension is split into small modules for easier maintenance:
 - `editor.ts` wires editor/session events
 - `cyber-editor.ts` owns the prompt shell, prompt marker, dynamic border, and optional session name label
-- `editor-state.ts` handles session state and token accounting
+- `editor-state.ts` handles prompt-scoped token accounting and usage reconciliation
 - `working.ts` renders prompt progress and idle summaries
 - `footer.ts` renders cwd, git dirty state, model, thinking level, and context usage
 - `profile.ts` resolves `native`/`full`, registers `/cyber-profile`, and persists the global user profile
@@ -38,6 +38,7 @@ The extension is split into small modules for easier maintenance:
 ```bash
 cd ~/Developer/pi-cyber-ui
 npm install
+npm test
 npm run typecheck
 ```
 
@@ -129,8 +130,11 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 - Package name: `pi-cyber-ui`
 - Theme name: `cyber-ui-dark`
 - Extension entrypoint: `extensions/pi-cyber-ui/index.ts`
-- Exact streaming usage is protocol-aware; Anthropic Messages API can surface cumulative in-flight usage, while other APIs fall back to estimates
-- Working indicator uses Pi's official `ctx.ui.setWorkingIndicator()` / `ctx.ui.setWorkingMessage()` APIs
+- Telemetry is prompt-scoped: text, thinking, and tool-call deltas contribute to the same live output total across all turns
+- `~` marks provisional output/rate values; trusted cumulative or final usage removes it, while missing final usage stays explicitly estimated
+- Input totals are shown only when every turn supplied trustworthy input usage
+- `t/s` is cumulative prompt output divided by assistant-response wall time; thinking is included and tool execution time is excluded
+- Working telemetry preserves the original breathing dot, ambient verb, colors, integer-second clock, and 16ms animation refresh; tool execution freezes and dims the latest in/out/tps values
 - Default profile is `native`, which does not re-register built-in tools
 - Use `/cyber-profile full` or `PI_CYBER_UI_PROFILE=full` to re-register built-in tools for compact rendering while preserving their original execution behavior and prompt metadata
 - Theme format follows the official Pi theme schema
