@@ -116,27 +116,19 @@ function tpsColor(v: number): RGB {
 // crest together.
 const FRAME_INTERVAL_MS = 75;
 
-interface PulseFrame {
-  glyph: string;
-  color: RGB;
-}
-
-const PULSE_FRAMES: readonly PulseFrame[] = (() => {
+const PULSE_FRAME_TEXTS: string[] = (() => {
   const N = 64;
-  const frames: PulseFrame[] = [];
+  const texts: string[] = [];
   for (let i = 0; i < N; i++) {
-    const phase = i / N;
     // Two breaths per cycle; breath 0 peaks pink, breath 1 peaks cyan.
-    const local = (phase * 2) % 1;
-    const peak = phase < 0.5 ? C.pink : C.cyan;
     // Cosine breathing: 0 at start/end of each breath, 1 at its midpoint.
+    const local = ((i / N) * 2) % 1;
+    const peak = i < N / 2 ? C.pink : C.cyan;
     const intensity = 0.5 * (1 - Math.cos(Math.PI * 2 * local));
-    frames.push({ glyph: "●", color: mix(C.fgDim, peak, intensity) });
+    texts.push(paint(mix(C.fgDim, peak, intensity), "●"));
   }
-  return frames;
+  return texts;
 })();
-
-const PULSE_FRAME_TEXTS = PULSE_FRAMES.map((f) => paint(f.color, f.glyph));
 
 function applyWorkingIndicator(ctx: ExtensionContext): boolean {
   return safeUi(ctx, () => {
@@ -227,7 +219,7 @@ function formatTokens(value: number | undefined): string {
   //   1_050_000 -> 1.05M   (10k-token granularity)
   // Trailing zeros are kept on purpose: "9.10k" advertises a 10-token
   // last-digit step.
-  return formatCompactNumber(value, { significantFigures: 3 });
+  return formatCompactNumber(value, 3);
 }
 
 function formatTps(value: number | undefined): string {
@@ -366,7 +358,6 @@ function updateSmoothing(snapshot: CyberHudSnapshot, now: number): void {
 interface RunningLineArgs {
   verb: string;
   elapsedMs: number;
-  now: number;
   snapshot: CyberHudSnapshot;
 }
 
@@ -661,14 +652,11 @@ function updateWorkingMessage(ctx: ExtensionContext): boolean {
 
   const snapshot = cyberState.snapshot();
   updateSmoothing(snapshot, now);
-  const args: RunningLineArgs = {
+  const segments = collectRunningSegments({
     verb: prompt.verb,
     elapsedMs: elapsed,
-    now,
     snapshot,
-  };
-
-  const segments = collectRunningSegments(args);
+  });
   const message = fitSegments(segments, MESSAGE_BUDGET);
   if (message === lastMessage) return true;
   const ok = safeUi(ctx, () => ctx.ui.setWorkingMessage(message));
