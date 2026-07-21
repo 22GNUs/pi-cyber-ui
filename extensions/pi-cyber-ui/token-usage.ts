@@ -28,12 +28,8 @@ export type UsageMode = "exact" | "estimated";
 
 const EXACT_USAGE_APIS = new Set<Api | string>(["anthropic-messages"]);
 
-export function supportsExactUsage(api?: Api | string): boolean {
-  return api !== undefined && EXACT_USAGE_APIS.has(api);
-}
-
 export function getUsageMode(api?: Api | string): UsageMode {
-  return supportsExactUsage(api) ? "exact" : "estimated";
+  return api !== undefined && EXACT_USAGE_APIS.has(api) ? "exact" : "estimated";
 }
 
 // ---------------------------------------------------------------------------
@@ -150,18 +146,6 @@ function estimateTokensFromBuckets(b: TokenBuckets): number {
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
-
-/** One-shot estimate for a complete string. */
-export function estimateTokensFromText(text: string): number {
-  const b: TokenBuckets = {
-    whitespace: 0, punctuation: 0, digit: 0,
-    latin: 0, cjk: 0, cyrillic: 0, other: 0,
-  };
-  for (const ch of text) {
-    b[classifyCodePoint(ch.codePointAt(0) ?? 0)] += 1;
-  }
-  return estimateTokensFromBuckets(b);
-}
 
 /**
  * Streaming accumulator: call `add(delta)` on every text chunk, then read

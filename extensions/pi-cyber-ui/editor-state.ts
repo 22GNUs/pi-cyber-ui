@@ -2,15 +2,7 @@ import type { AssistantMessage } from "@earendil-works/pi-ai";
 
 import { getUsageMode, type UsageMode, StreamingTokenEstimator } from "./token-usage.js";
 
-export type CyberEditorStateApi = CyberEditorState;
-
 export type AgentState = "idle" | "running" | "tool";
-export type ResetNoticeKind = "compact" | "tree";
-
-export interface ResetNotice {
-  kind: ResetNoticeKind;
-  startedAt: number;
-}
 
 export interface DisplayValue {
   value?: number;
@@ -29,9 +21,7 @@ export interface CyberHudSnapshot {
   inputValue?: number;
   output: OutputDisplayValue;
   tps: DisplayValue;
-  toolDepth: number;
   responseActive: boolean;
-  resetNotice?: ResetNotice;
 }
 
 interface MessageOutput {
@@ -75,15 +65,6 @@ export class CyberEditorState {
   private msgEstimator = new StreamingTokenEstimator();
 
   private toolDepth = 0;
-  private resetNotice: ResetNotice | undefined;
-
-  getAgentState(): AgentState {
-    return this.agentState;
-  }
-
-  getResetNotice(): ResetNotice | undefined {
-    return this.resetNotice;
-  }
 
   resetAll(): void {
     this.promptIn = 0;
@@ -94,14 +75,9 @@ export class CyberEditorState {
     this.promptActive = false;
     this.promptResponseMs = 0;
     this.toolDepth = 0;
-    this.resetNotice = undefined;
 
     this.resetMessage();
     this.agentState = "idle";
-  }
-
-  setResetNotice(kind: ResetNoticeKind): void {
-    this.resetNotice = { kind, startedAt: Date.now() };
   }
 
   onSessionStart(): void {
@@ -114,12 +90,10 @@ export class CyberEditorState {
 
   onSessionCompact(): void {
     this.resetAll();
-    this.setResetNotice("compact");
   }
 
   onSessionTree(): void {
     this.resetAll();
-    this.setResetNotice("tree");
   }
 
   onAgentStart(): void {
@@ -217,9 +191,7 @@ export class CyberEditorState {
         value: rateAvailable ? outputValue / (responseMs / 1_000) : undefined,
         estimated: rateAvailable && outputEstimated,
       },
-      toolDepth: this.toolDepth,
       responseActive,
-      resetNotice: this.resetNotice,
     };
   }
 
