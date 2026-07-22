@@ -26,7 +26,6 @@
     --silver: #c8d3ea;
     --silverHi: #e6ecfa;
     --promptSilver: #aab8ca;
-    --greenSoft: #5ec27e;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -149,7 +148,6 @@
   .blue { color: var(--blue); }
   .teal { color: var(--tealDark); }
   .red { color: var(--red); }
-  .greenSoft { color: var(--greenSoft); }
   .pink { color: var(--pink); }
   .silver { color: var(--promptSilver); }
   .bold { font-weight: 600; }
@@ -221,13 +219,12 @@
 <div class="chips">
   <div class="chip"><div class="sw" style="background:#7dcfff"></div><div class="meta"><div class="name">cyan</div><div class="hx">#7dcfff</div><div class="role">品牌 / 焦点</div></div></div>
   <div class="chip"><div class="sw" style="background:#b4f9f8"></div><div class="meta"><div class="name">cyanBright</div><div class="hx">#b4f9f8</div><div class="role">强调（少用）</div></div></div>
-  <div class="chip"><div class="sw" style="background:#7aa2f7"></div><div class="meta"><div class="name">blue</div><div class="hx">#7aa2f7</div><div class="role">ls · 链接 · function</div></div></div>
-  <div class="chip"><div class="sw" style="background:#41a6b5"></div><div class="meta"><div class="name">tealDark</div><div class="hx">#41a6b5</div><div class="role">grep/find · 引用边</div></div></div>
+  <div class="chip"><div class="sw" style="background:#7aa2f7"></div><div class="meta"><div class="name">blue</div><div class="hx">#7aa2f7</div><div class="role">链接 · function</div></div></div>
+  <div class="chip"><div class="sw" style="background:#41a6b5"></div><div class="meta"><div class="name">tealDark</div><div class="hx">#41a6b5</div><div class="role">引用边 · operator</div></div></div>
   <div class="chip"><div class="sw" style="background:#4fd6be"></div><div class="meta"><div class="name">teal</div><div class="hx">#4fd6be</div><div class="role">内联 code · context</div></div></div>
-  <div class="chip"><div class="sw" style="background:#bb9af7"></div><div class="meta"><div class="name">purple</div><div class="hx">#bb9af7</div><div class="role">edit/write · keyword</div></div></div>
+  <div class="chip"><div class="sw" style="background:#bb9af7"></div><div class="meta"><div class="name">purple</div><div class="hx">#bb9af7</div><div class="role">keyword · thinking high</div></div></div>
   <div class="chip"><div class="sw" style="background:#9ece6a"></div><div class="meta"><div class="name">green</div><div class="hx">#9ece6a</div><div class="role">diff added · 字符串</div></div></div>
-  <div class="chip"><div class="sw" style="background:#5ec27e"></div><div class="meta"><div class="name">greenSoft</div><div class="hx">#5ec27e</div><div class="role">tool done 状态符</div></div></div>
-  <div class="chip"><div class="sw" style="background:#e0af68"></div><div class="meta"><div class="name">orange</div><div class="hx">#e0af68</div><div class="role">bash · number · warning</div></div></div>
+  <div class="chip"><div class="sw" style="background:#e0af68"></div><div class="meta"><div class="name">orange</div><div class="hx">#e0af68</div><div class="role">number · warning · bash mode</div></div></div>
   <div class="chip"><div class="sw" style="background:#f7768e"></div><div class="meta"><div class="name">red</div><div class="hx">#f7768e</div><div class="role">error · max thinking</div></div></div>
   <div class="chip"><div class="sw" style="background:#fca7ea"></div><div class="meta"><div class="name">pink</div><div class="hx">#fca7ea</div><div class="role">心跳呼吸峰 · path <code>~</code> · xhigh</div></div></div>
 </div>
@@ -279,56 +276,6 @@
   </div>
 </div>
 <p class="note">agent_end 后展示至下个 prompt · 仅 <code>✓</code> green，其余 muted</p>
-
-<h3>Tool rendering</h3>
-<div class="grid2">
-  <div class="card">
-    <h4>语义分色</h4>
-    <p>
-      <span class="cyan">󰈙 read</span> ·
-      <span class="orange"> bash</span> ·
-      <span class="purple">󰏫 edit / 󰝒 write</span> ·
-      <span class="teal">󰍉 grep / find</span> ·
-      <span class="blue">󰉋 ls</span>
-    </p>
-  </div>
-  <div class="card">
-    <h4>状态</h4>
-    <p>
-      <span class="dim">running</span> 右侧 duration 刷新<br>
-      <span class="greenSoft">done</span> 仅 header + summary<br>
-      <span class="red">error</span> 依赖 error shell / 内容色
-    </p>
-  </div>
-</div>
-
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">collapsed · 单行</div></div>
-  <div class="body">
-    <span class="cyan">󰈙 read</span> <span class="fg bold">working.ts</span><br>
-    <span class="purple">󰏫 edit</span> <span class="fg bold">footer.ts</span> <span class="green">+12</span> <span class="muted">~3</span> <span class="red">−1</span> <span class="dim">84ms</span><br>
-    <span class="orange"> bash</span> <span class="fg bold">npm run typecheck</span> <span class="muted">128 lines</span> <span class="dim">2.4s</span>
-  </div>
-</div>
-
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">running</div></div>
-  <div class="body">
-    <span class="cyan">󰈙 read</span> <span class="fg bold">working.ts</span> <span class="dim">1.2s</span><br>
-    <span class="orange"> bash</span> <span class="fg bold">npm run typecheck</span> <span class="dim">4.8s</span>
-  </div>
-</div>
-
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">expanded · Ctrl+O</div></div>
-  <div class="body">
-    <span class="cyan">󰈙 read</span> <span class="fg bold">working.ts</span> <span class="muted">573 lines · 18.2KB</span> <span class="dim">12ms</span><br>
-    <span class="muted">001  import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";</span><br>
-    <span class="muted">002  import editor from "./editor.js";</span><br>
-    <span class="dim">…</span>
-  </div>
-</div>
-<p class="note">icon + header + inline summary + duration · <code>read</code> 折叠态仅显示文件名</p>
 
 <h3>Footer</h3>
 <div class="term">
@@ -404,11 +351,10 @@
     <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 错相 spinner</td></tr>
     <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 采样保相位精度 · 实际写入由变化驱动：强度量化 16 阶 + memo 跳过同内容帧</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
-    <tr><td>tool duration</td><td><span class="ms">120ms</span></td><td>running 期刷新 elapsed</td></tr>
     <tr><td>tps smoothing</td><td><span class="ms">τ 500ms</span></td><td>基于时间的 EMA + 分母下限 0.5s · 消除首帧尖峰与阶梯锯齿</td></tr>
     <tr><td>value odometer</td><td><span class="ms">≈250ms</span></td><td>显示值 ease-out 追赶真实值 · token 数连续滚动不跳变</td></tr>
     <tr><td>value glow</td><td><span class="ms">hold 600 · attack 120 / release 350ms</span></td><td>数据到达续期 600ms 滞回：流内目标恒亮不翻转，仅流启/停各过渡一次 · 峰値封顶 70% · dt 钗制 64ms</td></tr>
-    <tr><td>freeze fade</td><td><span class="ms">250ms</span></td><td>进/出 tool 状态时数值颜色渐变至 dim · 不瞬间变暗</td></tr>
+    <tr><td>freeze fade</td><td><span class="ms">250ms</span></td><td>工具运行时 token / tps 渐暗，结束后恢复</td></tr>
     <tr><td>hint / summary fade</td><td><span class="ms">600ms</span></td><td><code>esc to cancel</code> 与 <code>✓ done</code> 总结行透明渐显</td></tr>
   </tbody>
 </table>
@@ -451,9 +397,9 @@
 </div>
 <p class="note">跨 <code>999 → 1.02k</code> 边界演示：左侧整行左右抖，右侧槽位稳定 · 微光仅作用于变化的数值段，不波及整行</p>
 
-<h3>tool 冻结 · 淡入淡出</h3>
+<h3>工具执行时 · HUD 暂停动效</h3>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">running ⇄ tool · 循环演示</div></div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">streaming ⇄ tool running · 循环演示</div></div>
   <div class="body">
     <span class="pulse">●</span>
     <span class="verb">Reasoning...</span>
@@ -464,7 +410,7 @@
     <span id="frzState" class="dim" style="margin-left:14px;font-size:11px"></span>
   </div>
 </div>
-<p class="note">进入 tool：数值与 tps 颜色 250ms 渐变至 fgDim 并冻结 · 退出：同速恢复 · 取代现在的瞬间变暗</p>
+<p class="note">工具运行时保留最后的 token / tps 并平滑变暗 · 工具结束后恢复实时强调</p>
 
 <h3>淡入 · esc hint / idle summary</h3>
 <div class="term">
@@ -543,7 +489,7 @@
     }, 16);
   })();
 
-  // —— tool 冻结淡入淡出 ——
+  // —— 工具执行时 HUD 暂停动效 ——
   (function(){
     const tok = document.getElementById('frzTokens');
     const tps = document.getElementById('frzTps');
@@ -554,7 +500,7 @@
       frozen = !frozen;
       tok.style.color = frozen ? 'var(--fgDim)' : 'var(--fgMuted)';
       tps.style.color = frozen ? 'var(--fgDim)' : '#9ece6a';
-      state.textContent = frozen ? '▸ tool running · 值冻结' : '▸ streaming';
+      state.textContent = frozen ? '▸ tool running · HUD 暂停' : '▸ streaming';
     }, 2500);
   })();
 
