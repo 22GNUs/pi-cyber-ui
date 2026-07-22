@@ -18,7 +18,13 @@ try {
     "--outDir", outDir,
     "--rootDir", "extensions",
   ]);
-  if (compiled) run(process.execPath, ["--test", "test/editor-state.test.mjs"]);
+  if (compiled) {
+    run(process.execPath, [
+      "--test",
+      "test/editor-state.test.mjs",
+      "test/tool-boundary.test.mjs",
+    ]);
+  }
 } finally {
   rmSync(outDir, { recursive: true, force: true });
 }

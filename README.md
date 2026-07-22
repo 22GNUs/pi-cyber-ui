@@ -1,6 +1,6 @@
 # pi-cyber-ui
 
-A standalone Pi package that bundles a cyber-inspired editor, compact footer, lightweight working indicator, optional compact tool rendering, and a matching dark theme.
+A standalone Pi package that bundles a cyber-inspired editor, compact footer, lightweight working indicator, and a matching dark theme.
 
 The visual direction was inspired by Tokyo Night, but this is a new project with its own palette, naming, and packaging structure.
 
@@ -10,10 +10,6 @@ The extension is split into small modules for easier maintenance:
 - `editor-state.ts` handles prompt-scoped token accounting and usage reconciliation
 - `working.ts` renders prompt progress and idle summaries
 - `footer.ts` renders cwd, git dirty state, model, thinking level, and context usage
-- `profile.ts` resolves `native`/`full`, registers `/cyber-profile`, and persists the global user profile
-- `tool-render.ts` re-registers built-in tools with compact cyber renderers while delegating execution to Pi built-ins; activated only in `full` profile
-- `read-compact.ts` preserves Pi read compact compatibility for skills and agent resource files in `full` profile
-- `tool-registry.ts` tracks tool lifecycle, durations, and per-turn tallies in `full` profile
 - `path-utils.ts` contains shared path shortening/styling helpers
 - `token-usage.ts` contains protocol-aware exact/estimated token helpers
 
@@ -21,16 +17,12 @@ The extension is split into small modules for easier maintenance:
 
 - `themes/cyber-ui-dark.json` — Pi theme
 - `extensions/pi-cyber-ui/index.ts` — extension entrypoint
-- `extensions/pi-cyber-ui/profile.ts` — profile resolution, `/cyber-profile`, and global persistence
 - `extensions/pi-cyber-ui/editor.ts` — editor/session event wiring
 - `extensions/pi-cyber-ui/editor-state.ts` — editor/session state
 - `extensions/pi-cyber-ui/cyber-editor.ts` — Cyber editor shell
 - `extensions/pi-cyber-ui/token-usage.ts` — token usage helpers
 - `extensions/pi-cyber-ui/footer.ts` — compact footer
 - `extensions/pi-cyber-ui/working.ts` — working line and idle summary widget
-- `extensions/pi-cyber-ui/tool-render.ts` — compact built-in tool renderer
-- `extensions/pi-cyber-ui/read-compact.ts` — Pi read compact compatibility layer
-- `extensions/pi-cyber-ui/tool-registry.ts` — tool timing/tally registry
 - `extensions/pi-cyber-ui/path-utils.ts` — path display helpers
 
 ## Local development
@@ -58,46 +50,6 @@ pi install /path/to/pi-cyber-ui
 
 The package is structured to be publishable later via git or npm without changing the directory layout.
 
-### Profiles
-
-`pi-cyber-ui` defaults to the low-intrusion `native` profile:
-
-```bash
-pi
-```
-
-Switch profiles with the built-in command:
-
-```text
-/cyber-profile native
-/cyber-profile full
-/cyber-profile toggle
-/cyber-profile status
-```
-
-The command persists the choice globally to `~/.pi/agent/pi-cyber-ui.json` and automatically reloads Pi so the new profile takes effect.
-
-You can also use an environment variable as a temporary override:
-
-```bash
-PI_CYBER_UI_PROFILE=full pi
-```
-
-Available profiles:
-
-| Profile | Default | Tool overrides | Use case |
-|---|---:|---:|---|
-| `native` | ✅ | none | Keeps Pi native tool definitions/renderers for maximum compatibility with Pi defaults and other extensions. Keeps theme, editor, footer, and working indicator. Tool colors come from theme tokens only. |
-| `full` | — | `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls` | Enables compact tool rows, Nerd Font tool icons, per-tool header colors, summaries, durations, and compact read affordances. May conflict with other extensions that register the same tool names. |
-
-Enable the full compact tool rendering explicitly:
-
-```text
-/cyber-profile full
-```
-
-Unknown persisted or environment profile values fall back to `native`. If `PI_CYBER_UI_PROFILE` is set by your shell, it overrides the persisted config on future launches.
-
 When it is published, install it with one of these forms:
 
 ```bash
@@ -108,21 +60,14 @@ pi install git:github.com/22GNUs/pi-cyber-ui.git
 
 ## Architecture contract
 
-This package is not a full tool implementation fork. Tool rendering is profile-gated progressive enhancement.
+`pi-cyber-ui` is UI-only. It does not register or re-register tools, replace tool renderers, change active tool sets, or modify tool arguments and results.
 
-In the default `native` profile, `pi-cyber-ui` does not re-register any Pi built-in tools. This preserves Pi native tool definitions/renderers and avoids conflicts with other extensions. Tool-level coloring is limited to theme tokens such as `toolTitle`, `toolOutput`, `toolPendingBg`, `toolSuccessBg`, `toolErrorBg`, and diff colors.
+The extension observes tool lifecycle events only to reflect the current phase in its HUD. While a tool runs, the latest token and TPS values remain visible and dim; the tool itself is unchanged.
 
-In the explicit `full` profile, built-in tools are re-registered to control the UI, but execution and prompt metadata continue to come from Pi's native tool definitions.
-
-- Inherited from Pi native tools in `full`: `execute`, parameter schemas, descriptions, prompt snippets, and prompt guidelines.
-- Customized by this package in `full`: `renderCall`, `renderResult`, compact summaries, duration/spinner display, and cyber color semantics.
-- Consequence: Pi execution-layer improvements usually apply automatically; Pi native renderer improvements do not. Renderer-specific features must be reviewed and ported when Pi changes.
-- Compatibility rule: preserve known Pi compact read affordances where they affect semantics, especially `SKILL.md` as `[skill] name` and agent resource files (`AGENTS.md` / `CLAUDE.md`) as compact resource reads.
-- Maintenance rule: after upgrading `@earendil-works/pi-coding-agent`, review Pi's built-in renderers, especially `core/tools/read`, before publishing.
+Pi built-in tools and third-party extension tools retain their owning definitions, execution behavior, and rendering. They may still use standard theme tokens such as `toolTitle`, `toolOutput`, tool-state backgrounds, and diff colors from `cyber-ui-dark`.
 
 ## Commands
 
-- `/cyber-profile [native|full|toggle|status]` — show or switch the global `pi-cyber-ui` profile. Changes are persisted and followed by an automatic reload.
 - Pi's built-in `/name <name>` sets the session display name. When present, `pi-cyber-ui` shows it in the editor's top-right border as `⟦ name ⟧`.
 
 ## Notes
@@ -135,6 +80,5 @@ In the explicit `full` profile, built-in tools are re-registered to control the 
 - Input totals are shown only when every turn supplied trustworthy input usage
 - `t/s` is cumulative prompt output divided by assistant-response wall time; thinking is included and tool execution time is excluded
 - Working telemetry preserves the original breathing dot, ambient verb, colors, integer-second clock, and 16ms animation refresh; tool execution freezes and dims the latest in/out/tps values
-- Default profile is `native`, which does not re-register built-in tools
-- Use `/cyber-profile full` or `PI_CYBER_UI_PROFILE=full` to re-register built-in tools for compact rendering while preserving their original execution behavior and prompt metadata
+- Tool definitions, execution, and rendering remain owned by Pi or the extension that registered them
 - Theme format follows the official Pi theme schema
