@@ -13,6 +13,9 @@ Concise working notes for this repository.
 - Token/streaming logic lives in `extensions/pi-cyber-ui/token-usage.ts`
 - Editor state lives in `extensions/pi-cyber-ui/editor-state.ts`
 - Working/HUD rendering lives in `extensions/pi-cyber-ui/working.ts`
+- Tool gutter (built-in wrap + fish highlighting) lives in `extensions/pi-cyber-ui/tool-gutter.ts`
+- User message prompt style (defensive patch) lives in `extensions/pi-cyber-ui/user-message-patch.ts`
+- Config loader lives in `extensions/pi-cyber-ui/config.ts`
 
 ## Workflow
 - Design-first for UI changes: update `design/DESIGN.html` before implementation, let the user review the visual/design effect, then implement only after explicit approval.

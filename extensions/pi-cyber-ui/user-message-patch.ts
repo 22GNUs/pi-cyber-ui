@@ -21,7 +21,7 @@
  *   - Only rendering is touched. Message content, session data, and LLM
  *     context are never modified.
  */
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Markdown, visibleWidth, type Component } from "@earendil-works/pi-tui";
@@ -145,17 +145,5 @@ export async function applyUserMessagePatch(): Promise<boolean> {
     return true;
   } catch {
     return false;
-  }
-}
-
-/** Best-effort version note for debugging silently degraded installs. */
-export function getPiVersion(): string | undefined {
-  try {
-    const root = findPiRoot();
-    if (!root) return undefined;
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { version?: string };
-    return pkg.version;
-  } catch {
-    return undefined;
   }
 }
