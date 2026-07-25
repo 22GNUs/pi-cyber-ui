@@ -17,6 +17,7 @@ import themeVars from "../../themes/cyber-ui-dark.json" with { type: "json" };
 export type RGB = readonly [number, number, number];
 
 export const RESET_FG = "\x1b[39m";
+export const RESET_BG = "\x1b[49m";
 export const BOLD = "\x1b[1m";
 export const UNBOLD = "\x1b[22m";
 
@@ -32,6 +33,11 @@ function hexToRgb(hex: string): RGB {
 /** ANSI truecolor fg prefix for the given RGB. */
 export function rgb(c: RGB): string {
   return `\x1b[38;2;${c[0]};${c[1]};${c[2]}m`;
+}
+
+/** ANSI truecolor bg prefix for the given RGB. */
+export function bgRgb(c: RGB): string {
+  return `\x1b[48;2;${c[0]};${c[1]};${c[2]}m`;
 }
 
 /** Wrap text in an fg color (optionally bold). Resets after. */
@@ -63,8 +69,14 @@ export const palette = {
   fg: resolve("fg"),
   fgMuted: resolve("fgMuted"),
   fgDim: resolve("fgDim"),
+  bgAlt: resolve("bgAlt"),
+  toolSurface: resolve("toolSurface"),
+  toolErrorBg: resolve("toolErrorBg"),
+  userInputBg: resolve("userInputBg"),
+  blueDark: resolve("blueDark"),
   cyan: resolve("cyan"),
   teal: resolve("teal"),
+  tealDark: resolve("tealDark"),
   green: resolve("green"),
   orange: resolve("orange"),
   red: resolve("red"),
