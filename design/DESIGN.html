@@ -167,17 +167,15 @@
   .sep { color: var(--fgDim); padding: 0 4px; }
   .bar { display: inline-block; vertical-align: -1px; }
 
-  /* ---- Tool block candidates ---- */
+  /* ---- Tool / user panels ---- */
   .term .body.tools { padding: 12px 0 16px; }
   .tool-block { padding: 5px 20px; margin: 10px 0; }
   .tool-block .out { display: block; padding-left: 0; }
-
-  /* ---- Gutter (wrap) candidates ---- */
   .tool-gutter { margin: 12px 0 12px 20px; padding: 4px 0 4px 10px; border-left: 4px solid transparent; }
   .tool-gutter .out { display: block; }
   .gutter-pending { border-left-color: #7dcfff; animation: gutterPulse 2.4s ease-in-out infinite; }
   @keyframes gutterPulse { 0%,100% { border-left-color: #7dcfff; } 50% { border-left-color: #33566e; } }
-  .gutter-success { border-left-color: #41a6b5; }
+  .gutter-success { border-left-color: #4fd6be; }
   .gutter-error { border-left-color: #f7768e; }
 
   /* ---- Scale bars ---- */
@@ -208,7 +206,7 @@
 <header class="hero">
   <div class="kicker">Design Reference</div>
   <h1>Cyber <span class="accent">UI</span></h1>
-  <p class="lede">Tokyo Night cyber 派生的终端 TUI 设计语言：一色一职的调色板、克制的组件、呼吸式动效。</p>
+  <p class="lede">Tokyo Night cyber 派生的终端 TUI 设计语言：一色一职的调色板、信号克制的工具行、呼吸式动效、与 fish shell 同构的命令高亮。</p>
   <div class="meta">
     <span>theme · <b>cyber-ui-dark</b></span>
     <span>font · <b>JetBrainsMono Nerd Font</b></span>
@@ -221,7 +219,8 @@
 <h3>Base</h3>
 <div class="chips">
   <div class="chip"><div class="sw" style="background:#0a0a0d"></div><div class="meta"><div class="name">bg</div><div class="hx">#0a0a0d</div><div class="role">主背景</div></div></div>
-  <div class="chip"><div class="sw" style="background:#1f2335"></div><div class="meta"><div class="name">bgAlt</div><div class="hx">#1f2335</div><div class="role">用户消息底</div></div></div>
+  <div class="chip"><div class="sw" style="background:#121218"></div><div class="meta"><div class="name">toolSurface</div><div class="hx">#121218</div><div class="role">工具 / 输入面板</div></div></div>
+  <div class="chip"><div class="sw" style="background:#1f2335"></div><div class="meta"><div class="name">bgAlt</div><div class="hx">#1f2335</div><div class="role">选区旁板 · 第三方 pending</div></div></div>
   <div class="chip"><div class="sw" style="background:#33467c"></div><div class="meta"><div class="name">bgSelection</div><div class="hx">#33467c</div><div class="role">选区</div></div></div>
   <div class="chip"><div class="sw" style="background:#c0caf5"></div><div class="meta"><div class="name">fg</div><div class="hx">#c0caf5</div><div class="role">主文本</div></div></div>
   <div class="chip"><div class="sw" style="background:#a9b1d6"></div><div class="meta"><div class="name">fgMuted</div><div class="hx">#a9b1d6</div><div class="role">次文本</div></div></div>
@@ -319,355 +318,93 @@
 
 <p class="note">左 model · thinking（max 为红色加粗）· context · cache ｜ 右 path · git · 扩展 statuses · 窄时折叠 <code>+N</code></p>
 
-<h3>Tool 高亮 · 当前基线</h3>
+<h3>Tool row · 信号克制</h3>
+<p class="note" style="margin-bottom:10px">设计原则（Grok 克制 × sci-fi HUD × 高端暗色系统交集）：全画面状态色相只 2 个 —— <span class="cyan">cyan</span> = 运行中（霓虹呼吸）、<span class="red">red</span> = 失败；成功不配状态色，灯条落在霓虹 <span style="color:#4fd6be">teal</span>；层级靠明度台阶，面板统一 <code>#121218</code>。文本配色对齐 tokyonight fish：command/工具名 = cyan，param/路径 = pink。</p>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">baseline · pending #0d1b2e / success #0b1020 / error #1a0d12</div></div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">gutter · panel #121218 · bar ▍ · fish palette · settle blink</div></div>
   <div class="body tools">
-    <div class="tool-block" style="background:#0d1b2e">
-      <span class="blue bold">bash</span> <span class="muted">npm run typecheck</span>
+    <div class="tool-gutter" style="background:#121218;border-left-color:#aab8ca">
+      <span class="silver">❯</span> <span style="color:#c8d3ea">把工具行做成 fish 同构的霓虹灯条</span>
     </div>
-    <div class="tool-block" style="background:#0b1020">
-      <span class="blue bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
+    <div class="tool-gutter gutter-pending" style="background:#121218">
+      <span class="cyan bold">$</span> <span class="cyan">npm</span> <span style="color:#fca7ea">run typecheck</span>
+    </div>
+    <div class="tool-gutter gutter-success" style="background:#121218">
+      <span class="cyan bold">read</span> <span style="color:#fca7ea">extensions/pi-cyber-ui/palette.ts</span>
       <span class="out dim">120 lines</span>
     </div>
-    <div class="tool-block" style="background:#1a0d12">
-      <span class="blue bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-  </div>
-</div>
-<p class="note">现状：pending / success 双蓝底难分，块感偏重</p>
-
-<h3>Tool 高亮 · 候选 A「隐形」</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">A · pending #0e1522 / success 透明 / error #170d12</div></div>
-  <div class="body tools">
-    <div class="tool-block" style="background:#0e1522">
-      <span class="cyan bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-block" style="background:transparent">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-block" style="background:#170d12">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-  </div>
-</div>
-<p class="note">运行中留极淡蓝提示「活动」，完成即融入背景零色块 · 错误留暗红 · <code>toolTitle</code> 提为 cyan 补状态感</p>
-
-<h3>Tool 高亮 · 候选 B「中性卡片」</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">B · pending #131a2a / success #0f1017 / error #1b0f15</div></div>
-  <div class="body tools">
-    <div class="tool-block" style="background:#131a2a">
-      <span class="blue bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-block" style="background:#0f1017">
-      <span class="blue bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-block" style="background:#1b0f15">
-      <span class="blue bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-  </div>
-</div>
-<p class="note">保留卡片感但只用亮度分层：pending 明显亮一档，success 去彩近黑 · 状态靠明暗不靠色相</p>
-
-<h3>Tool 高亮 · 候选 C「色相分离」</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">C · pending #0a161d / success #0e1120 / error #1a0d14</div></div>
-  <div class="body tools">
-    <div class="tool-block" style="background:#0a161d">
-      <span class="cyan bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-block" style="background:#0e1120">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-block" style="background:#1a0d14">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-  </div>
-</div>
-<p class="note">亮度拉平、只换色相：pending 青调（呼应 cyan 品牌色）→ success 靛调 → error 暗红 · 冷色相位移更 cyber</p>
-
-<h3>Tool 高亮 · 推荐 D「双通道」= B 亮度 × C 色相</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">D · pending #0c1b26 / success #0f1220 / error #1b0d14</div></div>
-  <div class="body tools">
-    <div class="tool-block" style="background:#0c1b26">
-      <span class="cyan bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-block" style="background:#0f1220">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-block" style="background:#1b0d14">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-  </div>
-</div>
-<p class="note">pending = 青调最亮（通电感）→ success = 靛调暗一档（原地燄灭降温）→ error = 暗红色相跳变 · 亮度与色相双线索，无绿色块 · <code>toolTitle</code> 提为 cyan</p>
-
-<h3>Tool 高亮 · 推荐 E「交通灯语义」= 蓝 → 暗 teal → 暗红</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">E · pending #0d1a26 / success #0c1714 / error #1b0d14</div></div>
-  <div class="body tools">
-    <div class="tool-block" style="background:#0d1a26">
-      <span class="cyan bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-block" style="background:#0c1714">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-block" style="background:#0c1714">
-      <span class="cyan bold">write</span> <span class="muted">extensions/pi-cyber-ui/format.ts</span>
-      <span class="out dim">wrote 84 lines</span>
-    </div>
-    <div class="tool-block" style="background:#1b0d14">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-  </div>
-</div>
-<p class="note">成功色回归绿系但压到极暗低饱和 teal（主题冷色系成员）：保留「绿 = 成功」直觉又不出现脏绿块 · 蓝 → 青绿 → 红三态语义一眼可读 · 连续成功块同色不疲劳</p>
-
-<h3>Tool 高亮 · Wrap 方案「左色条」· 无色块</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">wrap · pending cyan（呼吸）/ success tealDark / error red · bg 透明</div></div>
-  <div class="body tools">
-    <div class="tool-gutter gutter-pending">
-      <span class="cyan bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-gutter gutter-success">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-gutter gutter-success">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
+    <div class="tool-gutter gutter-success" style="background:#121218">
+      <span class="cyan bold">edit</span> <span style="color:#fca7ea">themes/cyber-ui-dark.json</span>
       <span class="out" style="color:#565f89">&nbsp;12&nbsp;&nbsp;"vars": {</span>
       <span class="out" style="color:#f7768e">-13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0b1020",</span>
-      <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0c1714",</span>
-      <span class="out" style="color:#565f89">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#1a0d12",</span>
+      <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSurface": "#121218",</span>
+      <span class="out" style="color:#565f89">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#281e20",</span>
     </div>
-    <div class="tool-gutter gutter-error">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
+    <div class="tool-gutter gutter-error" style="background:#121218">
+      <span class="cyan bold">edit</span> <span style="color:#fca7ea">themes/cyber-ui-dark.json</span>
       <span class="out red">✗ oldText not found</span>
     </div>
-    <div class="tool-block" style="background:#0c1714">
-      <span class="cyan bold">ask_user</span> <span class="muted">工具高亮改造方向? → gutter</span>
-      <span class="out dim">↑ 未被 wrap 的第三方工具 · 仍走 E 色块兑底</span>
-    </div>
-  </div>
-</div>
-<p class="note">内置 7 工具：<code>renderShell:"self"</code> 完全绕开背景 Box，状态只靠色条 —— pending = cyan 呼吸闪动（色条可逐帧重绘，能做动效）、success = tealDark 静态、error = red · diff / 输出直接落在终端背景上，比色块更透 · 第三方工具无法注入色条，保留 E 色块兑底，两套视觉可共存</p>
-
-<h3>Tool 高亮 · Wrap 变体「色条 + 极淡底」</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">wrap+tint · 色条叠 E 底色，卡片感与色条兼得</div></div>
-  <div class="body tools">
-    <div class="tool-gutter gutter-pending" style="background:#0d1a26">
-      <span class="cyan bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-gutter gutter-success" style="background:#0c1714">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-gutter gutter-error" style="background:#1b0d14">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-  </div>
-</div>
-<p class="note">色条负责状态、底色负责边界：与未 wrap 的第三方工具视觉差异最小 · 代价是没有「无色块」的轻盈感，二选一</p>
-
-<h3>Tool 高亮 · 最终形提案「色条 + 中性淡底 · 全面去绿」</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">内置：底色统一 #0f121b，状态全交色条 · 第三方：去绿三色块</div></div>
-  <div class="body tools">
-    <div class="tool-gutter gutter-pending" style="background:#0f121b">
-      <span class="cyan bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-gutter gutter-success" style="background:#0f121b">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-gutter gutter-success" style="background:#0f121b">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out" style="color:#565f89">&nbsp;12&nbsp;&nbsp;"vars": {</span>
-      <span class="out" style="color:#f7768e">-13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0c1714",</span>
-      <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0f121b",</span>
-      <span class="out" style="color:#565f89">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#1b0d14",</span>
-    </div>
-    <div class="tool-gutter gutter-error" style="background:#0f121b">
-      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-    <div class="tool-block" style="background:#121a2b">
-      <span class="cyan bold">web_search</span> <span class="muted">pi theme gutter…</span>
-      <span class="out dim">↑ 第三方 pending · 蓝靖 #121a2b</span>
-    </div>
-    <div class="tool-block" style="background:#0f121b">
-      <span class="cyan bold">ask_user</span> <span class="muted">方向? → 色条+淡底</span>
-      <span class="out dim">↑ 第三方 success · 中性 #0f121b，与内置底色同色</span>
-    </div>
-  </div>
-</div>
-<p class="note">背景彻底告别绿系：内置工具底色全状态统一中性靛灰 #0f121b（只圈边界不叙事），状态全部交给色条 · 绿意仅存于 1 字符宽的 tealDark 成功条（可选再换 silverDim 全去绿）· 第三方兑底三色：pending 蓝靖 #121a2b / success 中性 #0f121b / error 暗红 #1b0d14</p>
-
-<h3>Tool 高亮 · 最终形 v2「信号克制」· 研究定稿提案</h3>
-<p class="note" style="margin-bottom:10px">原则（Grok / 高端暗色系统 / sci-fi HUD 规范交集）：全画面只保留 2 个状态色相 —— cyan = 运行中（呼吸）、red = 失败；成功不配色，退回结构线（fgDim，与边框同族）；层级靠明度不靠色彩，所有状态共用同一块板岩色面板</p>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">v2 · 面板 #16161e · ▍中粗条 · 成功=tealDark</div></div>
-  <div class="body tools">
-    <div class="tool-gutter" style="background:#16161e;border-left-color:#aab8ca">
-      <span class="silver">❯</span> <span style="color:#c8d3ea">把成功灯条换成电路蓝</span>
-    </div>
-    <div class="tool-gutter gutter-pending" style="background:#16161e">
-      <span class="fg bold">bash</span> <span class="muted">npm run typecheck</span>
-    </div>
-    <div class="tool-gutter gutter-success" style="background:#16161e">
-      <span class="fg bold">read</span> <span class="cyan">extensions/pi-cyber-ui/palette.ts</span>
-      <span class="out dim">120 lines</span>
-    </div>
-    <div class="tool-gutter gutter-success" style="background:#16161e">
-      <span class="fg bold">edit</span> <span class="cyan">themes/cyber-ui-dark.json</span>
-      <span class="out" style="color:#565f89">&nbsp;12&nbsp;&nbsp;"vars": {</span>
-      <span class="out" style="color:#f7768e">-13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0c1714",</span>
-      <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSurface": "#16161e",</span>
-      <span class="out" style="color:#565f89">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#1b0d14",</span>
-    </div>
-    <div class="tool-gutter gutter-error" style="background:#16161e">
-      <span class="fg bold">edit</span> <span class="cyan">themes/cyber-ui-dark.json</span>
-      <span class="out red">✗ oldText not found</span>
-    </div>
-    <div class="tool-block" style="background:#16161e">
-      <span class="fg bold">ask_user</span> <span class="muted">成功色条? → 电路蓝</span>
-      <span class="out dim">↑ 第三方兑底：面板 #16161e，pending 时 bgAlt #1f2335、error #281e20（red⊕bg_dark）</span>
+    <div class="tool-block" style="background:#121218">
+      <span class="cyan bold">ask_user</span> <span style="color:#fca7ea">成功色条? → teal 霓虹</span>
+      <span class="out dim">↑ 第三方工具 · 同面板色块兑底（pending=bgAlt · error=#281e20）</span>
     </div>
   </div>
 </div>
 <div class="grid2" style="margin-top:10px">
   <div class="card">
-    <h4>信号层（仅 2 状态色相）</h4>
-    <p><span class="cyan">▍ cyan</span> 运行中 · 呼吸动效<br>
-    <span style="color:#41a6b5">▍ tealDark</span> 完成 · cyber 青绿，完成瞬间 cyan→tealDark 900ms 相位连续冷却（power-down）<br>
-    <span class="red">▍ red</span> 失败 · 唯一警示</p>
+    <h4>信号层 · 灯条</h4>
+    <p><span class="cyan">▍ cyan</span> 运行中 · 浅谷 45% 霓虹呼吸<br>
+    <span style="color:#4fd6be">▍ teal</span> 完成 · settle blink：冲亮 cyanBright(140ms) → ease-out 缓落 teal<br>
+    <span class="red">▍ red</span> 失败 · 唯一警示<br>
+    <span class="silver">▍ promptSilver</span> 用户输入 · 与工具同语言，银色区分身份</p>
   </div>
   <div class="card">
-    <h4>结构层（全部现有色）</h4>
-    <p>bg #0a0a0d → 面板 #16161e（tokyonight bg_dark，工具与输入共用）<br>
-    工具名 fg 银白粗体=结构 · 路径/参数 cyan=链接 · 色条 ▍ 3/8 格</p>
+    <h4>结构层 · 面板 + 文本</h4>
+    <p>bg #0a0a0d → 面板 #121218（工具与输入共用）<br>
+    工具名 / bash command = cyan · 路径 / 参数 / flags = pink<br>
+    bash 引号 = orange · $VAR = green · 管道/分隔 = orange · 重定向 = fg<br>
+    色条 ▍ 3/8 格 · 上下各 1 行 padding · call/result 间 1 行分隔</p>
   </div>
 </div>
-<p class="note">成功不再找颜色 —— 安静即成功：扫一眼只看见正在呼吸的 cyan 和偶发的 red，其余都是建筑 · 这就是 Grok 式克制：颜色即信号，无信号不用色</p>
+<p class="note">内置 7 工具走官方 wrap 模式（execute 1:1 转发，仅换外壳）；第三方工具无法 wrap，保留默认 Box 色块，theme 三个 tool*Bg 收敛到同面板色系。用户输入行是唯一的防御式 patch（结构检测失败静默回退 theme 色块）。</p>
 
-<h3>用户输入行 · 现状 vs 三候选（theme 兑底）</h3>
+<h3>Bash · fish 同构高亮</h3>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">userMessageBg / userMessageText · 唯一保留的块</div></div>
-  <div class="body tools">
-    <div class="tool-block" style="background:#1f2335">
-      <span class="fg">现状 · bgAlt #1f2335 · 偏亮，和新工具层对比过重</span>
-    </div>
-    <div class="tool-block" style="background:#141a2e">
-      <span class="fg">U1 · 冷靖压暗 #141a2e · 保留原色相只降亮度，最稳</span>
-    </div>
-    <div class="tool-block" style="background:#10141f">
-      <span style="color:#c8d3ea">U2 · 终端回显感 #10141f + silver 文字 · 输入像银色回显，与 prompt ❗ 同族</span>
-    </div>
-    <div class="tool-block" style="background:#0e1a22">
-      <span class="fg">U3 · 青调 #0e1a22 · 归入 cyan 家族，但与 pending 工具块同色相易混</span>
-    </div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">tokyonight fish palette · 轻量 shell tokenizer</div></div>
+  <div class="body" style="line-height:2.1;font-family:'JetBrainsMono Nerd Font',ui-monospace,monospace">
+    <span class="cyan bold">$</span> <span class="cyan">grep</span> <span style="color:#fca7ea">-n -B2 -A10</span> <span class="orange">"function formatBashCall"</span> <span style="color:#fca7ea">bash.js</span><br>
+    <span class="cyan bold">$</span> <span class="cyan">npm</span> <span style="color:#fca7ea">run typecheck</span> <span class="fg">2&gt;&amp;1</span> <span class="orange">|</span> <span class="cyan">tail</span> <span style="color:#fca7ea">-3</span><br>
+    <span class="cyan bold">$</span> <span style="color:#fca7ea">CI=1</span> <span class="cyan">env</span> <span class="cyan">bash</span> <span style="color:#fca7ea">-lc</span> <span class="orange">'echo $HOME'</span><br>
+    <span class="dim"># fish_color_command cyan · option/param pink · quote orange · end orange · $VAR green</span>
   </div>
 </div>
-<p class="note">用户消息是 core Box 渲染、无注入点，只能动 2 个 token · 推荐 U2：暗底让工具色条成为画面里最亮的状态信号，silver 文字呼应 promptSilver 输入语义 · U3 与 wrap-pending 色相冲突不建议</p>
+<p class="note">映射自 tokyonight 官方 fish theme（command 7dcfff / option bb9af7→pink 用户定制 / param 9d7cd8→pink / quote e0af68 / end ff9e64→orange / operator 9ece6a）。全部现有 vars，零新色。</p>
 
-<h3>用户输入行 · Prompt 化（patch 方案）</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">userMessageStyle: "prompt" · 无块 · 与 wrap 色条同语言</div></div>
-  <div class="body tools">
-    <div class="tool-gutter" style="border-left-color:#aab8ca">
-      <span class="silver">❯</span> <span style="color:#c8d3ea">让 working line 的 tps 在 idle 时也保留</span>
-    </div>
-    <div class="tool-gutter gutter-success">
-      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/working.ts</span>
-      <span class="out dim">96 lines</span>
-    </div>
-    <div class="tool-gutter" style="border-left-color:#aab8ca">
-      <span class="silver">❯</span> <span style="color:#c8d3ea">多行输入的情况：色条贯穿整段</span>
-      <span class="out" style="color:#c8d3ea">第二行内容也在同一根色条内，无背景块</span>
-    </div>
-  </div>
-</div>
-<p class="note">prototype patch：去掉背景 Box → 首行 <code>❯</code>（promptSilver）+ silver 文字 + 左侧 promptSilver 色条，与工具色条同语言但银色区分身份 · 仅改渲染不碰消息内容 · 防御式：结构检测失败静默回退 U2 色块 · 配置 <code>userMessageStyle: "prompt" | "block"</code> 切换</p>
-
-<h3>Diff 配色 · 现状 vs 提案（均落在 E 成功底上）</h3>
+<h3>Diff · Syntax · Markdown</h3>
 <div class="grid2">
   <div class="term" style="margin:0">
-    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">现状 · added green / context fgMuted</div></div>
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">diff · added teal / context fgDim</div></div>
     <div class="body tools">
-      <div class="tool-block" style="background:#0c1714">
-        <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-        <span class="out" style="color:#a9b1d6">&nbsp;12&nbsp;&nbsp;"vars": {</span>
+      <div class="tool-gutter gutter-success" style="background:#121218">
+        <span class="cyan bold">edit</span> <span style="color:#fca7ea">themes/cyber-ui-dark.json</span>
+        <span class="out" style="color:#565f89">&nbsp;12&nbsp;&nbsp;"vars": {</span>
         <span class="out" style="color:#f7768e">-13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0b1020",</span>
-        <span class="out" style="color:#9ece6a">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0c1714",</span>
-        <span class="out" style="color:#a9b1d6">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#1a0d12",</span>
+        <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSurface": "#121218",</span>
+        <span class="out" style="color:#565f89">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#281e20",</span>
       </div>
     </div>
   </div>
   <div class="term" style="margin:0">
-    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">提案 · added teal / context fgDim</div></div>
-    <div class="body tools">
-      <div class="tool-block" style="background:#0c1714">
-        <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
-        <span class="out" style="color:#565f89">&nbsp;12&nbsp;&nbsp;"vars": {</span>
-        <span class="out" style="color:#f7768e">-13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0b1020",</span>
-        <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0c1714",</span>
-        <span class="out" style="color:#565f89">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#1a0d12",</span>
-      </div>
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">syntax v2 · string teal / number pink</div></div>
+    <div class="body" style="line-height:2">
+      <span style="color:#565f89">// resolve theme vars</span><br>
+      <span class="purple">const</span> <span class="fg">resolve</span> <span class="teal">=</span> <span class="fg">(</span><span class="fg">name</span><span style="color:#565f89">:</span> <span class="cyan">string</span><span class="fg">)</span><br>
+      &nbsp;&nbsp;<span class="purple">=&gt;</span> <span class="blue">hexToRgb</span><span class="fg">(</span><span style="color:#4fd6be">"#121218"</span><span class="fg">,</span> <span style="color:#fca7ea">255</span><span class="fg">)</span><br>
+      <span style="color:#3d59a1">```ts</span> <span class="dim">← fence blueDark</span>
     </div>
   </div>
 </div>
-<p class="note">added 绿 → teal：与成功底同族的霓虹青绿，告别草绿 · context 降一档到 fgDim：变更行对比拉满，扫一眼只看见 ± · removed 维持 red 与 error 语义一致</p>
-
-<h3>代码块语法 · 冷色化</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">syntax · 三档对比</div></div>
-  <div class="body" style="line-height:2">
-    <span class="label">现状 · string green / number orange</span><br>
-    <span style="color:#565f89">// resolve theme vars</span><br>
-    <span class="purple">const</span> <span class="fg">resolve</span> <span class="teal">=</span> <span class="fg">(</span><span class="fg">name</span><span style="color:#565f89">:</span> <span class="cyan">string</span><span class="fg">)</span> <span class="purple">=&gt;</span> <span class="blue">hexToRgb</span><span class="fg">(</span><span style="color:#9ece6a">"#0c1714"</span><span class="fg">,</span> <span style="color:#e0af68">255</span><span class="fg">)</span><br>
-    <br>
-    <span class="label">冷色 v1 · string → teal</span><br>
-    <span style="color:#565f89">// resolve theme vars</span><br>
-    <span class="purple">const</span> <span class="fg">resolve</span> <span class="teal">=</span> <span class="fg">(</span><span class="fg">name</span><span style="color:#565f89">:</span> <span class="cyan">string</span><span class="fg">)</span> <span class="purple">=&gt;</span> <span class="blue">hexToRgb</span><span class="fg">(</span><span style="color:#4fd6be">"#0c1714"</span><span class="fg">,</span> <span style="color:#e0af68">255</span><span class="fg">)</span><br>
-    <br>
-    <span class="label">冷色 v2 · string → teal · number → pink</span><br>
-    <span style="color:#565f89">// resolve theme vars</span><br>
-    <span class="purple">const</span> <span class="fg">resolve</span> <span class="teal">=</span> <span class="fg">(</span><span class="fg">name</span><span style="color:#565f89">:</span> <span class="cyan">string</span><span class="fg">)</span> <span class="purple">=&gt;</span> <span class="blue">hexToRgb</span><span class="fg">(</span><span style="color:#4fd6be">"#0c1714"</span><span class="fg">,</span> <span style="color:#fca7ea">255</span><span class="fg">)</span><br>
-  </div>
-</div>
-<p class="note">v1：只把占屏最多的字符串从草绿换成 teal，与 diff added / 内联 code 同色系 · v2：再把 number 换 pink，整个代码块只剩冷色霓虹，orange 仅保留给 warning / bash mode</p>
-
-<h3>Markdown 细节 · code fence 微蓝</h3>
-<div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">mdCodeBlockBorder · fgDim → blueDark</div></div>
-  <div class="body" style="line-height:1.9">
-    <span style="color:#565f89">```ts&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← 现状 fgDim</span><br>
-    <span class="muted">const x = 1</span><br>
-    <span style="color:#565f89">```</span><br>
-    <br>
-    <span style="color:#3d59a1">```ts&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← 提案 blueDark</span><br>
-    <span class="muted">const x = 1</span><br>
-    <span style="color:#3d59a1">```</span><br>
-  </div>
-</div>
-<p class="note">fence 从灰色换成暗蓝：代码块边界带一点电路感但不抢内容 · 其余 md token（heading cyan / code teal / quote tealDark）已是冷色系不动</p>
+<p class="note">diff added 绿→teal、context 降到 fgDim；syntax string→teal · number→pink（全冷色，orange 只留给 warning / bash mode）；md fence fgDim→blueDark。</p>
 
 <h2><span class="num">03</span> 语义色阶 <span class="rule"></span></h2>
 
@@ -711,8 +448,8 @@
   <thead><tr><th>元素</th><th>周期</th><th>说明</th></tr></thead>
   <tbody>
     <tr><td>spinner pulse</td><td><span class="ms">4800ms</span></td><td>64 帧双呼吸 · 峰色 pink/cyan 交替 · 谷 fgDim · 75ms/帧</td></tr>
-    <tr><td>gutter pulse</td><td><span class="ms">2400ms</span></td><td>工具运行中灯条 cyan ↔ 面板沉色余弦呼吸 · 120ms/tick</td></tr>
-    <tr><td>gutter power-down</td><td><span class="ms">900ms</span></td><td>完成瞬间从呼吸当前相位色起步（相位连续不跳变）ease-out 冷却至 tealDark · 50ms/tick · 失败直接 red</td></tr>
+    <tr><td>gutter pulse</td><td><span class="ms">2400ms</span></td><td>工具运行中灯条 cyan ↔ 浅谷（45% 沉降保霓虹感）余弦呼吸 · 16ms 采样(60fps) + 颜色变化门控</td></tr>
+    <tr><td>gutter power-down</td><td><span class="ms">900ms</span></td><td>完成瞬间从呼吸相位色冲亮 cyanBright(140ms) 再 ease-out 缓落 teal · 16ms 采样(60fps) · 失败直接 red</td></tr>
     <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 错相 spinner</td></tr>
     <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 采样保相位精度 · 实际写入由变化驱动：强度量化 16 阶 + memo 跳过同内容帧</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
