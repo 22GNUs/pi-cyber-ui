@@ -21,8 +21,14 @@ try {
   if (compiled) {
     run(process.execPath, [
       "--test",
+      "test/cyber-editor.test.mjs",
       "test/editor-state.test.mjs",
+      "test/helpers.test.mjs",
+      "test/publish-script.test.mjs",
+      "test/theme.test.mjs",
       "test/tool-boundary.test.mjs",
+      "test/user-message-patch.test.mjs",
+      "test/working.test.mjs",
     ]);
   }
 } finally {

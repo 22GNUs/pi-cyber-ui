@@ -1,14 +1,17 @@
 /**
- * Path display helpers shared by footer (cwd display) and previously the
- * editor HUD. Two separate concerns:
+ * Path display helpers for the footer. Two separate concerns:
  *
- *   shortenPathToWidth(raw, maxWidth) — smart truncation that progressively
- *     folds, initials, and tail-clips to fit a hard column budget.
+ *   shortenPathToWidth(raw, maxWidth) — smart truncation that folds and
+ *     tail-clips to fit a hard terminal-column budget.
  *
  *   stylePath(raw) — paint a path with cyber colours: home tilde pink, dim
  *     separators, bold fg on the basename (no extra hue, weight signals
  *     "current location"). Returns ANSI text.
  */
+import { homedir } from "node:os";
+import { isAbsolute, relative, sep } from "node:path";
+import { visibleWidth } from "@earendil-works/pi-tui";
+
 import { palette, paint } from "./palette.js";
 
 const PATH_MAX_DEPTH = 3;
@@ -49,28 +52,26 @@ export function shortenPathToWidth(raw: string, maxWidth: number): string {
 
   const depthFolded = foldByDepth(parts);
   const full = join(depthFolded);
-  if (full.length <= maxWidth) return full;
-
-  if (depthFolded.length > 2) {
-    const initialed = depthFolded.map((part, index) => {
-      if (part === "…") return part;
-      if (index === 0 || index >= depthFolded.length - 2) return part;
-      return part[0] ?? part;
-    });
-    const candidate = join(initialed);
-    if (candidate.length <= maxWidth) return candidate;
-  }
+  const fits = (text: string) => visibleWidth(text) <= maxWidth;
+  if (fits(full)) return full;
 
   if (depthFolded.length >= 2) {
     const tail2 = join([depthFolded[0]!, "…", ...depthFolded.slice(-2)]);
-    if (tail2.length <= maxWidth) return tail2;
+    if (fits(tail2)) return tail2;
 
     const tail1 = join([depthFolded[0]!, "…", depthFolded[depthFolded.length - 1]!]);
-    if (tail1.length <= maxWidth) return tail1;
+    if (fits(tail1)) return tail1;
   }
 
   if (maxWidth === 1) return "…";
-  return `…${full.slice(-(maxWidth - 1))}`;
+  const tailBudget = maxWidth - 1;
+  let tail = "";
+  for (const character of [...full].reverse()) {
+    const candidate = character + tail;
+    if (visibleWidth(candidate) > tailBudget) break;
+    tail = candidate;
+  }
+  return `…${tail}`;
 }
 
 export function stylePath(raw: string): string {
@@ -107,9 +108,17 @@ export function stylePath(raw: string): string {
 
 /** Return the home-relative form of cwd: `/Users/me/x` → `~/x`. */
 export function homeRelative(cwd: string): string {
-  const home = process.env.HOME ?? "";
-  if (home && (cwd === home || cwd.startsWith(`${home}/`))) {
-    return `~${cwd.slice(home.length)}`;
+  const home = homedir();
+  if (!home) return cwd;
+
+  const relativePath = relative(home, cwd);
+  if (relativePath === "") return "~";
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  ) {
+    return cwd;
   }
-  return cwd;
+  return `~/${relativePath.split(sep).join("/")}`;
 }

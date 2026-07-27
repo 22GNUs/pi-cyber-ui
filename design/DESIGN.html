@@ -259,7 +259,7 @@
     <span class="silver">❯</span> <span class="fg">让 working line 的 tps 在 idle 时也保留</span>
   </div>
 </div>
-<p class="note">prompt glyph <code>❯</code> = promptSilver · border 跟随 thinking / bash 动态色 · 右上角静态 session label</p>
+<p class="note">prompt glyph <code>❯</code> = promptSilver · border 跟随 thinking / bash 动态色 · 右上角静态 session label · 长文本按 prompt 后的可用宽度完整换行，字符与光标不截断</p>
 
 <h3>Working line · 运行中</h3>
 <div class="term">
@@ -286,7 +286,7 @@
     <span class="dim">·</span> <span class="muted">156 tps</span>
   </div>
 </div>
-<p class="note">agent_end 后展示至下个 prompt · 仅 <code>✓</code> green，其余 muted</p>
+<p class="note">全部自动重试、压缩与 follow-up 真正完成后展示至下个 prompt · 仅 <code>✓</code> green，其余 muted</p>
 
 <h3>Footer</h3>
 <div class="term">
@@ -455,7 +455,7 @@
   <tbody>
     <tr><td>spinner pulse</td><td><span class="ms">4800ms</span></td><td>64 帧双呼吸 · 峰色 pink/cyan 交替 · 谷 fgDim · 75ms/帧</td></tr>
     <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 错相 spinner</td></tr>
-    <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 采样保相位精度 · 实际写入由变化驱动：强度量化 16 阶 + memo 跳过同内容帧</td></tr>
+    <tr><td>message motion</td><td><span class="ms">视觉 60fps</span></td><td>字符波、odometer、glow、freeze fade 连续平滑 · 无可见阶梯或跳帧</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
     <tr><td>tps smoothing</td><td><span class="ms">τ 500ms</span></td><td>基于时间的 EMA + 分母下限 0.5s · 消除首帧尖峰与阶梯锯齿</td></tr>
     <tr><td>value odometer</td><td><span class="ms">≈250ms</span></td><td>显示值 ease-out 追赶真实值 · token 数连续滚动不跳变</td></tr>
@@ -537,7 +537,7 @@
     </div>
   </div>
 </div>
-<p class="note">10s 后 <code>esc to cancel</code> 透明渐显(600ms)不再突兀弹出 · agent_end 后总结行同样淡入 · 终端实现为颜色 bg→目标色插值</p>
+<p class="note">10s 后 <code>esc to cancel</code> 透明渐显(600ms)不再突兀弹出 · 任务真正完成后总结行同样淡入 · 终端表现保持颜色 bg→目标色连续插值</p>
 <script>
   (function(){
     const rawEl = document.getElementById('tpsRaw');

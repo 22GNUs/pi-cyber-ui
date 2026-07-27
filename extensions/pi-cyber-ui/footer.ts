@@ -1,4 +1,4 @@
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 
 import type {
   ContextUsage,
@@ -137,7 +137,7 @@ const KNOWN_THINKING_LEVELS = new Set([
 ]);
 
 const SEP = " ∷ ";
-const DIRTY_REFRESH_MS = 10_000;
+const DIRTY_REFRESH_MS = 60_000;
 const DIRTY_TIMEOUT_MS = 800;
 
 // ---------------------------------------------------------------------------
@@ -255,12 +255,17 @@ function contextText(theme: Theme, usedTokens: number | null, contextWindow: num
   return `${bar} ${percentNumber}${percentSign} ${usage}`;
 }
 
+export function sanitizeStatusText(text: string): string {
+  return text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
+}
+
 function getStatusInfo(
   theme: Theme,
   footerData: ReadonlyFooterDataProvider,
 ): { texts: string[]; signature: string } {
   const entries = Array.from(footerData.getExtensionStatuses().entries())
-    .filter(([, value]) => value.trim().length > 0)
+    .map(([key, value]) => [key, sanitizeStatusText(value)] as const)
+    .filter(([, value]) => value.length > 0)
     .sort(([a], [b]) => a.localeCompare(b));
 
   const signature = entries
@@ -338,7 +343,7 @@ function totalGitChanges(counts: GitStatusCounts | undefined): number {
   return counts.added + counts.modified + counts.deleted;
 }
 
-function parseGitStatus(stdout: string): GitStatusCounts {
+export function parseGitStatus(stdout: string): GitStatusCounts {
   const counts: GitStatusCounts = { added: 0, modified: 0, deleted: 0 };
 
   for (const line of stdout.split("\n")) {
@@ -412,10 +417,13 @@ function refreshDirty(cwd: string, onUpdate?: () => void, force = false): void {
   };
   dirtyCache.set(cwd, entry);
 
-  exec(
-    "git status --porcelain",
-    { cwd, timeout: DIRTY_TIMEOUT_MS, maxBuffer: 256 * 1024 },
+  execFile(
+    "git",
+    ["--no-optional-locks", "status", "--porcelain=v1"],
+    { cwd, timeout: DIRTY_TIMEOUT_MS, maxBuffer: 256 * 1024, encoding: "utf8" },
     (err, stdout) => {
+      // Branch changes or component disposal may have invalidated this request.
+      if (dirtyCache.get(cwd) !== entry) return;
       const counts = err ? entry.counts : parseGitStatus(stdout);
       const changed = !gitStatusCountsEqual(existing?.counts, counts);
       dirtyCache.set(cwd, { counts, at: Date.now() });
@@ -547,7 +555,6 @@ interface CacheKey {
   contextWindow: number;
   cacheHit: number | null;
   statusSignature: string;
-  statusCount: number;
 }
 
 function cacheKeyEquals(a: CacheKey | undefined, b: CacheKey): boolean {
@@ -563,8 +570,7 @@ function cacheKeyEquals(a: CacheKey | undefined, b: CacheKey): boolean {
     a.usedTokens === b.usedTokens &&
     a.contextWindow === b.contextWindow &&
     a.cacheHit === b.cacheHit &&
-    a.statusSignature === b.statusSignature &&
-    a.statusCount === b.statusCount
+    a.statusSignature === b.statusSignature
   );
 }
 
@@ -659,7 +665,6 @@ function attachFooter(
             contextWindow,
             cacheHit,
             statusSignature: statusInfo.signature,
-            statusCount: statusInfo.texts.length,
           };
 
           if (cachedLines && cacheKeyEquals(cachedKey, key)) {
@@ -697,6 +702,7 @@ function attachFooter(
           unsubBranch();
           clearInterval(dirtyTimer);
           footerRenderListeners.delete(invalidate);
+          dirtyCache.delete(cwd);
         },
       };
     },
@@ -736,10 +742,20 @@ export default function footer(pi: ExtensionAPI) {
     }
   });
 
-  // Refresh dirty count after agent_end (likely files just changed). Force so
-  // commits/checkout performed by tools update immediately even inside the
-  // normal debounce window.
-  pi.on("agent_end", async (_event, ctx) => {
+  const dirtyToolNames = new Set(["bash", "edit", "write"]);
+  pi.on("tool_execution_end", async (event, ctx) => {
+    if (!dirtyToolNames.has(event.toolName)) return;
+    try {
+      if (!ctx.hasUI) return;
+      refreshDirty(ctx.cwd, notifyFooterRenderListeners, true);
+    } catch {
+      // Ignore stale ctx during reload/session replacement.
+    }
+  });
+
+  // Final forced refresh catches parallel mutations skipped while a previous
+  // status command was still in flight.
+  pi.on("agent_settled", async (_event, ctx) => {
     try {
       if (!ctx.hasUI) return;
       const cwd = ctx.cwd;

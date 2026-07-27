@@ -22,7 +22,8 @@ export const BOLD = "\x1b[1m";
 export const UNBOLD = "\x1b[22m";
 
 function hexToRgb(hex: string): RGB {
-  const h = hex.replace("#", "");
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`Invalid cyber palette color: ${hex}`);
+  const h = hex.slice(1);
   return [
     parseInt(h.slice(0, 2), 16),
     parseInt(h.slice(2, 4), 16),
@@ -58,7 +59,11 @@ export function mix(a: RGB, b: RGB, t: number): RGB {
 }
 
 const v = themeVars.vars as Record<string, string>;
-const resolve = (name: string): RGB => hexToRgb(v[name]);
+const resolve = (name: string): RGB => {
+  const value = v[name];
+  if (!value) throw new Error(`Missing cyber palette variable: ${name}`);
+  return hexToRgb(value);
+};
 
 /**
  * Named RGB constants — derived from theme `vars` (single source).
