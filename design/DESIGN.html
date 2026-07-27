@@ -404,16 +404,17 @@
     </div>
   </div>
   <div class="term" style="margin:0">
-    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">syntax v2 · string teal / number pink</div></div>
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">syntax v2 · fence fgDim / string teal / number pink</div></div>
     <div class="body" style="line-height:2">
-      <span style="color:#565f89">// resolve theme vars</span><br>
-      <span class="purple">const</span> <span class="fg">resolve</span> <span class="teal">=</span> <span class="fg">(</span><span class="fg">name</span><span style="color:#565f89">:</span> <span class="cyan">string</span><span class="fg">)</span><br>
-      &nbsp;&nbsp;<span class="purple">=&gt;</span> <span class="blue">hexToRgb</span><span class="fg">(</span><span style="color:#4fd6be">"#121218"</span><span class="fg">,</span> <span style="color:#fca7ea">255</span><span class="fg">)</span><br>
-      <span style="color:#3d59a1">```ts</span> <span class="dim">← fence blueDark</span>
+      <span class="dim">```ts</span><br>
+      <span style="color:#565f89">&nbsp;&nbsp;// resolve theme vars</span><br>
+      &nbsp;&nbsp;<span class="purple">const</span> <span class="fg">resolve</span> <span class="teal">=</span> <span class="fg">(</span><span class="fg">name</span><span style="color:#565f89">:</span> <span class="cyan">string</span><span class="fg">)</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="purple">=&gt;</span> <span class="blue">hexToRgb</span><span class="fg">(</span><span style="color:#4fd6be">"#121218"</span><span class="fg">,</span> <span style="color:#fca7ea">255</span><span class="fg">)</span><br>
+      <span class="dim">```</span>
     </div>
   </div>
 </div>
-<p class="note">diff added 绿→teal、context 降到 fgDim；syntax string→teal · number→pink（全冷色，orange 只留给 warning / bash mode）；md fence fgDim→blueDark。</p>
+<p class="note">diff added = teal · context = fgDim；syntax string = teal · number = pink；Markdown fence = fgDim，作为低权重结构边界。</p>
 
 <h2><span class="num">03</span> 语义色阶 <span class="rule"></span></h2>
 
