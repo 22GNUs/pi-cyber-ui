@@ -7,7 +7,7 @@
  * that matches the tool gutter language, we patch
  * `UserMessageComponent.prototype.rebuild` at runtime:
  *
- *   ▎ ❯ user input in silver     (userInputBg panel, promptSilver bar)
+ *   ▎ ❯ user input               (userInputBg panel, pink bar, promptSilver glyph)
  *   ▎   continuation lines aligned
  *
  * Safety model (must degrade, never break):
@@ -75,7 +75,7 @@ class PromptGutter implements Component {
     }
 
     const bg = bgRgb(palette.userInputBg);
-    const bar = bg + paint(palette.promptSilver, BAR);
+    const bar = bg + paint(palette.pink, BAR);
     const glyph = paint(palette.promptSilver, "❯");
     const blank = bar + " ".repeat(Math.max(0, width - 1)) + RESET_BG;
     const body = innerLines.map((line, i) => {

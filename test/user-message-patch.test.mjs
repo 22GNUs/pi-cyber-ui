@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
+import { palette, rgb } from "../.test-dist/pi-cyber-ui/palette.js";
 import { findRunningPiRoot } from "../.test-dist/pi-cyber-ui/runtime-pi.js";
 import {
   applyUserMessagePatch,
@@ -33,6 +34,9 @@ test("user message patch is idempotent and restores the original renderer", asyn
     assert.equal(proto.rebuild, firstPatch);
 
     const component = new mod.UserMessageComponent("hello");
+    const styledLines = component.render(20);
+    assert.ok(styledLines.some((line) => line.includes(`${rgb(palette.pink)}▍`)));
+    assert.ok(styledLines.some((line) => line.includes(`${rgb(palette.promptSilver)}❯`)));
     for (const width of [1, 2, 20]) {
       for (const line of component.render(width)) assert.ok(visibleWidth(line) <= width);
     }

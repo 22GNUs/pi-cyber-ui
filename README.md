@@ -13,18 +13,19 @@ Visual reference lives in [`design/DESIGN.html`](design/DESIGN.html) (effect-fir
 
 No bar animation by design: bars are pure functions of tool state (zero timers, zero re-render churn). Motion feedback while running belongs to the working HUD, not the transcript.
 
-**Fish shell isomorphism.** Call-slot text follows the [tokyonight fish theme](https://github.com/folke/tokyonight.nvim/blob/main/extras/fish_themes/tokyonight_night.theme) (params customized to pink):
+**Cool Minimal fish roles.** Call-slot parsing follows the lexical roles of the [tokyonight fish theme](https://github.com/folke/tokyonight.nvim/blob/main/extras/fish_themes/tokyonight_night.theme), but secondary tokens use low-chroma theme colors:
 
 | Token | Color | Used for |
 |-------|-------|----------|
-| command | cyan | tool names, bash commands, `$` prompt |
-| option / param | pink | flags, paths, args |
-| quote | orange | quoted strings |
-| end | orange | `\|` `&&` `;` `&` |
-| `$VAR` | green | expansions |
+| tool name / `$` | cyan | component identity and shell prompt |
+| shell command | dim cyan | command words |
+| option / param | fgMuted | flags, paths, args, assignments |
+| quote | silverDim | quoted strings and heredoc bodies |
+| end | fgDim | `\|` `&&` `;` `&` |
+| `$VAR` | tealDark | expansions |
 | comment | fgDim | `# …` |
 
-**Cold neon syntax.** Theme-wide: string → teal, number → pink, diff added → teal, code fence → blueDark. Orange is reserved for warning / bash mode / fish quotes.
+**Cold neon syntax.** Theme-wide: string → teal, number → pink, diff added → teal, code fence → blueDark. Orange is reserved for warnings and bash mode.
 
 ## Modules
 
@@ -35,7 +36,7 @@ No bar animation by design: bars are pure functions of tool state (zero timers, 
 | `footer.ts` | Model · thinking · context · path · event-driven git dirty state |
 | `tool-gutter.ts` | Static status bar + panel + built-in fish highlighting for every tool |
 | `tool-renderer-bridge.ts` | Idempotent renderer middleware on the exact running Pi component |
-| `user-message-patch.ts` | Prompt-style user messages (`❯` + silver bar) |
+| `user-message-patch.ts` | Prompt-style user messages (pink bar + silver `❯`) |
 | `config.ts` | `~/.pi/agent/pi-cyber-ui.json` |
 | `runtime-pi.ts` | Resolves modules from the exact Pi process loading the extension |
 | `ui-metrics.ts` | Last rendered terminal width for responsive working-line fitting |
@@ -62,9 +63,9 @@ Optional: `~/.pi/agent/pi-cyber-ui.json`. Missing file/fields fall back to defau
 | Key | Values | Default | Meaning |
 |-----|--------|---------|---------|
 | `toolHighlight` | `gutter` \| `blocks` | `gutter` | Status bar + panel, or pi’s default block shell |
-| `userMessageStyle` | `prompt` \| `block` | `prompt` | `❯` + silver gutter, or themed background box |
+| `userMessageStyle` | `prompt` \| `block` | `prompt` | Pink gutter + silver `❯`, or themed background box |
 
-Bar colors when `gutter`: pending → blue · success → teal · error → red (all static).
+Tool bar colors when `gutter`: pending → blue · success → teal · error → red. User transcript bars use pink (all static).
 
 ## Architecture contract
 

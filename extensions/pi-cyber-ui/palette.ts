@@ -81,6 +81,7 @@ export const palette = {
   cyan: resolve("cyan"),
   blue: resolve("blue"),
   teal: resolve("teal"),
+  tealDark: resolve("tealDark"),
   green: resolve("green"),
   orange: resolve("orange"),
   red: resolve("red"),
