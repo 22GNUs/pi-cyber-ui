@@ -33,7 +33,8 @@ No bar animation by design: bars are pure functions of tool state (zero timers, 
 | `editor.ts` / `cyber-editor.ts` / `editor-state.ts` | Editor shell, prompt glyph, session label, token accounting |
 | `working.ts` | Running HUD + idle summary (shared 60fps visual clock, color-gated) |
 | `footer.ts` | Model · thinking · context · path · event-driven git dirty state |
-| `tool-gutter.ts` | Built-in tool wrap: static status bar + panel + fish highlighting |
+| `tool-gutter.ts` | Static status bar + panel + built-in fish highlighting for every tool |
+| `tool-renderer-bridge.ts` | Idempotent renderer middleware on the exact running Pi component |
 | `user-message-patch.ts` | Prompt-style user messages (`❯` + silver bar) |
 | `config.ts` | `~/.pi/agent/pi-cyber-ui.json` |
 | `runtime-pi.ts` | Resolves modules from the exact Pi process loading the extension |
@@ -69,22 +70,24 @@ Bar colors when `gutter`: pending → blue · success → teal · error → red 
 
 UI-only. Two rendering surfaces beyond widgets:
 
-1. **Built-in tool gutter** (`toolHighlight: "gutter"`) — guarded official override pattern.
-   - Loads `create*ToolDefinition` from the exact Pi package running the process, never from the extension's local development dependency.
-   - Wraps a tool only while Pi still reports its source as `builtin`; same-name extension / SDK tools retain their behavior and rendering.
-   - Only the shell is replaced (`renderShell: "self"` + bar + panel). Built-in `renderCall` / `renderResult` (syntax, diffs, expand) are reused.
-   - Args, results, and active tool sets are never modified. Wrapped built-ins are reported by Pi as extension-owned overrides.
-   - Pi prints its standard override warning for each wrapped tool at startup — expected.
-   - Active extension tools that cannot receive the gutter produce one warning on startup / reload, then keep their themed block fallback.
+1. **Universal tool gutter** (`toolHighlight: "gutter"`) — guarded renderer-only middleware.
+   - Loads `ToolExecutionComponent` from the exact Pi package running the process, never from the extension's local development dependency.
+   - Wraps renderer resolution rather than registering same-name tools, so built-in, extension, SDK, and later dynamically registered tools all receive the same gutter shell.
+   - Original `renderCall` / `renderResult`, `lastComponent`, shared renderer state, streaming, syntax, diffs, and expand/collapse behavior are retained.
+   - Built-in calls keep fish recoloring; extension/SDK renderer colors remain owned by their original tool.
+   - Execute functions, schemas, results, source ownership, and active tool sets are never modified.
+   - The bridge is process-idempotent and restores Pi's original method descriptors on session shutdown/reload.
+   - Readonly, frozen, conflicting, or structurally incompatible prototypes fail safe to Pi's themed block rendering and produce one TUI warning.
+   - An individual owner renderer exception stays inside the gutter and uses Pi-equivalent raw call/result fallback content.
    - Rendering is stateless per row: the bar color derives from tool state only; no timers or animation loops.
 
-2. **User message prompt style** (`userMessageStyle: "prompt"`) — the only deliberate hack.
+2. **User message prompt style** (`userMessageStyle: "prompt"`) — a second defensive rendering patch.
    - Patches `UserMessageComponent.prototype.rebuild` after locating the running pi from `process.argv[1]`.
    - The patch is process-idempotent and restores Pi's original renderer on session shutdown/reload.
    - Structure-checked; any mismatch silently keeps the themed block style.
    - Message content, session data, and LLM context are never touched.
 
-Third-party extension tools cannot be wrapped (definitions not reachable via the extension API). They keep pi’s original rendering; default block shells are styled by `cyber-ui-dark` tool-state backgrounds on the same panel tone.
+Dynamic tool registration requires no `/reload`: new rows pass through the already-installed renderer middleware while tool execution remains entirely owned by the registering extension or SDK caller.
 
 The extension observes keyed `tool_execution_start/end` events only to drive the HUD phase. While any tool runs, token/TPS values freeze and dim; tools themselves are unchanged. Retry/compaction/follow-up runs share one prompt telemetry window and the summary appears only after `agent_settled`.
 
