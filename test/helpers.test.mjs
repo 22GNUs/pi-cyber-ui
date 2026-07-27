@@ -4,7 +4,7 @@ import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { parseGitStatus, sanitizeStatusText } from "../.test-dist/pi-cyber-ui/footer.js";
-import { palette, rgb } from "../.test-dist/pi-cyber-ui/palette.js";
+import { mix, palette, rgb } from "../.test-dist/pi-cyber-ui/palette.js";
 import { shortenPathToWidth } from "../.test-dist/pi-cyber-ui/path-utils.js";
 import { StreamingTokenEstimator } from "../.test-dist/pi-cyber-ui/token-usage.js";
 import { highlightShellCommand } from "../.test-dist/pi-cyber-ui/tool-gutter.js";
@@ -43,23 +43,30 @@ test("path shortening honors terminal cell width for Unicode paths", () => {
   }
 });
 
-test("fish highlighting keeps hash literals and wrapper commands accurate", () => {
-  const highlighted = highlightShellCommand("echo foo#bar");
-  assert.ok(highlighted.includes(`${rgb(palette.pink)}foo#bar`));
+test("fish highlighting stays low-chroma while preserving lexical roles", () => {
+  const commandColor = rgb(mix(palette.fgDim, palette.cyan, 0.65));
+  const highlighted = highlightShellCommand("echo foo#bar | cat $HOME");
+  assert.ok(highlighted.includes(`${commandColor}echo`));
+  assert.ok(highlighted.includes(`${rgb(palette.fgMuted)}foo#bar`));
   assert.ok(!highlighted.includes(`${rgb(palette.fgDim)}#bar`));
+  assert.ok(highlighted.includes(`${rgb(palette.fgDim)}|`));
+  assert.ok(highlighted.includes(`${commandColor}cat`));
+  assert.ok(highlighted.includes(`${rgb(palette.tealDark)}$HOME`));
 
   const wrapped = highlightShellCommand("sudo -u root env CI=1 bash -lc 'echo ok'");
-  assert.ok(wrapped.includes(`${rgb(palette.cyan)}sudo`));
-  assert.ok(wrapped.includes(`${rgb(palette.pink)}-u`));
-  assert.ok(wrapped.includes(`${rgb(palette.pink)}root`));
-  assert.ok(wrapped.includes(`${rgb(palette.cyan)}env`));
-  assert.ok(wrapped.includes(`${rgb(palette.cyan)}bash`));
+  assert.ok(wrapped.includes(`${commandColor}sudo`));
+  assert.ok(wrapped.includes(`${rgb(palette.fgMuted)}-u`));
+  assert.ok(wrapped.includes(`${rgb(palette.fgMuted)}root`));
+  assert.ok(wrapped.includes(`${commandColor}env`));
+  assert.ok(wrapped.includes(`${commandColor}bash`));
+  assert.ok(wrapped.includes(`${rgb(palette.silverDim)}'echo ok'`));
 });
 
 test("heredoc detection ignores quoted lookalikes", () => {
   const quoted = highlightShellCommand("echo '<<EOF'\nnext");
-  assert.ok(quoted.includes(`${rgb(palette.cyan)}next`));
+  const commandColor = rgb(mix(palette.fgDim, palette.cyan, 0.65));
+  assert.ok(quoted.includes(`${commandColor}next`));
 
   const heredoc = highlightShellCommand("cat <<'EOF'\nbody\nEOF");
-  assert.ok(heredoc.includes(`${rgb(palette.orange)}body`));
+  assert.ok(heredoc.includes(`${rgb(palette.silverDim)}body`));
 });

@@ -19,6 +19,7 @@
     --tealDark: #41a6b5;
     --blue: #7aa2f7;
     --cyan: #7dcfff;
+    --cyanDim: #70a8d6;
     --cyanBright: #b4f9f8;
     --purple: #bb9af7;
     --pink: #fca7ea;
@@ -145,6 +146,7 @@
   .green { color: var(--green); }
   .purple { color: var(--purple); }
   .orange { color: var(--orange); }
+  .cyan-dim { color: var(--cyanDim); }
   .blue { color: var(--blue); }
   .teal { color: var(--tealDark); }
   .red { color: var(--red); }
@@ -228,7 +230,8 @@
 
 <h3>Accent — 一色一职</h3>
 <div class="chips">
-  <div class="chip"><div class="sw" style="background:#7dcfff"></div><div class="meta"><div class="name">cyan</div><div class="hx">#7dcfff</div><div class="role">品牌 / 焦点</div></div></div>
+  <div class="chip"><div class="sw" style="background:#7dcfff"></div><div class="meta"><div class="name">cyan</div><div class="hx">#7dcfff</div><div class="role">品牌 / 焦点 / tool name / $</div></div></div>
+  <div class="chip"><div class="sw" style="background:#70a8d6"></div><div class="meta"><div class="name">cyanDim</div><div class="hx">cyan 65% + fgDim</div><div class="role">shell command（派生色）</div></div></div>
   <div class="chip"><div class="sw" style="background:#b4f9f8"></div><div class="meta"><div class="name">cyanBright</div><div class="hx">#b4f9f8</div><div class="role">强调（少用）</div></div></div>
   <div class="chip"><div class="sw" style="background:#7aa2f7"></div><div class="meta"><div class="name">blue</div><div class="hx">#7aa2f7</div><div class="role">链接 · function</div></div></div>
   <div class="chip"><div class="sw" style="background:#41a6b5"></div><div class="meta"><div class="name">tealDark</div><div class="hx">#41a6b5</div><div class="role">引用边 · operator</div></div></div>
@@ -237,7 +240,7 @@
   <div class="chip"><div class="sw" style="background:#9ece6a"></div><div class="meta"><div class="name">green</div><div class="hx">#9ece6a</div><div class="role">diff added · 字符串</div></div></div>
   <div class="chip"><div class="sw" style="background:#e0af68"></div><div class="meta"><div class="name">orange</div><div class="hx">#e0af68</div><div class="role">number · warning · bash mode</div></div></div>
   <div class="chip"><div class="sw" style="background:#f7768e"></div><div class="meta"><div class="name">red</div><div class="hx">#f7768e</div><div class="role">error · max thinking</div></div></div>
-  <div class="chip"><div class="sw" style="background:#fca7ea"></div><div class="meta"><div class="name">pink</div><div class="hx">#fca7ea</div><div class="role">心跳呼吸峰 · path <code>~</code> · xhigh</div></div></div>
+  <div class="chip"><div class="sw" style="background:#fca7ea"></div><div class="meta"><div class="name">pink</div><div class="hx">#fca7ea</div><div class="role">用户灯条 · 心跳呼吸峰 · path <code>~</code> · xhigh</div></div></div>
 </div>
 
 <h3>Silver / Path / Prompt</h3>
@@ -318,33 +321,33 @@
 <p class="note">左 model · thinking（max 为红色加粗）· context · cache ｜ 右 path · git · 扩展 statuses · 窄时折叠 <code>+N</code></p>
 
 <h3>Tool row · 信号克制</h3>
-<p class="note" style="margin-bottom:10px">设计原则（Grok 克制 × sci-fi HUD × 高端暗色系统交集）：灯条为纯静态三色 —— <span class="blue">blue</span> = 运行中、<span style="color:#4fd6be">teal</span> = 成功、<span class="red">red</span> = 失败（蓝→青→红一眼可分，零动画零定时器，运行动感由 working HUD 承担）；层级靠明度台阶，面板统一 <code>#121218</code>。文本配色对齐 tokyonight fish：command/工具名 = cyan，param/路径 = pink。</p>
+<p class="note" style="margin-bottom:10px">设计原则（Grok 克制 × sci-fi HUD × 高端暗色系统交集）：状态层高饱和、内容层低色相。灯条 —— <span class="blue">blue</span> = 运行中、<span style="color:#4fd6be">teal</span> = 成功、<span class="red">red</span> = 失败、<span class="pink">pink</span> = 用户输入；面板统一 <code>#121218</code>。tool name / <code>$</code> = cyan，shell command = dim cyan，其余语法主要依靠 muted / dim 明度区分。</p>
 <div class="term">
   <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">gutter · panel #121218 · bar ▍ 静态三色 · fish palette</div></div>
   <div class="body tools">
-    <div class="tool-gutter" style="background:#121218;border-left-color:#aab8ca">
+    <div class="tool-gutter" style="background:#121218;border-left-color:#fca7ea">
       <span class="silver">❯</span> <span style="color:#c8d3ea">把工具行做成 fish 同构的霓虹灯条</span>
     </div>
     <div class="tool-gutter gutter-pending" style="background:#121218">
-      <span class="cyan bold">$</span> <span class="cyan">npm</span> <span style="color:#fca7ea">run typecheck</span>
+      <span class="cyan bold">$</span> <span class="cyan-dim">npm</span> <span class="muted">run typecheck</span>
     </div>
     <div class="tool-gutter gutter-success" style="background:#121218">
-      <span class="cyan bold">read</span> <span style="color:#fca7ea">extensions/pi-cyber-ui/palette.ts</span>
+      <span class="cyan bold">read</span> <span class="muted">extensions/pi-cyber-ui/palette.ts</span>
       <span class="out dim">120 lines</span>
     </div>
     <div class="tool-gutter gutter-success" style="background:#121218">
-      <span class="cyan bold">edit</span> <span style="color:#fca7ea">themes/cyber-ui-dark.json</span>
+      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
       <span class="out" style="color:#565f89">&nbsp;12&nbsp;&nbsp;"vars": {</span>
       <span class="out" style="color:#f7768e">-13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0b1020",</span>
       <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSurface": "#121218",</span>
       <span class="out" style="color:#565f89">&nbsp;14&nbsp;&nbsp;&nbsp;&nbsp;"toolErrorBg": "#281e20",</span>
     </div>
     <div class="tool-gutter gutter-error" style="background:#121218">
-      <span class="cyan bold">edit</span> <span style="color:#fca7ea">themes/cyber-ui-dark.json</span>
+      <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
       <span class="out red">✗ oldText not found</span>
     </div>
     <div class="tool-gutter gutter-success" style="background:#121218">
-      <span class="cyan bold">ask_user</span> <span style="color:#fca7ea">成功色条? → teal 霓虹</span>
+      <span class="cyan bold">ask_user</span> <span class="muted">成功色条? → teal 霓虹</span>
       <span class="out dim">↑ 运行时注册工具 · 保留原 renderer，动态套用同一 gutter shell</span>
     </div>
   </div>
@@ -362,13 +365,13 @@
     <p><span class="blue">▍ blue</span> 运行中 · 静态（动感由 working HUD 承担）<br>
     <span style="color:#4fd6be">▍ teal</span> 完成 · 静态<br>
     <span class="red">▍ red</span> 失败 · 唯一警示<br>
-    <span class="silver">▍ promptSilver</span> 用户输入 · 与工具同语言，银色区分身份</p>
+    <span class="pink">▍ pink</span> 用户输入 · 高饱和身份信号；<span class="silver">❯ promptSilver</span> 保持克制</p>
   </div>
   <div class="card">
     <h4>结构层 · 面板 + 文本</h4>
     <p>bg #0a0a0d → 面板 #121218（工具与输入共用）<br>
-    工具名 / bash command = cyan · 路径 / 参数 / flags = pink<br>
-    bash 引号 = orange · $VAR = green · 管道/分隔 = orange · 重定向 = fg<br>
+    工具名 / <code>$</code> = cyan · shell command = dim cyan · 路径 / 参数 / flags = fgMuted<br>
+    bash 引号 = silverDim · $VAR = tealDark · 管道 / 分隔 = fgDim · 重定向 = fg<br>
     色条 ▍ 3/8 格 · 上下各 1 行 padding · call/result 间 1 行分隔</p>
   </div>
 </div>
@@ -378,13 +381,13 @@
 <div class="term">
   <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">tokyonight fish palette · 轻量 shell tokenizer</div></div>
   <div class="body" style="line-height:2.1;font-family:'JetBrainsMono Nerd Font',ui-monospace,monospace">
-    <span class="cyan bold">$</span> <span class="cyan">grep</span> <span style="color:#fca7ea">-n -B2 -A10</span> <span class="orange">"function formatBashCall"</span> <span style="color:#fca7ea">bash.js</span><br>
-    <span class="cyan bold">$</span> <span class="cyan">npm</span> <span style="color:#fca7ea">run typecheck</span> <span class="fg">2&gt;&amp;1</span> <span class="orange">|</span> <span class="cyan">tail</span> <span style="color:#fca7ea">-3</span><br>
-    <span class="cyan bold">$</span> <span style="color:#fca7ea">CI=1</span> <span class="cyan">env</span> <span class="cyan">bash</span> <span style="color:#fca7ea">-lc</span> <span class="orange">'echo $HOME'</span><br>
-    <span class="dim"># fish_color_command cyan · option/param pink · quote orange · end orange · $VAR green</span>
+    <span class="cyan bold">$</span> <span class="cyan-dim">grep</span> <span class="muted">-n -B2 -A10</span> <span style="color:#6f7794">"function formatBashCall"</span> <span class="muted">bash.js</span><br>
+    <span class="cyan bold">$</span> <span class="cyan-dim">npm</span> <span class="muted">run typecheck</span> <span class="fg">2&gt;&amp;1</span> <span class="dim">|</span> <span class="cyan-dim">tail</span> <span class="muted">-3</span><br>
+    <span class="cyan bold">$</span> <span class="muted">CI=1</span> <span class="cyan-dim">env</span> <span class="cyan-dim">bash</span> <span class="muted">-lc</span> <span style="color:#6f7794">'echo $HOME'</span><br>
+    <span class="dim"># $ / tool name cyan · command dim cyan · param fgMuted · quote silverDim · end fgDim · $VAR tealDark</span>
   </div>
 </div>
-<p class="note">映射自 tokyonight 官方 fish theme（command 7dcfff / option bb9af7→pink 用户定制 / param 9d7cd8→pink / quote e0af68 / end ff9e64→orange / operator 9ece6a）。全部现有 vars，零新色。</p>
+<p class="note">Cool Minimal：仅 tool name / <code>$</code> 保持 full cyan；shell command 使用 cyan 65% + fgDim 派生 dim cyan，param/path 回落 fgMuted，quote = silverDim，end = fgDim，expansion = tealDark。移除显眼紫黄，主要靠明度区分词法。</p>
 
 <h3>Diff · Syntax · Markdown</h3>
 <div class="grid2">
@@ -392,7 +395,7 @@
     <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">diff · added teal / context fgDim</div></div>
     <div class="body tools">
       <div class="tool-gutter gutter-success" style="background:#121218">
-        <span class="cyan bold">edit</span> <span style="color:#fca7ea">themes/cyber-ui-dark.json</span>
+        <span class="cyan bold">edit</span> <span class="muted">themes/cyber-ui-dark.json</span>
         <span class="out" style="color:#565f89">&nbsp;12&nbsp;&nbsp;"vars": {</span>
         <span class="out" style="color:#f7768e">-13&nbsp;&nbsp;&nbsp;&nbsp;"toolSuccessBg": "#0b1020",</span>
         <span class="out" style="color:#4fd6be">+13&nbsp;&nbsp;&nbsp;&nbsp;"toolSurface": "#121218",</span>

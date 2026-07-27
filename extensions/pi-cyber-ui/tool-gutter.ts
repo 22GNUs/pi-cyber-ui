@@ -17,7 +17,7 @@ import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-age
 import { Text, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import type { CyberUiConfig } from "./config.js";
-import { bgRgb, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
+import { bgRgb, mix, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
 import {
   installToolRendererBridge,
   type ToolRendererBridgeDependencies,
@@ -69,7 +69,7 @@ function trimBlankEdges(lines: string[]): string[] {
 
 const BOLD_ON = "\x1b[1m";
 const ACCENT_FG = rgb(palette.cyan);
-const PARAM_FG = rgb(palette.pink);
+const PARAM_FG = rgb(palette.fgMuted);
 
 /**
  * Built-in call renderers paint paths/args with the accent color (cyan),
@@ -233,12 +233,11 @@ function getTextContent(result: { content?: Array<{ type: string; text?: string 
 
 /**
  * Bash is the one built-in whose renderCall paints the whole `$ command` in
- * bold toolTitle. Restyle with the tokyonight fish syntax palette so tool
- * rows read exactly like the user's shell:
+ * bold toolTitle. Restyle it with the low-chroma Cool Minimal fish palette:
  *
- *   command → cyan · option/param → pink · quote → orange
- *   end (| ; &&) → orange · $expansion → green · comment → fgDim
- *   redirection → fg (unpainted)
+ *   `$` → cyan · command → dim cyan · option/param → fgMuted
+ *   quote → silverDim · end (| ; &&) → fgDim · $expansion → tealDark
+ *   comment → fgDim · redirection → fg (unpainted)
  */
 const SHELL_OPERATOR = /^(\|\||&&|>{1,2}&?\d*|<{1,2}|;|\||&)/;
 const COMMAND_CHAINERS = new Set(["sudo", "env", "time", "nohup", "xargs", "exec", "command"]);
@@ -265,6 +264,12 @@ const WORD_BREAK = " \t'\"|;&<>";
 const COMMAND_SEPARATORS = new Set(["||", "&&", "|", ";", "&"]);
 
 type ShellTheme = Parameters<RenderCall>[1];
+
+const SHELL_COMMAND_COLOR = mix(palette.fgDim, palette.cyan, 0.65);
+const SHELL_PARAM_COLOR = palette.fgMuted;
+const SHELL_QUOTE_COLOR = palette.silverDim;
+const SHELL_END_COLOR = palette.fgDim;
+const SHELL_EXPANSION_COLOR = palette.tealDark;
 
 function isEscaped(text: string, index: number): boolean {
   let slashes = 0;
@@ -330,15 +335,15 @@ function highlightShellLine(line: string, startAsCommand: boolean): string {
       let j = i + 1;
       while (j < n && (line[j] !== ch || isEscaped(line, j))) j++;
       const end = Math.min(n, j + 1);
-      out += paint(palette.orange, line.slice(i, end));
+      out += paint(SHELL_QUOTE_COLOR, line.slice(i, end));
       i = end;
       expectCommand = false;
       continue;
     }
     const op = SHELL_OPERATOR.exec(line.slice(i));
     if (op) {
-      // fish: command separators use the "end" color; redirections stay fg.
-      out += COMMAND_SEPARATORS.has(op[0]) ? paint(palette.orange, op[0]) : op[0];
+      // Command separators stay dim; redirections remain unpainted fg.
+      out += COMMAND_SEPARATORS.has(op[0]) ? paint(SHELL_END_COLOR, op[0]) : op[0];
       i += op[0].length;
       if (COMMAND_SEPARATORS.has(op[0])) {
         expectCommand = true;
@@ -351,19 +356,19 @@ function highlightShellLine(line: string, startAsCommand: boolean): string {
     while (j < n && !WORD_BREAK.includes(line[j]!)) j++;
     const word = line.slice(i, j);
     if (word.startsWith("$")) {
-      out += paint(palette.green, word);
+      out += paint(SHELL_EXPANSION_COLOR, word);
       expectCommand = false;
       wrapper = undefined;
     } else if (expectCommand && /^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
-      out += paint(palette.pink, word); // env assignment; still expecting the command
+      out += paint(SHELL_PARAM_COLOR, word); // env assignment; still expecting the command
     } else if (expectCommand && wrapperOptionValue) {
-      out += paint(palette.pink, word);
+      out += paint(SHELL_PARAM_COLOR, word);
       wrapperOptionValue = false;
     } else if (expectCommand && wrapper && word.startsWith("-")) {
-      out += paint(palette.pink, word);
+      out += paint(SHELL_PARAM_COLOR, word);
       wrapperOptionValue = wrapperOptionNeedsValue(wrapper, word);
     } else if (expectCommand) {
-      out += paint(palette.cyan, word);
+      out += paint(SHELL_COMMAND_COLOR, word);
       if (COMMAND_CHAINERS.has(word)) {
         wrapper = word;
       } else {
@@ -371,7 +376,7 @@ function highlightShellLine(line: string, startAsCommand: boolean): string {
         wrapper = undefined;
       }
     } else {
-      out += paint(palette.pink, word); // options and params share the fish param color
+      out += paint(SHELL_PARAM_COLOR, word);
     }
     i = j;
   }
@@ -384,7 +389,7 @@ export function highlightShellCommand(command: string): string {
   let heredocMarker: string | undefined;
   for (const line of lines) {
     if (heredocMarker) {
-      out.push(paint(palette.orange, line));
+      out.push(paint(SHELL_QUOTE_COLOR, line));
       if (line.trim() === heredocMarker) heredocMarker = undefined;
       continue;
     }
