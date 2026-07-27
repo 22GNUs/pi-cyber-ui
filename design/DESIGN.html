@@ -173,8 +173,7 @@
   .tool-block .out { display: block; padding-left: 0; }
   .tool-gutter { margin: 12px 0 12px 20px; padding: 4px 0 4px 10px; border-left: 4px solid transparent; }
   .tool-gutter .out { display: block; }
-  .gutter-pending { border-left-color: #7dcfff; animation: gutterPulse 2.4s ease-in-out infinite; }
-  @keyframes gutterPulse { 0%,100% { border-left-color: #7dcfff; } 50% { border-left-color: #33566e; } }
+  .gutter-pending { border-left-color: #7aa2f7; }
   .gutter-success { border-left-color: #4fd6be; }
   .gutter-error { border-left-color: #f7768e; }
 
@@ -319,9 +318,9 @@
 <p class="note">左 model · thinking（max 为红色加粗）· context · cache ｜ 右 path · git · 扩展 statuses · 窄时折叠 <code>+N</code></p>
 
 <h3>Tool row · 信号克制</h3>
-<p class="note" style="margin-bottom:10px">设计原则（Grok 克制 × sci-fi HUD × 高端暗色系统交集）：全画面状态色相只 2 个 —— <span class="cyan">cyan</span> = 运行中（霓虹呼吸）、<span class="red">red</span> = 失败；成功不配状态色，灯条落在霓虹 <span style="color:#4fd6be">teal</span>；层级靠明度台阶，面板统一 <code>#121218</code>。文本配色对齐 tokyonight fish：command/工具名 = cyan，param/路径 = pink。</p>
+<p class="note" style="margin-bottom:10px">设计原则（Grok 克制 × sci-fi HUD × 高端暗色系统交集）：灯条为纯静态三色 —— <span class="blue">blue</span> = 运行中、<span style="color:#4fd6be">teal</span> = 成功、<span class="red">red</span> = 失败（蓝→青→红一眼可分，零动画零定时器，运行动感由 working HUD 承担）；层级靠明度台阶，面板统一 <code>#121218</code>。文本配色对齐 tokyonight fish：command/工具名 = cyan，param/路径 = pink。</p>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">gutter · panel #121218 · bar ▍ · fish palette · settle blink</div></div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">gutter · panel #121218 · bar ▍ 静态三色 · fish palette</div></div>
   <div class="body tools">
     <div class="tool-gutter" style="background:#121218;border-left-color:#aab8ca">
       <span class="silver">❯</span> <span style="color:#c8d3ea">把工具行做成 fish 同构的霓虹灯条</span>
@@ -353,8 +352,8 @@
 <div class="grid2" style="margin-top:10px">
   <div class="card">
     <h4>信号层 · 灯条</h4>
-    <p><span class="cyan">▍ cyan</span> 运行中 · 浅谷 45% 霓虹呼吸<br>
-    <span style="color:#4fd6be">▍ teal</span> 完成 · settle blink：冲亮 cyanBright(140ms) → ease-out 缓落 teal<br>
+    <p><span class="blue">▍ blue</span> 运行中 · 静态（动感由 working HUD 承担）<br>
+    <span style="color:#4fd6be">▍ teal</span> 完成 · 静态<br>
     <span class="red">▍ red</span> 失败 · 唯一警示<br>
     <span class="silver">▍ promptSilver</span> 用户输入 · 与工具同语言，银色区分身份</p>
   </div>
@@ -448,8 +447,6 @@
   <thead><tr><th>元素</th><th>周期</th><th>说明</th></tr></thead>
   <tbody>
     <tr><td>spinner pulse</td><td><span class="ms">4800ms</span></td><td>64 帧双呼吸 · 峰色 pink/cyan 交替 · 谷 fgDim · 75ms/帧</td></tr>
-    <tr><td>gutter pulse</td><td><span class="ms">2400ms</span></td><td>工具运行中灯条 cyan ↔ 浅谷（45% 沉降保霓虹感）余弦呼吸 · 16ms 采样(60fps) + 颜色变化门控</td></tr>
-    <tr><td>gutter power-down</td><td><span class="ms">900ms</span></td><td>完成瞬间从呼吸相位色冲亮 cyanBright(140ms) 再 ease-out 缓落 teal · 16ms 采样(60fps) · 失败直接 red</td></tr>
     <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 错相 spinner</td></tr>
     <tr><td>message refresh</td><td><span class="ms">16ms</span></td><td>~60fps 采样保相位精度 · 实际写入由变化驱动：强度量化 16 阶 + memo 跳过同内容帧</td></tr>
     <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>

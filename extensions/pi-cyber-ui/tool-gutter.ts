@@ -1,11 +1,11 @@
 /**
  * Tool gutter — neon status bar + uniform slate panel for built-in tools.
  *
- * Design language (see design/DESIGN.html · v2 "信号克制"):
+ * Design language (see design/DESIGN.html):
  *   - one neutral panel surface for every state (elevation by luminance);
  *     status lives entirely in the left bar
- *   - bar: pending = cyan neon breathing · success = teal (settle blink:
- *     flash to cyanBright, ease down) · error = red
+ *   - bar (static, no animation — deliberately timer-free):
+ *       pending = blue · success = teal · error = red
  *   - call slot text follows the tokyonight fish shell palette: tool name /
  *     command = cyan, params = pink
  *
@@ -39,7 +39,7 @@ import {
 import { Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import type { CyberUiConfig } from "./config.js";
-import { bgRgb, mix, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
+import { bgRgb, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
 
 type AnyToolDefinition = ToolDefinition<any, any, any>;
 type RenderCall = NonNullable<AnyToolDefinition["renderCall"]>;
@@ -48,12 +48,6 @@ type RenderContext = Parameters<RenderCall>[2];
 
 const BAR = "▍"; // 3/8 block — between the thin ▎ and the heavy ▌
 const BAR_WIDTH = 2; // bar + space
-const PULSE_PERIOD_MS = 2400;
-const SETTLE_FLASH_MS = 140;
-const POWER_DOWN_MS = 900; // flash rise + ease-down total
-const FRAME_MS = 16; // 60fps sampling; renders are gated on actual color change
-/** Breathing valley — shallow sink so the pending bar keeps its neon glow. */
-const PULSE_DIM: RGB = mix(palette.cyan, palette.toolSurface, 0.45);
 const FULL_RESET = "\x1b[0m";
 const SGR_OR_OSC = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07/g;
 const PANEL_BG = bgRgb(palette.toolSurface);
@@ -115,104 +109,23 @@ function recolorCallParams(line: string): string {
   }
 }
 
-/** Bar animation state — a pure function of time (see animColor). */
-type BarAnim =
-  | { kind: "static"; color: RGB }
-  | { kind: "pulse" }
-  | { kind: "fade"; settledAt: number; from: RGB };
-
-function animColor(anim: BarAnim, now: number): RGB {
-  switch (anim.kind) {
-    case "static":
-      return anim.color;
-    case "pulse": {
-      const phase = (now % PULSE_PERIOD_MS) / PULSE_PERIOD_MS;
-      const k = (1 - Math.cos(phase * 2 * Math.PI)) / 2; // 0 → 1 → 0
-      return mix(palette.cyan, PULSE_DIM, k);
-    }
-    case "fade": {
-      // Settle blink: rise to cyanBright (unmissable "done" flash), then
-      // ease down to the neon teal rest color. Phase-continuous: `from` is
-      // the pulse color at the settle instant.
-      const elapsed = now - anim.settledAt;
-      if (elapsed >= POWER_DOWN_MS) return palette.teal;
-      if (elapsed < SETTLE_FLASH_MS) {
-        return mix(anim.from, palette.cyanBright, elapsed / SETTLE_FLASH_MS);
-      }
-      const t = (elapsed - SETTLE_FLASH_MS) / (POWER_DOWN_MS - SETTLE_FLASH_MS);
-      return mix(palette.cyanBright, palette.teal, 1 - (1 - t) ** 2); // ease-out
-    }
-  }
-}
-
-function animDone(anim: BarAnim, now: number): boolean {
-  if (anim.kind === "static") return true;
-  if (anim.kind === "fade") return now - anim.settledAt >= POWER_DOWN_MS;
-  return false;
-}
+/** Static bar colors — no timers, no animation state. */
+const BAR_PENDING: RGB = palette.blue;
+const BAR_SUCCESS: RGB = palette.teal;
+const BAR_ERROR: RGB = palette.red;
 
 /** Row-scoped state shared by the call and result slots of one tool row. */
 interface GutterShell {
-  /** The row was observed live (streaming); enables the settle blink. */
-  sawPartial: boolean;
   /** The result slot has rendered; the call slot skips its bottom padding. */
   hasResult: boolean;
-  /** Current bar animation, shared by both slots. */
-  anim: BarAnim;
-  /** Row animation loop (one per row, 60fps, color-change gated). */
-  loop: ReturnType<typeof setTimeout> | undefined;
-  lastLoopColor: RGB | undefined;
-  /**
-   * True while an animation frame invalidates the row. Animation frames only
-   * change the bar color, so inner render caches are preserved (pi-tui
-   * components cache render output and rebuild on invalidate).
-   */
-  animFrame: boolean;
+  /** Current bar color, shared by both slots. */
+  barColor: RGB;
 }
 
 function getShell(context: RenderContext): GutterShell {
   const state = context.state as { __gutterShell?: GutterShell };
-  state.__gutterShell ??= {
-    sawPartial: false,
-    hasResult: false,
-    anim: { kind: "static", color: palette.teal },
-    loop: undefined,
-    lastLoopColor: undefined,
-    animFrame: false,
-  };
+  state.__gutterShell ??= { hasResult: false, barColor: BAR_SUCCESS };
   return state.__gutterShell;
-}
-
-/**
- * One 60fps sampling loop per tool row. Each frame computes the bar color
- * from wall-clock time and only triggers a row re-render when the quantized
- * color actually changed — near the cosine peaks this naturally idles.
- */
-function ensureAnimLoop(shell: GutterShell, invalidate: () => void): void {
-  if (shell.loop) return;
-  if (animDone(shell.anim, Date.now())) return;
-  const tick = () => {
-    shell.loop = undefined;
-    const now = Date.now();
-    const color = animColor(shell.anim, now);
-    const last = shell.lastLoopColor;
-    if (!last || last[0] !== color[0] || last[1] !== color[1] || last[2] !== color[2]) {
-      shell.lastLoopColor = color;
-      // Animation frames only recolor the bar prefix — keep inner caches.
-      shell.animFrame = true;
-      try {
-        invalidate();
-      } finally {
-        shell.animFrame = false;
-      }
-    }
-    if (!shell.loop && !animDone(shell.anim, now)) {
-      shell.loop = setTimeout(tick, FRAME_MS);
-      shell.loop.unref?.();
-    }
-  };
-  shell.loop = setTimeout(tick, FRAME_MS);
-  shell.loop.unref?.();
 }
 
 /**
@@ -231,9 +144,8 @@ class GutterComponent implements Component {
 
   render(width: number): string[] {
     if (!this.inner) return [];
-    const barColor = animColor(this.shell.anim, Date.now());
     const bg = PANEL_BG;
-    const prefix = bg + paint(barColor, BAR) + " ";
+    const prefix = bg + paint(this.shell.barColor, BAR) + " ";
     const innerWidth = Math.max(8, width - BAR_WIDTH);
     const blank = prefix + " ".repeat(innerWidth) + RESET_BG;
     const content = trimBlankEdges(this.inner.render(innerWidth));
@@ -258,8 +170,7 @@ class GutterComponent implements Component {
   }
 
   invalidate(): void {
-    // Skip cache-busting for animation frames; only the bar color changed.
-    if (!this.shell.animFrame) this.inner?.invalidate();
+    this.inner?.invalidate();
   }
 }
 
@@ -369,7 +280,6 @@ function renderIntoGutter(
   context: RenderContext,
   buildInner: (innerContext: RenderContext) => Component,
   isPartial: boolean,
-  animate: boolean,
   recolorParams: boolean,
 ): Component {
   const shell = getShell(context);
@@ -382,26 +292,11 @@ function renderIntoGutter(
   // inner component instead of our wrapper.
   outer.inner = buildInner({ ...context, lastComponent: outer.inner });
 
-  const now = Date.now();
-  if (isPartial && !context.isError) shell.sawPartial = true;
-  if (context.isError) {
-    shell.anim = { kind: "static", color: palette.red };
-  } else if (isPartial) {
-    shell.anim = animate ? { kind: "pulse" } : { kind: "static", color: palette.cyan };
-  } else if (shell.sawPartial && animate) {
-    if (shell.anim.kind !== "fade") {
-      // Settle instant: start the blink from the pulse's current color.
-      shell.anim = { kind: "fade", settledAt: now, from: animColor(shell.anim, now) };
-    }
-  } else {
-    shell.anim = { kind: "static", color: palette.teal };
-  }
-  if (animate) ensureAnimLoop(shell, context.invalidate);
+  shell.barColor = context.isError ? BAR_ERROR : isPartial ? BAR_PENDING : BAR_SUCCESS;
   return outer;
 }
 
 function wrapDefinition(def: AnyToolDefinition, config: CyberUiConfig): AnyToolDefinition {
-  const animate = config.gutterAnimation;
   const innerCall: RenderCall = (args, theme, context) => {
     const component = def.renderCall
       ? def.renderCall(args, theme, context)
@@ -429,7 +324,6 @@ function wrapDefinition(def: AnyToolDefinition, config: CyberUiConfig): AnyToolD
         context,
         (inner) => innerCall(args, theme, inner),
         context.isPartial,
-        animate,
         def.name !== "bash", // bash styles itself via the fish tokenizer
       );
     },
@@ -439,7 +333,6 @@ function wrapDefinition(def: AnyToolDefinition, config: CyberUiConfig): AnyToolD
         context,
         (inner) => innerResult(result, options, theme, inner),
         options.isPartial ?? false,
-        animate,
         false,
       );
     },
