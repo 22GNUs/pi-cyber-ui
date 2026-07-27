@@ -6,11 +6,12 @@ A standalone Pi package: cyber-inspired editor, compact footer, working indicato
 
 Visual reference lives in [`design/DESIGN.html`](design/DESIGN.html) (effect-first demos, not an architecture doc).
 
-**Signal restraint.** The whole UI keeps two status hues:
-- **cyan** — active / running (neon breathing)
+**Signal restraint.** Status lives in a static left bar (`▍`) on one slate panel (`#121218`):
+- **blue** — running
+- **teal** — success
 - **red** — failure
 
-Everything else is structure: a single slate panel (`#121218`), luminance steps for hierarchy, and a left status bar (`▍`) whose color *is* the signal. Success does not invent a third status hue — the bar settles to neon **teal** after a short “settle blink” (flash to `cyanBright`, ease down).
+No bar animation by design: bars are pure functions of tool state (zero timers, zero re-render churn). Motion feedback while running belongs to the working HUD, not the transcript.
 
 **Fish shell isomorphism.** Call-slot text follows the [tokyonight fish theme](https://github.com/folke/tokyonight.nvim/blob/main/extras/fish_themes/tokyonight_night.theme) (params customized to pink):
 
@@ -32,7 +33,7 @@ Everything else is structure: a single slate panel (`#121218`), luminance steps 
 | `editor.ts` / `cyber-editor.ts` / `editor-state.ts` | Editor shell, prompt glyph, session label, token accounting |
 | `working.ts` | Running HUD + idle summary (60fps, color-gated) |
 | `footer.ts` | Model · thinking · context · path · git |
-| `tool-gutter.ts` | Built-in tool wrap: neon bar + panel + fish highlighting |
+| `tool-gutter.ts` | Built-in tool wrap: static status bar + panel + fish highlighting |
 | `user-message-patch.ts` | Prompt-style user messages (`❯` + silver bar) |
 | `config.ts` | `~/.pi/agent/pi-cyber-ui.json` |
 | `palette.ts` | Single source of RGB colors from the theme JSON |
@@ -51,21 +52,16 @@ Optional: `~/.pi/agent/pi-cyber-ui.json`. Missing file/fields fall back to defau
 ```json
 {
   "toolHighlight": "gutter",
-  "userMessageStyle": "prompt",
-  "gutterAnimation": true
+  "userMessageStyle": "prompt"
 }
 ```
 
 | Key | Values | Default | Meaning |
 |-----|--------|---------|---------|
-| `toolHighlight` | `gutter` \| `blocks` | `gutter` | Neon status bar + panel, or pi’s default block shell |
+| `toolHighlight` | `gutter` \| `blocks` | `gutter` | Status bar + panel, or pi’s default block shell |
 | `userMessageStyle` | `prompt` \| `block` | `prompt` | `❯` + silver gutter, or themed background box |
-| `gutterAnimation` | boolean | `true` | Pending breath + settle blink |
 
-Bar colors when `gutter`:
-- pending → cyan neon breath (shallow valley, 60fps, color-change gated)
-- success → teal, via settle blink (140ms flash to cyanBright → ease-out 760ms)
-- error → red (immediate)
+Bar colors when `gutter`: pending → blue · success → teal · error → red (all static).
 
 ## Architecture contract
 
@@ -76,7 +72,7 @@ UI-only. Two rendering surfaces beyond widgets:
    - Only the shell is replaced (`renderShell: "self"` + bar + panel). Built-in `renderCall` / `renderResult` (syntax, diffs, expand) are reused.
    - Args, results, and active tool sets are never modified.
    - Pi prints its standard override warning for each wrapped tool at startup — expected.
-   - Animation: one 16ms sampling loop per tool row, re-renders only when the quantized bar color changes; animation frames preserve inner render caches.
+   - Rendering is stateless per row: the bar color derives from tool state only; no timers or animation loops.
 
 2. **User message prompt style** (`userMessageStyle: "prompt"`) — the only deliberate hack.
    - Patches `UserMessageComponent.prototype.rebuild` after locating the running pi from `process.argv[1]`.

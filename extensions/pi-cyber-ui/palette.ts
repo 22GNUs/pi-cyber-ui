@@ -74,7 +74,7 @@ export const palette = {
   toolErrorBg: resolve("toolErrorBg"),
   userInputBg: resolve("userInputBg"),
   cyan: resolve("cyan"),
-  cyanBright: resolve("cyanBright"),
+  blue: resolve("blue"),
   teal: resolve("teal"),
   green: resolve("green"),
   orange: resolve("orange"),

@@ -14,14 +14,11 @@ export interface CyberUiConfig {
   toolHighlight: "gutter" | "blocks";
   /** User message style: "prompt" renders `❯` + silver gutter (render patch); "block" keeps the themed background box. */
   userMessageStyle: "prompt" | "block";
-  /** Animate the gutter bar while a tool is running. */
-  gutterAnimation: boolean;
 }
 
 const DEFAULTS: CyberUiConfig = {
   toolHighlight: "gutter",
   userMessageStyle: "prompt",
-  gutterAnimation: true,
 };
 
 export const CONFIG_PATH = join(homedir(), ".pi", "agent", "pi-cyber-ui.json");
@@ -36,7 +33,6 @@ export function loadConfig(): CyberUiConfig {
     return {
       toolHighlight: pick(raw.toolHighlight, ["gutter", "blocks"] as const, DEFAULTS.toolHighlight),
       userMessageStyle: pick(raw.userMessageStyle, ["prompt", "block"] as const, DEFAULTS.userMessageStyle),
-      gutterAnimation: typeof raw.gutterAnimation === "boolean" ? raw.gutterAnimation : DEFAULTS.gutterAnimation,
     };
   } catch {
     return { ...DEFAULTS };
