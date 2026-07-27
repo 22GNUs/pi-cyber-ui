@@ -11,8 +11,8 @@
  *
  * Official wrap pattern (pi docs "Overriding Built-in Tools"): register
  * same-name tools whose `execute` is the untouched built-in implementation
- * (obtained at runtime via `create*ToolDefinition`, so behavior follows pi
- * updates automatically), and only replace the shell:
+ * (loaded from the exact Pi package running this process), and only replace
+ * the shell:
  *
  *   - `renderShell: "self"` bypasses the default background Box entirely
  *   - built-in `renderCall` / `renderResult` are reused as-is (syntax
@@ -22,29 +22,65 @@
  *     plus one separator line between call and result, so bash/read/edit
  *     all share the same silhouette
  *
- * Third-party extension tools cannot be wrapped (their full definitions are
- * not reachable through the extension API); they keep pi's default block
- * shell, styled by the theme's tool*Bg tokens on the same panel tone.
+ * Same-name extension / SDK tools are never overridden. Active extension
+ * tools keep their original rendering and produce one startup/reload warning
+ * that the gutter was skipped; default block shells still inherit the theme's
+ * tool*Bg tokens.
  */
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import {
-  createBashToolDefinition,
-  createEditToolDefinition,
-  createFindToolDefinition,
-  createGrepToolDefinition,
-  createLsToolDefinition,
-  createReadToolDefinition,
-  createWriteToolDefinition,
-} from "@earendil-works/pi-coding-agent";
 import { Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import type { CyberUiConfig } from "./config.js";
 import { bgRgb, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
+import { importRunningPiModule } from "./runtime-pi.js";
 
 type AnyToolDefinition = ToolDefinition<any, any, any>;
 type RenderCall = NonNullable<AnyToolDefinition["renderCall"]>;
 type RenderResult = NonNullable<AnyToolDefinition["renderResult"]>;
 type RenderContext = Parameters<RenderCall>[2];
+
+type BuiltinToolName = "read" | "bash" | "edit" | "write" | "grep" | "find" | "ls";
+type ToolFactory = (cwd: string) => AnyToolDefinition;
+
+const BUILTIN_TOOL_SPECS = [
+  ["read", "createReadToolDefinition"],
+  ["bash", "createBashToolDefinition"],
+  ["edit", "createEditToolDefinition"],
+  ["write", "createWriteToolDefinition"],
+  ["grep", "createGrepToolDefinition"],
+  ["find", "createFindToolDefinition"],
+  ["ls", "createLsToolDefinition"],
+] as const satisfies readonly (readonly [BuiltinToolName, string])[];
+
+export interface ToolGutterDependencies {
+  loadBuiltinDefinitions(cwd: string): Promise<ReadonlyMap<BuiltinToolName, AnyToolDefinition> | undefined>;
+}
+
+export async function loadRunningBuiltinDefinitions(
+  cwd: string,
+): Promise<ReadonlyMap<BuiltinToolName, AnyToolDefinition> | undefined> {
+  const mod = await importRunningPiModule();
+  if (!mod) return undefined;
+
+  const definitions = new Map<BuiltinToolName, AnyToolDefinition>();
+  for (const [name, exportName] of BUILTIN_TOOL_SPECS) {
+    try {
+      const factory = mod[exportName];
+      if (typeof factory !== "function") continue;
+      const definition = (factory as ToolFactory)(cwd);
+      if (definition.name === name && typeof definition.execute === "function") {
+        definitions.set(name, definition);
+      }
+    } catch {
+      // A missing or incompatible factory must degrade to Pi's original tool.
+    }
+  }
+  return definitions;
+}
+
+const DEFAULT_DEPENDENCIES: ToolGutterDependencies = {
+  loadBuiltinDefinitions: loadRunningBuiltinDefinitions,
+};
 
 const BAR = "▍"; // 3/8 block — between the thin ▎ and the heavy ▌
 const BAR_WIDTH = 2; // bar + space
@@ -296,7 +332,7 @@ function renderIntoGutter(
   return outer;
 }
 
-function wrapDefinition(def: AnyToolDefinition, config: CyberUiConfig): AnyToolDefinition {
+function wrapDefinition(def: AnyToolDefinition): AnyToolDefinition {
   const innerCall: RenderCall = (args, theme, context) => {
     const component = def.renderCall
       ? def.renderCall(args, theme, context)
@@ -339,24 +375,59 @@ function wrapDefinition(def: AnyToolDefinition, config: CyberUiConfig): AnyToolD
   };
 }
 
-export default function toolGutter(pi: ExtensionAPI, config: CyberUiConfig): void {
+function summarizeToolNames(names: readonly string[], limit = 2): string {
+  const shown = names.slice(0, limit);
+  const remaining = names.length - shown.length;
+  return remaining > 0 ? `${shown.join(", ")} +${remaining}` : shown.join(", ");
+}
+
+function getActiveExtensionToolNames(
+  pi: ExtensionAPI,
+  sourceByName: ReadonlyMap<string, string>,
+): string[] {
+  return pi.getActiveTools().filter((name) => {
+    const source = sourceByName.get(name);
+    return source !== undefined && source !== "builtin";
+  });
+}
+
+export default function toolGutter(
+  pi: ExtensionAPI,
+  config: CyberUiConfig,
+  dependencies: ToolGutterDependencies = DEFAULT_DEPENDENCIES,
+): void {
   if (config.toolHighlight !== "gutter") return;
 
   let registered = false;
-  pi.on("session_start", (_event, ctx) => {
-    if (registered) return;
+  pi.on("session_start", async (event, ctx) => {
+    const mode = (ctx as { mode?: string }).mode;
+    if (registered || !ctx.hasUI || (mode !== undefined && mode !== "tui")) return;
     registered = true;
-    const definitions: AnyToolDefinition[] = [
-      createReadToolDefinition(ctx.cwd),
-      createBashToolDefinition(ctx.cwd),
-      createEditToolDefinition(ctx.cwd),
-      createWriteToolDefinition(ctx.cwd),
-      createGrepToolDefinition(ctx.cwd),
-      createFindToolDefinition(ctx.cwd),
-      createLsToolDefinition(ctx.cwd),
-    ];
-    for (const definition of definitions) {
-      pi.registerTool(wrapDefinition(definition, config));
+
+    const sourceByName = new Map(
+      pi.getAllTools().map((tool) => [tool.name, tool.sourceInfo.source] as const),
+    );
+    const skippedExtensionTools = getActiveExtensionToolNames(pi, sourceByName);
+    const definitions = await dependencies.loadBuiltinDefinitions(ctx.cwd);
+
+    if (definitions) {
+      for (const [name] of BUILTIN_TOOL_SPECS) {
+        // A same-name extension/SDK tool owns its behavior and rendering. Only
+        // replace tools that are still Pi's untouched built-ins.
+        if (sourceByName.get(name) !== "builtin") continue;
+        const definition = definitions.get(name);
+        if (definition) pi.registerTool(wrapDefinition(definition));
+      }
+    }
+
+    if (
+      skippedExtensionTools.length > 0 &&
+      (event.reason === "startup" || event.reason === "reload")
+    ) {
+      ctx.ui.notify(
+        `pi-cyber-ui gutter wrap skipped for extension tools: ${summarizeToolNames(skippedExtensionTools)} · using themed block fallback`,
+        "warning",
+      );
     }
   });
 }

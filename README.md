@@ -36,6 +36,7 @@ No bar animation by design: bars are pure functions of tool state (zero timers, 
 | `tool-gutter.ts` | Built-in tool wrap: static status bar + panel + fish highlighting |
 | `user-message-patch.ts` | Prompt-style user messages (`❯` + silver bar) |
 | `config.ts` | `~/.pi/agent/pi-cyber-ui.json` |
+| `runtime-pi.ts` | Resolves modules from the exact Pi process loading the extension |
 | `palette.ts` | Single source of RGB colors from the theme JSON |
 | `path-utils.ts` / `token-usage.ts` / `format.ts` | Shared helpers |
 
@@ -67,11 +68,13 @@ Bar colors when `gutter`: pending → blue · success → teal · error → red 
 
 UI-only. Two rendering surfaces beyond widgets:
 
-1. **Built-in tool gutter** (`toolHighlight: "gutter"`) — official wrap pattern.
-   - Registers same-name tools whose `execute` is the runtime built-in (`create*ToolDefinition`), so behavior tracks the installed pi.
+1. **Built-in tool gutter** (`toolHighlight: "gutter"`) — guarded official override pattern.
+   - Loads `create*ToolDefinition` from the exact Pi package running the process, never from the extension's local development dependency.
+   - Wraps a tool only while Pi still reports its source as `builtin`; same-name extension / SDK tools retain their behavior and rendering.
    - Only the shell is replaced (`renderShell: "self"` + bar + panel). Built-in `renderCall` / `renderResult` (syntax, diffs, expand) are reused.
-   - Args, results, and active tool sets are never modified.
+   - Args, results, and active tool sets are never modified. Wrapped built-ins are reported by Pi as extension-owned overrides.
    - Pi prints its standard override warning for each wrapped tool at startup — expected.
+   - Active extension tools that cannot receive the gutter produce one warning on startup / reload, then keep their themed block fallback.
    - Rendering is stateless per row: the bar color derives from tool state only; no timers or animation loops.
 
 2. **User message prompt style** (`userMessageStyle: "prompt"`) — the only deliberate hack.
@@ -79,7 +82,7 @@ UI-only. Two rendering surfaces beyond widgets:
    - Structure-checked; any mismatch silently keeps the themed block style.
    - Message content, session data, and LLM context are never touched.
 
-Third-party extension tools cannot be wrapped (definitions not reachable via the extension API). They keep pi’s default block shell, styled by `cyber-ui-dark` tool-state backgrounds on the same panel tone.
+Third-party extension tools cannot be wrapped (definitions not reachable via the extension API). They keep pi’s original rendering; default block shells are styled by `cyber-ui-dark` tool-state backgrounds on the same panel tone.
 
 The extension observes tool lifecycle events only to drive the HUD phase. While a tool runs, token/TPS values freeze and dim; tools themselves are unchanged.
 
