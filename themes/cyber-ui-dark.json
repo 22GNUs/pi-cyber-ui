@@ -57,7 +57,7 @@
     "mdLinkUrl":        "fgDim",
     "mdCode":           "teal",
     "mdCodeBlock":      "",
-    "mdCodeBlockBorder": "blueDark",
+    "mdCodeBlockBorder": "fgDim",
     "mdQuote":          "fgMuted",
     "mdQuoteBorder":    "tealDark",
     "mdHr":             "fgDim",

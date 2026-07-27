@@ -25,7 +25,7 @@ No bar animation by design: bars are pure functions of tool state (zero timers, 
 | `$VAR` | tealDark | expansions |
 | comment | fgDim | `# …` |
 
-**Cold neon syntax.** Theme-wide: string → teal, number → pink, diff added → teal, code fence → blueDark. Orange is reserved for warnings and bash mode.
+**Cold neon syntax.** Theme-wide: string → teal, number → pink, diff added → teal, code fence → fgDim. Orange is reserved for warnings and bash mode.
 
 ## Modules
 
