@@ -21,12 +21,11 @@
  *   - Only rendering is touched. Message content, session data, and LLM
  *     context are never modified.
  */
-import { existsSync, realpathSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { join } from "node:path";
 import { Markdown, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import { bgRgb, paint, palette, RESET_BG } from "./palette.js";
+import { importRunningPiModule } from "./runtime-pi.js";
 
 const USER_MESSAGE_MODULE = join("dist", "modes", "interactive", "components", "user-message.js");
 const BAR = "▍"; // 3/8 block — matches the tool gutter
@@ -62,40 +61,18 @@ class PromptGutter implements Component {
   }
 }
 
-/** Walk up from the running entry script to pi's package root. */
-function findPiRoot(): string | undefined {
-  const entry = process.argv[1];
-  if (!entry || !existsSync(entry)) return undefined;
-  try {
-    let dir = dirname(realpathSync(entry));
-    while (true) {
-      if (existsSync(join(dir, USER_MESSAGE_MODULE)) && existsSync(join(dir, "package.json"))) {
-        return dir;
-      }
-      const parent = dirname(dir);
-      if (parent === dir) return undefined;
-      dir = parent;
-    }
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * Apply the patch. Returns true when active; false means pi's structure did
  * not match expectations and the theme block style stays in effect.
  */
 export async function applyUserMessagePatch(): Promise<boolean> {
   try {
-    const root = findPiRoot();
-    if (!root) return false;
-
-    const modulePath = join(root, USER_MESSAGE_MODULE);
     // Node caches ES modules per resolved URL, so this import returns the
     // exact module instance pi is already using.
-    const mod = (await import(pathToFileURL(modulePath).href)) as {
+    const mod = (await importRunningPiModule(USER_MESSAGE_MODULE)) as {
       UserMessageComponent?: new (...args: unknown[]) => unknown;
-    };
+    } | undefined;
+    if (!mod) return false;
     const UserMessageComponent = mod.UserMessageComponent;
     if (typeof UserMessageComponent !== "function") return false;
 

@@ -349,6 +349,13 @@
     </div>
   </div>
 </div>
+<div class="term" style="margin-top:10px">
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">startup · gutter wrap diagnostic</div></div>
+  <div class="body" style="padding-top:12px;padding-bottom:12px">
+    <span class="orange">Warning: pi-cyber-ui gutter wrap skipped for extension tools: bash, ask_user +2 · using themed block fallback</span>
+  </div>
+</div>
+<p class="note">仅存在跳过项时显示一次；startup / reload 各最多一条，无跳过项保持静默。</p>
 <div class="grid2" style="margin-top:10px">
   <div class="card">
     <h4>信号层 · 灯条</h4>
@@ -365,7 +372,7 @@
     色条 ▍ 3/8 格 · 上下各 1 行 padding · call/result 间 1 行分隔</p>
   </div>
 </div>
-<p class="note">内置 7 工具走官方 wrap 模式（execute 1:1 转发，仅换外壳）；第三方工具无法 wrap，保留默认 Box 色块，theme 三个 tool*Bg 收敛到同面板色系。用户输入行是唯一的防御式 patch（结构检测失败静默回退 theme 色块）。</p>
+<p class="note">内置工具显示 gutter；第三方工具保持原生色块，并在 startup / reload 时以单条 warning 提示未套用 gutter。用户输入行结构检测失败时静默回退 theme 色块。</p>
 
 <h3>Bash · fish 同构高亮</h3>
 <div class="term">
