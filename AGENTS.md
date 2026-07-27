@@ -17,6 +17,7 @@ Concise working notes for this repository.
 - User message prompt style (defensive patch) lives in `extensions/pi-cyber-ui/user-message-patch.ts`
 - Config loader lives in `extensions/pi-cyber-ui/config.ts`
 - Running Pi module resolution lives in `extensions/pi-cyber-ui/runtime-pi.ts`
+- Shared terminal width tracking lives in `extensions/pi-cyber-ui/ui-metrics.ts`
 
 ## Workflow
 - Design-first for UI changes: update `design/DESIGN.html` before implementation, let the user review the visual/design effect, then implement only after explicit approval.

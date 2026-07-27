@@ -28,7 +28,7 @@
  * tool*Bg tokens.
  */
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { Text, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import type { CyberUiConfig } from "./config.js";
 import { bgRgb, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
@@ -169,8 +169,27 @@ function getShell(context: RenderContext): GutterShell {
  * paints the uniform panel surface across the full row width, and normalizes
  * vertical padding (call slot pads the top, result slot separator + bottom).
  */
+interface GutterRenderCache {
+  width: number;
+  inner: Component;
+  innerLines: string[];
+  innerLinesRef: string[];
+  barColor: RGB;
+  hasResult: boolean;
+  lines: string[];
+}
+
+function linesEqual(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((line, index) => line === b[index]);
+}
+
+function colorsEqual(a: RGB, b: RGB): boolean {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+}
+
 class GutterComponent implements Component {
   inner: Component | undefined;
+  private cache: GutterRenderCache | undefined;
 
   constructor(
     private readonly role: "call" | "result",
@@ -179,33 +198,64 @@ class GutterComponent implements Component {
   ) {}
 
   render(width: number): string[] {
-    if (!this.inner) return [];
+    if (!this.inner || width <= 0) return [];
+
+    const innerWidth = Math.max(1, width - BAR_WIDTH);
+    const innerLines = this.inner.render(innerWidth);
+    const cached = this.cache;
+    if (
+      cached &&
+      cached.width === width &&
+      cached.inner === this.inner &&
+      cached.hasResult === this.shell.hasResult &&
+      colorsEqual(cached.barColor, this.shell.barColor) &&
+      (cached.innerLinesRef === innerLines || linesEqual(cached.innerLines, innerLines))
+    ) {
+      return cached.lines;
+    }
+
     const bg = PANEL_BG;
     const prefix = bg + paint(this.shell.barColor, BAR) + " ";
-    const innerWidth = Math.max(8, width - BAR_WIDTH);
     const blank = prefix + " ".repeat(innerWidth) + RESET_BG;
-    const content = trimBlankEdges(this.inner.render(innerWidth));
+    const content = trimBlankEdges(innerLines);
+    let rows: string[];
+
     if (content.length === 0) {
       // Empty result still supplies the bottom padding it owns.
-      return this.role === "result" ? [blank] : [];
+      rows = this.role === "result" ? [blank] : [];
+    } else {
+      rows = [blank]; // call: top padding · result: separator
+      for (const rawLine of content) {
+        const line = this.recolorParams && this.role === "call" ? recolorCallParams(rawLine) : rawLine;
+        // Inner renderers may emit full SGR resets; re-arm the panel bg after
+        // each so the surface stays continuous. Shell-state backgrounds painted
+        // by inner Boxes (edit) are rewritten to the panel tone.
+        const restored = normalizeShellBg(line, bg)
+          .replaceAll(FULL_RESET, FULL_RESET + bg)
+          .replaceAll(RESET_BG, bg);
+        const pad = Math.max(0, innerWidth - visibleWidth(line));
+        rows.push(prefix + restored + " ".repeat(pad) + RESET_BG);
+      }
+      if (this.role === "result" || !this.shell.hasResult) rows.push(blank); // bottom padding
     }
-    const rows: string[] = [blank]; // call: top padding · result: separator
-    for (const rawLine of content) {
-      const line = this.recolorParams && this.role === "call" ? recolorCallParams(rawLine) : rawLine;
-      // Inner renderers may emit full SGR resets; re-arm the panel bg after
-      // each so the surface stays continuous. Shell-state backgrounds painted
-      // by inner Boxes (edit) are rewritten to the panel tone.
-      const restored = normalizeShellBg(line, bg)
-        .replaceAll(FULL_RESET, FULL_RESET + bg)
-        .replaceAll(RESET_BG, bg);
-      const pad = Math.max(0, innerWidth - visibleWidth(line));
-      rows.push(prefix + restored + " ".repeat(pad) + RESET_BG);
-    }
-    if (this.role === "result" || !this.shell.hasResult) rows.push(blank); // bottom padding
-    return rows;
+
+    const fitted = rows.map((line) =>
+      visibleWidth(line) > width ? truncateToWidth(line, width, "") : line,
+    );
+    this.cache = {
+      width,
+      inner: this.inner,
+      innerLines: [...innerLines],
+      innerLinesRef: innerLines,
+      barColor: this.shell.barColor,
+      hasResult: this.shell.hasResult,
+      lines: fitted,
+    };
+    return fitted;
   }
 
   invalidate(): void {
+    this.cache = undefined;
     this.inner?.invalidate();
   }
 }
@@ -228,15 +278,78 @@ function getTextContent(result: { content?: Array<{ type: string; text?: string 
  */
 const SHELL_OPERATOR = /^(\|\||&&|>{1,2}&?\d*|<{1,2}|;|\||&)/;
 const COMMAND_CHAINERS = new Set(["sudo", "env", "time", "nohup", "xargs", "exec", "command"]);
-const WORD_BREAK = " \t'\"|;&<>#";
+const WRAPPER_OPTIONS_WITH_VALUE = new Map<string, ReadonlySet<string>>([
+  [
+    "sudo",
+    new Set([
+      "-u", "--user", "-g", "--group", "-h", "--host",
+      "-C", "--close-from", "-R", "--chroot", "-D", "--chdir",
+    ]),
+  ],
+  ["env", new Set(["-u", "--unset", "-C", "--chdir", "-S", "--split-string"])],
+  ["time", new Set(["-f", "--format", "-o", "--output"])],
+  [
+    "xargs",
+    new Set([
+      "-a", "--arg-file", "-E", "--eof", "-I", "--replace",
+      "-L", "--max-lines", "-n", "--max-args", "-P", "--max-procs",
+      "-s", "--max-chars",
+    ]),
+  ],
+]);
+const WORD_BREAK = " \t'\"|;&<>";
 const COMMAND_SEPARATORS = new Set(["||", "&&", "|", ";", "&"]);
 
 type ShellTheme = Parameters<RenderCall>[1];
+
+function isEscaped(text: string, index: number): boolean {
+  let slashes = 0;
+  for (let i = index - 1; i >= 0 && text[i] === "\\"; i--) slashes++;
+  return slashes % 2 === 1;
+}
+
+function wrapperOptionNeedsValue(wrapper: string, option: string): boolean {
+  if (option.includes("=")) return false;
+  return WRAPPER_OPTIONS_WITH_VALUE.get(wrapper)?.has(option) ?? false;
+}
+
+function findHeredocMarker(line: string): string | undefined {
+  let quote: "'" | '"' | undefined;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (quote) {
+      if (ch === quote && !isEscaped(line, i)) quote = undefined;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch !== "<" || line[i + 1] !== "<" || line[i + 2] === "<") continue;
+
+    let j = i + 2;
+    if (line[j] === "-") j++;
+    while (line[j] === " " || line[j] === "\t") j++;
+    const markerQuote = line[j] === "'" || line[j] === '"' ? line[j++] : undefined;
+    const start = j;
+    while (
+      j < line.length &&
+      (markerQuote ? line[j] !== markerQuote : !" \t|;&<>".includes(line[j]!))
+    ) {
+      j++;
+    }
+    const marker = line.slice(start, j);
+    if (marker) return marker;
+  }
+  return undefined;
+}
 
 function highlightShellLine(line: string, startAsCommand: boolean): string {
   let out = "";
   let i = 0;
   let expectCommand = startAsCommand;
+  let wrapper: string | undefined;
+  let wrapperOptionValue = false;
   const n = line.length;
   while (i < n) {
     const ch = line[i]!;
@@ -251,7 +364,7 @@ function highlightShellLine(line: string, startAsCommand: boolean): string {
     }
     if (ch === "'" || ch === '"') {
       let j = i + 1;
-      while (j < n && (line[j] !== ch || line[j - 1] === "\\")) j++;
+      while (j < n && (line[j] !== ch || isEscaped(line, j))) j++;
       const end = Math.min(n, j + 1);
       out += paint(palette.orange, line.slice(i, end));
       i = end;
@@ -263,7 +376,11 @@ function highlightShellLine(line: string, startAsCommand: boolean): string {
       // fish: command separators use the "end" color; redirections stay fg.
       out += COMMAND_SEPARATORS.has(op[0]) ? paint(palette.orange, op[0]) : op[0];
       i += op[0].length;
-      if (COMMAND_SEPARATORS.has(op[0])) expectCommand = true;
+      if (COMMAND_SEPARATORS.has(op[0])) {
+        expectCommand = true;
+        wrapper = undefined;
+        wrapperOptionValue = false;
+      }
       continue;
     }
     let j = i;
@@ -272,11 +389,23 @@ function highlightShellLine(line: string, startAsCommand: boolean): string {
     if (word.startsWith("$")) {
       out += paint(palette.green, word);
       expectCommand = false;
+      wrapper = undefined;
     } else if (expectCommand && /^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
       out += paint(palette.pink, word); // env assignment; still expecting the command
+    } else if (expectCommand && wrapperOptionValue) {
+      out += paint(palette.pink, word);
+      wrapperOptionValue = false;
+    } else if (expectCommand && wrapper && word.startsWith("-")) {
+      out += paint(palette.pink, word);
+      wrapperOptionValue = wrapperOptionNeedsValue(wrapper, word);
     } else if (expectCommand) {
       out += paint(palette.cyan, word);
-      if (!COMMAND_CHAINERS.has(word)) expectCommand = false;
+      if (COMMAND_CHAINERS.has(word)) {
+        wrapper = word;
+      } else {
+        expectCommand = false;
+        wrapper = undefined;
+      }
     } else {
       out += paint(palette.pink, word); // options and params share the fish param color
     }
@@ -285,7 +414,7 @@ function highlightShellLine(line: string, startAsCommand: boolean): string {
   return out;
 }
 
-function highlightShellCommand(command: string): string {
+export function highlightShellCommand(command: string): string {
   const lines = command.split("\n");
   const out: string[] = [];
   let heredocMarker: string | undefined;
@@ -296,8 +425,7 @@ function highlightShellCommand(command: string): string {
       continue;
     }
     out.push(highlightShellLine(line, true));
-    const heredoc = /<<-?\s*['"]?(\w+)['"]?/.exec(line);
-    if (heredoc) heredocMarker = heredoc[1];
+    heredocMarker = findHeredocMarker(line);
   }
   return out.join("\n");
 }

@@ -1,180 +1,91 @@
 /**
- * Token usage helpers for the cyber HUD.
+ * Lightweight streaming token estimation for providers that do not expose
+ * cumulative usage while a message is still arriving.
  *
- * Exact mode is determined by the API/protocol, not the provider name.
- * Anthropic Messages API (and any provider using the same request protocol)
- * can expose cumulative streaming usage, so we can display exact in-flight
- * output tokens.
- *
- * Token estimation uses a zero-dependency BPE-inspired heuristic that
- * achieves ~85% accuracy without loading any encoder tables. Characters are
- * classified into six buckets and each bucket has an empirically-derived
- * chars-per-token ratio:
- *
- *   whitespace  – absorbed into adjacent tokens, not counted separately
- *   punctuation – each character is its own token               (~1.0 c/t)
- *   digit runs  – grouped in threes                             (~3.0 c/t)
- *   latin words – common short words = 1 token; others ~4.5 c/t (~4.5 c/t)
- *   CJK / kana  – one character per token                       (~1.0 c/t)
- *   cyrillic    – ~3.3 chars per token                          (~3.3 c/t)
- *   other       – conservative fallback                         (~2.5 c/t)
- *
- * Accumulated counts are stored as raw character counts so the final
- * formula can be applied once, keeping per-delta cost to O(n) char scans.
+ * The estimator preserves word/run boundaries across deltas instead of
+ * aggregating every Latin character into one global bucket. It deliberately
+ * stays dependency-free and is replaced by provider usage as soon as a
+ * positive cumulative output count appears.
  */
-import type { Api } from "@earendil-works/pi-ai";
 
-export type UsageMode = "exact" | "estimated";
+type RunKind = "asciiWord" | "digit" | "unicodeWord";
 
-const EXACT_USAGE_APIS = new Set<Api | string>(["anthropic-messages"]);
+const UNICODE_WORD = /[\p{L}\p{M}]/u;
 
-export function getUsageMode(api?: Api | string): UsageMode {
-  return api !== undefined && EXACT_USAGE_APIS.has(api) ? "exact" : "estimated";
-}
-
-// ---------------------------------------------------------------------------
-// Character classification
-// ---------------------------------------------------------------------------
-
-/** Six-way bucket covering the character classes that matter for BPE ratios. */
-type TokenBuckets = {
-  /** ASCII whitespace (space, tab, newline) – not counted separately */
-  whitespace: number;
-  /** ASCII punctuation – typically one token each */
-  punctuation: number;
-  /** ASCII digit characters – grouped ~3 per token */
-  digit: number;
-  /** ASCII letter characters – word-level grouping ~4.5 chars/token */
-  latin: number;
-  /** CJK unified ideographs, kana, hangul – ~1 char per token */
-  cjk: number;
-  /** Cyrillic – ~3.3 chars per token */
-  cyrillic: number;
-  /** Everything else (Arabic, other scripts, emoji, …) – ~2.5 chars/token */
-  other: number;
-};
-
-// Pre-built ASCII lookup: 0 = whitespace, 1 = punctuation, 2 = digit, 3 = latin
-// Indexed by char code (0-127). Values must stay in sync with CharKind below.
-const ASCII_KIND = new Uint8Array(128);
-
-const enum CharKind {
-  Whitespace = 0,
-  Punctuation = 1,
-  Digit = 2,
-  Latin = 3,
-}
-
-(function initAsciiKind() {
-  // whitespace
-  for (const c of [0x09, 0x0a, 0x0d, 0x20]) ASCII_KIND[c] = CharKind.Whitespace;
-  // digits 0-9
-  for (let c = 0x30; c <= 0x39; c++) ASCII_KIND[c] = CharKind.Digit;
-  // uppercase A-Z and lowercase a-z
-  for (let c = 0x41; c <= 0x5a; c++) ASCII_KIND[c] = CharKind.Latin;
-  for (let c = 0x61; c <= 0x7a; c++) ASCII_KIND[c] = CharKind.Latin;
-  // everything else in ASCII range is punctuation/symbol
-  for (let c = 0x21; c <= 0x7e; c++) {
-    if (ASCII_KIND[c] === CharKind.Whitespace) continue; // already set
-    if (ASCII_KIND[c] === CharKind.Latin) continue;
-    if (ASCII_KIND[c] === CharKind.Digit) continue;
-    ASCII_KIND[c] = CharKind.Punctuation;
-  }
-})();
-
-/** Classify a Unicode code point into one of the bucket keys. */
-function classifyCodePoint(cp: number): keyof TokenBuckets {
-  // Fast path: ASCII range
-  if (cp < 128) {
-    switch (ASCII_KIND[cp]) {
-      case CharKind.Whitespace: return "whitespace";
-      case CharKind.Punctuation: return "punctuation";
-      case CharKind.Digit: return "digit";
-      default: return "latin";
-    }
-  }
-
-  // CJK unified ideographs (main block + Extension A start)
-  if (cp >= 0x4e00 && cp <= 0x9fff) return "cjk";
-  // CJK Extension A
-  if (cp >= 0x3400 && cp <= 0x4dbf) return "cjk";
-  // CJK Compatibility Ideographs
-  if (cp >= 0xf900 && cp <= 0xfaff) return "cjk";
-  // Hiragana + Katakana
-  if (cp >= 0x3040 && cp <= 0x30ff) return "cjk";
-  // Hangul Syllables
-  if (cp >= 0xac00 && cp <= 0xd7af) return "cjk";
-  // CJK Symbols and Punctuation (。、「」…)
-  if (cp >= 0x3000 && cp <= 0x303f) return "cjk";
-  // Fullwidth forms
-  if (cp >= 0xff00 && cp <= 0xffef) return "cjk";
-
-  // Cyrillic
-  if (cp >= 0x0400 && cp <= 0x04ff) return "cyrillic";
-
-  return "other";
-}
-
-// ---------------------------------------------------------------------------
-// Token count formula
-// ---------------------------------------------------------------------------
-
-/**
- * Convert accumulated character-count buckets to an estimated token count.
- *
- * Ratios derived from empirical BPE analysis (see module docstring):
- *  - whitespace: 0 tokens (absorbed into adjacent token)
- *  - punctuation: 1 char / token
- *  - digit: 3 chars / token (short numbers single token; long ones split)
- *  - latin: 4.5 chars / token
- *  - cjk: 1 char / token
- *  - cyrillic: 3.3 chars / token
- *  - other: 2.5 chars / token
- */
-function estimateTokensFromBuckets(b: TokenBuckets): number {
+function isCjk(cp: number): boolean {
   return (
-    b.punctuation +
-    Math.ceil(b.digit / 3) +
-    Math.ceil(b.latin / 4.5) +
-    b.cjk +
-    Math.ceil(b.cyrillic / 3.3) +
-    Math.ceil(b.other / 2.5)
-    // whitespace: intentionally omitted
+    (cp >= 0x3400 && cp <= 0x4dbf) ||
+    (cp >= 0x4e00 && cp <= 0x9fff) ||
+    (cp >= 0xf900 && cp <= 0xfaff) ||
+    (cp >= 0x3040 && cp <= 0x30ff) ||
+    (cp >= 0xac00 && cp <= 0xd7af) ||
+    (cp >= 0x3000 && cp <= 0x303f) ||
+    (cp >= 0xff00 && cp <= 0xffef)
   );
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+function estimateRun(kind: RunKind | undefined, length: number): number {
+  if (!kind || length <= 0) return 0;
+  if (kind === "digit") return Math.ceil(length / 3);
+  if (kind === "asciiWord") return Math.ceil(length / 4);
+  return Math.ceil(length / 2.5);
+}
 
-/**
- * Streaming accumulator: call `add(delta)` on every text chunk, then read
- * `value()` to get the running estimate. Call `reset()` between messages.
- */
+/** Incremental estimator that keeps the current lexical run across chunks. */
 export class StreamingTokenEstimator {
-  private b: TokenBuckets = {
-    whitespace: 0, punctuation: 0, digit: 0,
-    latin: 0, cjk: 0, cyrillic: 0, other: 0,
-  };
+  private settled = 0;
+  private runKind: RunKind | undefined;
+  private runLength = 0;
 
   reset(): void {
-    this.b.whitespace = 0;
-    this.b.punctuation = 0;
-    this.b.digit = 0;
-    this.b.latin = 0;
-    this.b.cjk = 0;
-    this.b.cyrillic = 0;
-    this.b.other = 0;
+    this.settled = 0;
+    this.runKind = undefined;
+    this.runLength = 0;
   }
 
   add(delta: string): void {
-    const b = this.b;
-    for (const ch of delta) {
-      b[classifyCodePoint(ch.codePointAt(0) ?? 0)] += 1;
+    for (const character of delta) {
+      const cp = character.codePointAt(0) ?? 0;
+      let nextRun: RunKind | undefined;
+
+      if ((cp >= 0x41 && cp <= 0x5a) || (cp >= 0x61 && cp <= 0x7a)) {
+        nextRun = "asciiWord";
+      } else if (cp >= 0x30 && cp <= 0x39) {
+        nextRun = "digit";
+      } else if (!isCjk(cp) && cp >= 0x80 && UNICODE_WORD.test(character)) {
+        nextRun = "unicodeWord";
+      }
+
+      if (nextRun) {
+        if (this.runKind !== nextRun) {
+          this.flushRun();
+          this.runKind = nextRun;
+        }
+        this.runLength += 1;
+        continue;
+      }
+
+      this.flushRun();
+      if (/\s/u.test(character)) continue;
+      if (isCjk(cp)) {
+        this.settled += 1;
+      } else if (cp < 0x80) {
+        this.settled += 1;
+      } else {
+        // Emoji and symbols commonly occupy more than one token; UTF-8 byte
+        // width is a cheap conservative proxy without loading encoder tables.
+        this.settled += Math.max(1, Math.ceil(Buffer.byteLength(character, "utf8") / 3));
+      }
     }
   }
 
   value(): number {
-    return estimateTokensFromBuckets(this.b);
+    return this.settled + estimateRun(this.runKind, this.runLength);
+  }
+
+  private flushRun(): void {
+    this.settled += estimateRun(this.runKind, this.runLength);
+    this.runKind = undefined;
+    this.runLength = 0;
   }
 }

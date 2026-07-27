@@ -47,11 +47,8 @@ export default function editor(pi: ExtensionAPI) {
     attach(pi, ctx);
   });
 
-  pi.on("session_before_switch", async () => {
-    state.onSessionSwitch();
-  });
-
   pi.on("session_shutdown", async (_e, ctx) => {
+    state.onSessionSwitch();
     try {
       if (!ctx.hasUI) return;
       ctx.ui.setEditorComponent(undefined);
@@ -81,12 +78,16 @@ export default function editor(pi: ExtensionAPI) {
     state.onAgentEnd();
   });
 
-  pi.on("tool_call", async () => {
-    state.onToolCall();
+  pi.on("agent_settled", async () => {
+    state.onAgentSettled();
   });
 
-  pi.on("tool_result", async () => {
-    state.onToolResult();
+  pi.on("tool_execution_start", async (event) => {
+    state.onToolExecutionStart(event.toolCallId);
+  });
+
+  pi.on("tool_execution_end", async (event) => {
+    state.onToolExecutionEnd(event.toolCallId);
   });
 
   pi.on("message_start", async (event) => {

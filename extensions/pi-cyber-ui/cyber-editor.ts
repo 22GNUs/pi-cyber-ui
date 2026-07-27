@@ -12,6 +12,7 @@ import type { KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { palette, rgb, RESET_FG, type RGB } from "./palette.js";
+import { setUiWidth } from "./ui-metrics.js";
 
 const GLYPH_GAP = 1;
 const SESSION_LABEL_RIGHT_BORDER_WIDTH = 4;
@@ -30,6 +31,10 @@ function stripAnsi(text: string): string {
 function isBorderLine(line: string): boolean {
   const plain = stripAnsi(line);
   return plain.includes("─") && !/[^\s─↑↓0-9more]/i.test(plain);
+}
+
+function isPlainBorderLine(line: string): boolean {
+  return /^─+$/.test(stripAnsi(line));
 }
 
 function findBorderLineIndex(lines: string[]): number {
@@ -79,7 +84,8 @@ export default class CyberEditor extends CustomEditor {
   }
 
   private renderTopBorderLabel(line: string, width: number): string {
-    if (!isBorderLine(line)) return line;
+    // Preserve the editor's top scroll indicator while scrolled.
+    if (!isPlainBorderLine(line)) return line;
 
     const label = this.sessionLabel(width);
     if (!label) return line;
@@ -100,30 +106,39 @@ export default class CyberEditor extends CustomEditor {
   }
 
   override render(width: number): string[] {
+    setUiWidth(width);
     this.borderColor = this.getBorderColor(this.getText()) ?? this.borderColor;
-    const lines = super.render(width);
-    if (lines.length <= 0) return lines;
 
-    lines[0] = this.renderTopBorderLabel(lines[0]!, width);
-
-    const borderIndex = findBorderLineIndex(lines);
     const marker = this.modeMarker();
     const promptColor = this.promptColor();
-    const promptStr = `${marker}${" ".repeat(GLYPH_GAP)}`;
+    const promptText = `${marker}${" ".repeat(GLYPH_GAP)}`;
+    const promptWidth = visibleWidth(promptText);
+
+    // At pathological widths, preserve the component width contract and let
+    // the base editor render without prompt chrome.
+    if (width <= promptWidth) {
+      return super.render(width).map((line) => truncateToWidth(line, width, ""));
+    }
+
+    // Layout at the real content width first. Prefixing after a full-width
+    // layout would truncate the last promptWidth columns instead of wrapping.
+    const innerWidth = width - promptWidth;
+    const lines = super.render(innerWidth);
+    if (lines.length <= 0) return lines;
+
+    const borderIndex = findBorderLineIndex(lines);
+    const borderPrefix = this.borderColor("─".repeat(promptWidth));
+    lines[0] = this.renderTopBorderLabel(borderPrefix + lines[0]!, width);
+    if (borderIndex > 0) lines[borderIndex] = borderPrefix + lines[borderIndex]!;
+
     const glyph = `${rgb(promptColor)}${marker}${RESET_FG}${" ".repeat(GLYPH_GAP)}`;
-    const promptWidth = visibleWidth(promptStr);
-    const innerWidth = Math.max(0, width - promptWidth);
+    const continuation = " ".repeat(promptWidth);
 
-    // Skip leading top border line (kept by CustomEditor) before applying ❯.
-    const contentStart = 1;
-
-    for (let i = contentStart; i < lines.length; i++) {
+    // Skip the top/bottom borders. Autocomplete rows receive the same
+    // continuation indent so every returned line remains exactly width cells.
+    for (let i = 1; i < lines.length; i++) {
       if (i === borderIndex) continue;
-      if (i === contentStart) {
-        lines[i] = glyph + truncateToWidth(lines[i]!, innerWidth, "");
-      } else {
-        lines[i] = "  " + truncateToWidth(lines[i]!, innerWidth, "");
-      }
+      lines[i] = (i === 1 ? glyph : continuation) + lines[i]!;
     }
 
     return lines;

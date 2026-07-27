@@ -31,12 +31,13 @@ No bar animation by design: bars are pure functions of tool state (zero timers, 
 | File | Role |
 |------|------|
 | `editor.ts` / `cyber-editor.ts` / `editor-state.ts` | Editor shell, prompt glyph, session label, token accounting |
-| `working.ts` | Running HUD + idle summary (60fps, color-gated) |
-| `footer.ts` | Model · thinking · context · path · git |
+| `working.ts` | Running HUD + idle summary (shared 60fps visual clock, color-gated) |
+| `footer.ts` | Model · thinking · context · path · event-driven git dirty state |
 | `tool-gutter.ts` | Built-in tool wrap: static status bar + panel + fish highlighting |
 | `user-message-patch.ts` | Prompt-style user messages (`❯` + silver bar) |
 | `config.ts` | `~/.pi/agent/pi-cyber-ui.json` |
 | `runtime-pi.ts` | Resolves modules from the exact Pi process loading the extension |
+| `ui-metrics.ts` | Last rendered terminal width for responsive working-line fitting |
 | `palette.ts` | Single source of RGB colors from the theme JSON |
 | `path-utils.ts` / `token-usage.ts` / `format.ts` | Shared helpers |
 
@@ -79,12 +80,17 @@ UI-only. Two rendering surfaces beyond widgets:
 
 2. **User message prompt style** (`userMessageStyle: "prompt"`) — the only deliberate hack.
    - Patches `UserMessageComponent.prototype.rebuild` after locating the running pi from `process.argv[1]`.
+   - The patch is process-idempotent and restores Pi's original renderer on session shutdown/reload.
    - Structure-checked; any mismatch silently keeps the themed block style.
    - Message content, session data, and LLM context are never touched.
 
 Third-party extension tools cannot be wrapped (definitions not reachable via the extension API). They keep pi’s original rendering; default block shells are styled by `cyber-ui-dark` tool-state backgrounds on the same panel tone.
 
-The extension observes tool lifecycle events only to drive the HUD phase. While a tool runs, token/TPS values freeze and dim; tools themselves are unchanged.
+The extension observes keyed `tool_execution_start/end` events only to drive the HUD phase. While any tool runs, token/TPS values freeze and dim; tools themselves are unchanged. Retry/compaction/follow-up runs share one prompt telemetry window and the summary appears only after `agent_settled`.
+
+## Compatibility
+
+Requires Pi packages `>=0.82.1`; future compatible Pi releases are loaded from the running process at runtime.
 
 ## Local development
 
@@ -114,5 +120,7 @@ Select theme `cyber-ui-dark` via `/settings`.
 - Package / theme / entrypoint: `pi-cyber-ui` · `cyber-ui-dark` · `extensions/pi-cyber-ui/index.ts`
 - Telemetry is prompt-scoped across text / thinking / tool-call deltas
 - `~` marks provisional output/rate; trusted final usage clears it
-- Working HUD: 16ms refresh, letter-wave verb, dual-breath spinner, freeze-fade during tools
+- Working HUD: one non-overlapping 16ms visual clock, letter-wave verb, dual-breath spinner, odometer/glow, freeze-fade during tools
+- Idle summary: mounted once, then color-interpolated for its 600ms fade without rebuilding the widget tree
+- Git dirty state: tool-event refresh plus a 60s external-change fallback (no shell process)
 - Theme format follows the official Pi theme schema; all package colors derive from its `vars` via `palette.ts`

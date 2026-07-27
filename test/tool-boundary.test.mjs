@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
 
 import toolGutter, {
   loadRunningBuiltinDefinitions,
@@ -127,6 +128,29 @@ test("tool gutter wraps only built-ins and warns once for active extension tools
     assert.equal(definition.execute, definitions.get(definition.name).execute);
     assert.equal(definition.renderShell, "self");
   }
+
+  const read = registered.find((definition) => definition.name === "read");
+  const theme = {
+    fg: (_color, text) => text,
+    bold: (text) => text,
+  };
+  const component = read.renderCall({}, theme, {
+    args: {},
+    toolCallId: "read-1",
+    invalidate() {},
+    lastComponent: undefined,
+    state: {},
+    cwd: process.cwd(),
+    executionStarted: true,
+    argsComplete: true,
+    isPartial: false,
+    expanded: false,
+    showImages: true,
+    isError: false,
+  });
+  const firstRender = component.render(40);
+  assert.equal(component.render(40), firstRender);
+  for (const line of component.render(1)) assert.ok(visibleWidth(line) <= 1);
   assert.deepEqual(activeTools, ["read", "bash", "edit", "ask_user", "todo", "web_search"]);
   assert.deepEqual(notifications, [
     {

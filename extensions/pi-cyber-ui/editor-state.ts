@@ -1,6 +1,6 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 
-import { getUsageMode, type UsageMode, StreamingTokenEstimator } from "./token-usage.js";
+import { StreamingTokenEstimator } from "./token-usage.js";
 
 export type AgentState = "idle" | "running" | "tool";
 
@@ -61,10 +61,9 @@ export class CyberEditorState {
   private msgOutEstimated = false;
   private msgHasFinalUsage = false;
   private estOut: number | undefined;
-  private msgUsageMode: UsageMode = "estimated";
   private msgEstimator = new StreamingTokenEstimator();
 
-  private toolDepth = 0;
+  private activeToolCalls = new Set<string>();
 
   resetAll(): void {
     this.promptIn = 0;
@@ -74,7 +73,7 @@ export class CyberEditorState {
     this.promptTurns = 0;
     this.promptActive = false;
     this.promptResponseMs = 0;
-    this.toolDepth = 0;
+    this.activeToolCalls.clear();
 
     this.resetMessage();
     this.agentState = "idle";
@@ -89,7 +88,9 @@ export class CyberEditorState {
   }
 
   onSessionCompact(): void {
-    this.resetAll();
+    // Auto-compaction can occur inside one high-level prompt. Keep its
+    // telemetry continuous until agent_settled.
+    if (!this.promptActive) this.resetAll();
   }
 
   onSessionTree(): void {
@@ -97,9 +98,11 @@ export class CyberEditorState {
   }
 
   onAgentStart(): void {
-    this.resetAll();
-    this.promptActive = true;
-    this.agentState = "running";
+    if (!this.promptActive) {
+      this.resetAll();
+      this.promptActive = true;
+    }
+    this.agentState = this.activeToolCalls.size > 0 ? "tool" : "running";
   }
 
   onTurnStart(): void {
@@ -113,18 +116,28 @@ export class CyberEditorState {
       if (!this.msgHasFinalUsage) this.finalizeFallbackOutput();
       this.commitMessage();
     }
+    if (this.promptActive && this.activeToolCalls.size === 0) this.agentState = "running";
+  }
+
+  onAgentSettled(at = Date.now()): void {
+    if (this.msgActive) {
+      this.closeResponse(at);
+      if (!this.msgHasFinalUsage) this.finalizeFallbackOutput();
+      this.commitMessage();
+    }
+    this.activeToolCalls.clear();
     this.promptActive = false;
     this.agentState = "idle";
   }
 
-  onToolCall(): void {
-    this.toolDepth += 1;
+  onToolExecutionStart(toolCallId: string): void {
+    this.activeToolCalls.add(toolCallId);
     this.agentState = "tool";
   }
 
-  onToolResult(): void {
-    this.toolDepth = Math.max(0, this.toolDepth - 1);
-    if (this.toolDepth === 0) this.agentState = "running";
+  onToolExecutionEnd(toolCallId: string): void {
+    this.activeToolCalls.delete(toolCallId);
+    if (this.activeToolCalls.size === 0 && this.promptActive) this.agentState = "running";
   }
 
   onAssistantStart(message: AssistantMessage, at = Date.now()): void {
@@ -132,7 +145,6 @@ export class CyberEditorState {
     this.resetMessage();
     this.msgActive = true;
     this.msgStartedAt = at;
-    this.msgUsageMode = getUsageMode(message.api);
     this.syncMessage(message);
   }
 
@@ -185,7 +197,7 @@ export class CyberEditorState {
       output: {
         value: hasOutput ? outputValue : undefined,
         estimated: hasOutput && outputEstimated,
-        frozen: this.toolDepth > 0,
+        frozen: this.activeToolCalls.size > 0,
       },
       tps: {
         value: rateAvailable ? outputValue / (responseMs / 1_000) : undefined,
@@ -204,7 +216,6 @@ export class CyberEditorState {
     this.msgOutEstimated = false;
     this.msgHasFinalUsage = false;
     this.estOut = undefined;
-    this.msgUsageMode = "estimated";
     this.msgEstimator.reset();
   }
 
@@ -214,7 +225,7 @@ export class CyberEditorState {
 
     if (input !== undefined) this.msgIn = input;
 
-    if (output !== undefined && (final || this.msgUsageMode === "exact")) {
+    if (output !== undefined && (final || this.msgOut === undefined || output >= this.msgOut)) {
       this.msgOut = output;
       this.msgOutEstimated = false;
       if (final) this.msgHasFinalUsage = true;

@@ -82,6 +82,21 @@ test("trusted cumulative streaming usage removes the output approximation marker
   assert.equal(second.output.estimated, false);
 });
 
+test("positive cumulative usage is detected without an API allowlist", () => {
+  const state = new CyberEditorState();
+  const partial = assistant({ api: "openai-responses", usage: usage({ input: 40, output: 7 }) });
+
+  state.onAgentStart();
+  state.onTurnStart();
+  state.onAssistantStart(assistant(), 100);
+  state.onAssistantDelta("stream", partial, 200);
+
+  const snapshot = state.snapshot(700);
+  assert.equal(snapshot.output.value, 7);
+  assert.equal(snapshot.output.estimated, false);
+  assert.equal(snapshot.tps.estimated, false);
+});
+
 test("missing final usage downgrades partial exact output back to an estimate", () => {
   const state = new CyberEditorState();
   const partial = assistant({ api: "anthropic-messages", usage: usage({ input: 50, output: 10 }) });
@@ -111,7 +126,7 @@ test("final usage reconciles estimates and tool phase freezes token rate", () =>
   assert.equal(state.snapshot(700).output.estimated, true);
 
   state.onAssistantDone(final, 1_000);
-  state.onToolCall();
+  state.onToolExecutionStart("tool-1");
   const tool = state.snapshot(1_100);
   assert.equal(tool.agentState, "tool");
   assert.equal(tool.output.value, 164);
@@ -120,9 +135,10 @@ test("final usage reconciles estimates and tool phase freezes token rate", () =>
   assert.ok(Math.abs((tool.tps.value ?? 0) - (164 / 0.9)) < 0.001);
   assert.equal(tool.tps.estimated, false);
 
-  state.onToolResult();
+  state.onToolExecutionEnd("tool-1");
   state.onAssistantTurnEnd(final, 1_200);
   state.onAgentEnd(2_000);
+  state.onAgentSettled(2_000);
 
   const settled = state.snapshot(2_000);
   assert.equal(settled.inputValue, 129);
@@ -167,6 +183,7 @@ test("prompt totals accumulate across turns and exclude tool time from t/s", () 
     "final response",
   );
   state.onAgentEnd(10_000);
+  state.onAgentSettled(10_000);
 
   const settled = state.snapshot(10_000);
   assert.equal(settled.promptTurns, 2);
@@ -188,6 +205,7 @@ test("missing final usage preserves an explicitly estimated prompt summary", () 
   state.onAssistantDone(empty, 1_000);
   state.onAssistantTurnEnd(empty, 1_000);
   state.onAgentEnd(2_000);
+  state.onAgentSettled(2_000);
 
   const settled = state.snapshot(2_000);
   assert.equal(settled.inputValue, undefined);
@@ -212,9 +230,55 @@ test("input total is hidden when any prompt turn lacks trustworthy input usage",
     { start: 2_000, firstDelta: 2_100, done: 3_000 },
   );
   state.onAgentEnd(3_100);
+  state.onAgentSettled(3_100);
 
   const settled = state.snapshot(3_100);
   assert.equal(settled.inputValue, undefined);
   assert.equal(settled.output.value, 50);
   assert.equal(settled.output.estimated, false);
+});
+
+test("low-level retries keep one prompt-scoped telemetry window", () => {
+  const state = new CyberEditorState();
+  const first = assistant({ usage: usage({ input: 10, output: 20 }) });
+  const second = assistant({ usage: usage({ input: 15, output: 30 }) });
+
+  state.onAgentStart();
+  state.onTurnStart();
+  state.onAssistantStart(first, 100);
+  state.onAssistantDone(first, 1_000);
+  state.onAssistantTurnEnd(first, 1_000);
+  state.onAgentEnd(1_100);
+
+  state.onAgentStart();
+  state.onTurnStart();
+  state.onAssistantStart(second, 2_000);
+  state.onAssistantDone(second, 3_000);
+  state.onAssistantTurnEnd(second, 3_000);
+  state.onAgentEnd(3_100);
+  state.onAgentSettled(3_100);
+
+  const settled = state.snapshot(3_100);
+  assert.equal(settled.promptTurns, 2);
+  assert.equal(settled.inputValue, 25);
+  assert.equal(settled.output.value, 50);
+  assert.equal(settled.promptActive, false);
+});
+
+test("parallel tool execution is tracked by tool call id", () => {
+  const state = new CyberEditorState();
+  state.onAgentStart();
+  state.onToolExecutionStart("a");
+  state.onToolExecutionStart("b");
+  assert.equal(state.snapshot().output.frozen, true);
+  assert.equal(state.snapshot().agentState, "tool");
+
+  state.onToolExecutionEnd("a");
+  assert.equal(state.snapshot().output.frozen, true);
+  state.onToolExecutionEnd("missing");
+  assert.equal(state.snapshot().output.frozen, true);
+
+  state.onToolExecutionEnd("b");
+  assert.equal(state.snapshot().output.frozen, false);
+  assert.equal(state.snapshot().agentState, "running");
 });

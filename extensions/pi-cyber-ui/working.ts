@@ -22,11 +22,12 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { Text, visibleWidth } from "@earendil-works/pi-tui";
+import { Text, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import { cyberState, type CyberHudSnapshot } from "./editor-state.js";
 import { formatCompactNumber } from "./format.js";
 import { palette as C, paint, mix, rgb, RESET_FG, type RGB } from "./palette.js";
+import { getUiWidth } from "./ui-metrics.js";
 
 // Cyber palette (RGB + paint/mix helpers) — see palette.ts; colors sourced
 // from theme vars, single source of truth.
@@ -61,11 +62,15 @@ function quant(v: number): number {
   return Math.round(v * COLOR_STEPS) / COLOR_STEPS;
 }
 
-function paintLetterWave(text: string): string {
+const LETTER_WAVE_FG = Array.from(
+  { length: COLOR_STEPS + 1 },
+  (_, step) => rgb(mix(C.fgMuted, C.silverHi, step / COLOR_STEPS)),
+);
+
+function paintLetterWave(text: string, now: number): string {
   const chars = [...text];
   if (chars.length === 0) return "";
 
-  const now = Date.now();
   // Low-key: no bold, gentler contrast (fgMuted → silverHi instead of
   // silverDim → white). Peak window narrowed so most chars rest quietly.
   return `${chars
@@ -80,9 +85,9 @@ function paintLetterWave(text: string): string {
       const intensity =
         wrapped > LETTER_WAVE_HALF
           ? 0
-          : quant(0.5 * (1 + Math.cos((Math.PI * wrapped) / LETTER_WAVE_HALF)));
-      const color = mix(C.fgMuted, C.silverHi, intensity);
-      return `${rgb(color)}${ch}`;
+          : 0.5 * (1 + Math.cos((Math.PI * wrapped) / LETTER_WAVE_HALF));
+      const step = Math.round(intensity * COLOR_STEPS);
+      return `${LETTER_WAVE_FG[step]}${ch}`;
     })
     .join("")}${RESET_FG}`;
 }
@@ -114,7 +119,7 @@ function tpsColor(v: number): RGB {
 // High frame count keeps the breathing continuous rather than steppy. Verb
 // letter-wave runs at 1800ms (3:4 against each breath) so layers do not
 // crest together.
-const FRAME_INTERVAL_MS = 75;
+const SPINNER_FRAME_INTERVAL_MS = 75;
 
 const PULSE_FRAME_TEXTS: string[] = (() => {
   const N = 64;
@@ -130,13 +135,15 @@ const PULSE_FRAME_TEXTS: string[] = (() => {
   return texts;
 })();
 
+function pulseFrame(elapsedMs: number): string {
+  const index = Math.floor(elapsedMs / SPINNER_FRAME_INTERVAL_MS) % PULSE_FRAME_TEXTS.length;
+  return PULSE_FRAME_TEXTS[index] ?? PULSE_FRAME_TEXTS[0]!;
+}
+
 function applyWorkingIndicator(ctx: ExtensionContext): boolean {
-  return safeUi(ctx, () => {
-    ctx.ui.setWorkingIndicator({
-      frames: PULSE_FRAME_TEXTS,
-      intervalMs: FRAME_INTERVAL_MS,
-    });
-  });
+  // The shared message clock renders the pulse together with the animated HUD,
+  // avoiding a second independent Loader timer without changing its frames.
+  return safeUi(ctx, () => ctx.ui.setWorkingIndicator({ frames: [] }));
 }
 
 // ---------------------------------------------------------------------------
@@ -358,6 +365,7 @@ function updateSmoothing(snapshot: CyberHudSnapshot, now: number): void {
 interface RunningLineArgs {
   verb: string;
   elapsedMs: number;
+  now: number;
   snapshot: CyberHudSnapshot;
 }
 
@@ -394,7 +402,7 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
 
   // 100 — fixed-width working label. Metrics after it are grouped in
   // parentheses by fitSegments(), keeping the vibe stable and low-key.
-  const label = paintLetterWave(padWorkingLabel(args.verb));
+  const label = paintLetterWave(padWorkingLabel(args.verb), args.now);
   const time = paint(C.fgMuted, formatWorkingElapsed(args.elapsedMs));
   segments.push(seg(label, 100));
   segments.push(seg(time, 95));
@@ -456,8 +464,8 @@ function collectRunningSegments(args: RunningLineArgs): Segment[] {
   return segments;
 }
 
-/** Reasonable budget when we don't know the actual terminal width. */
-const MESSAGE_BUDGET = 100;
+/** Fallback before the editor has reported the current terminal width. */
+const MESSAGE_BUDGET_FALLBACK = 100;
 
 function fitSegments(segments: Segment[], budget: number): string {
   // Visible separator is a dim middle-dot with a space on each side. The
@@ -576,18 +584,74 @@ function safeUi(ctx: ExtensionContext, fn: () => void): boolean {
   }
 }
 
+class SummaryComponent implements Component {
+  private readonly text = new Text("", 0, 0);
+  private alpha = -1;
+
+  constructor(
+    private readonly summary: PromptSummary,
+    alpha: number,
+  ) {
+    this.setAlpha(alpha);
+  }
+
+  setAlpha(alpha: number): void {
+    const next = Math.max(0, Math.min(1, alpha));
+    if (next === this.alpha) return;
+    this.alpha = next;
+    this.text.setText(buildIdleSummary(this.summary, next));
+  }
+
+  render(width: number): string[] {
+    return this.text.render(width);
+  }
+
+  invalidate(): void {
+    this.text.invalidate();
+  }
+}
+
+interface MountedSummary {
+  component: SummaryComponent;
+  requestRender: () => boolean;
+}
+
+function mountSummaryWidget(
+  ctx: ExtensionContext,
+  summary: PromptSummary,
+  alpha: number,
+): MountedSummary | undefined {
+  let mounted: MountedSummary | undefined;
+  const ok = safeUi(ctx, () => {
+    ctx.ui.setWidget(
+      WIDGET_KEY,
+      (tui) => {
+        const component = new SummaryComponent(summary, alpha);
+        mounted = {
+          component,
+          requestRender: () => {
+            try {
+              tui.requestRender();
+              return true;
+            } catch {
+              return false;
+            }
+          },
+        };
+        return component;
+      },
+      { placement: "aboveEditor" },
+    );
+  });
+  return ok ? mounted : undefined;
+}
+
 function attachSummaryWidget(
   ctx: ExtensionContext,
   summary: PromptSummary,
   alpha = 1,
 ): boolean {
-  return safeUi(ctx, () => {
-    ctx.ui.setWidget(
-      WIDGET_KEY,
-      (_tui, _theme) => new Text(buildIdleSummary(summary, alpha), 0, 0),
-      { placement: "aboveEditor" },
-    );
-  });
+  return mountSummaryWidget(ctx, summary, alpha) !== undefined;
 }
 
 let summaryFadeTimer: NodeJS.Timeout | undefined;
@@ -598,14 +662,17 @@ function stopSummaryFade(): void {
   summaryFadeTimer = undefined;
 }
 
-/** Attach the summary widget and fade it in over SUMMARY_FADE_MS. */
+/** Attach the summary once, then fade its colors without rebuilding the widget tree. */
 function fadeInSummaryWidget(ctx: ExtensionContext, summary: PromptSummary): void {
   stopSummaryFade();
+  const mounted = mountSummaryWidget(ctx, summary, 0);
+  if (!mounted) return;
+
   const startedAt = Date.now();
-  if (!attachSummaryWidget(ctx, summary, 0)) return;
   const timer = setInterval(() => {
     const k = Math.min(1, (Date.now() - startedAt) / SUMMARY_FADE_MS);
-    const ok = attachSummaryWidget(ctx, summary, k);
+    mounted.component.setAlpha(k);
+    const ok = mounted.requestRender();
     if (!ok || k >= 1) {
       clearInterval(timer);
       if (summaryFadeTimer === timer) summaryFadeTimer = undefined;
@@ -655,9 +722,15 @@ function updateWorkingMessage(ctx: ExtensionContext): boolean {
   const segments = collectRunningSegments({
     verb: prompt.verb,
     elapsedMs: elapsed,
+    now,
     snapshot,
   });
-  const message = fitSegments(segments, MESSAGE_BUDGET);
+  const uiWidth = getUiWidth();
+  const tailBudget =
+    uiWidth === undefined
+      ? MESSAGE_BUDGET_FALLBACK
+      : Math.max(1, uiWidth - 4); // Loader padding (2) + pulse and gap (2)
+  const message = `${pulseFrame(elapsed)} ${fitSegments(segments, tailBudget)}`;
   if (message === lastMessage) return true;
   const ok = safeUi(ctx, () => ctx.ui.setWorkingMessage(message));
   if (ok) lastMessage = message;
@@ -710,8 +783,26 @@ export default function working(pi: ExtensionAPI) {
 
   const stopMessageTimer = (timer = messageTimer) => {
     if (!timer) return;
-    clearInterval(timer);
+    clearTimeout(timer);
     if (timer === messageTimer) messageTimer = undefined;
+  };
+
+  const scheduleMessageFrame = (
+    ctx: ExtensionContext,
+    token: number,
+    delay = MESSAGE_REFRESH_MS,
+  ) => {
+    const timer = setTimeout(() => {
+      if (timer === messageTimer) messageTimer = undefined;
+      if (token !== sessionToken) return;
+
+      const startedAt = Date.now();
+      if (!updateWorkingMessage(ctx)) return;
+      const nextDelay = Math.max(1, MESSAGE_REFRESH_MS - (Date.now() - startedAt));
+      scheduleMessageFrame(ctx, token, nextDelay);
+    }, delay);
+    messageTimer = timer;
+    if (typeof timer.unref === "function") timer.unref();
   };
 
   const invalidateSession = () => {
@@ -737,23 +828,28 @@ export default function working(pi: ExtensionAPI) {
 
   pi.on("agent_start", (_event, ctx) => {
     if (!hasUsableUi(ctx)) return;
-    startPromptTimer(ctx);
+    if (!prompt) startPromptTimer(ctx);
+    else updateWorkingMessage(ctx);
     stopMessageTimer();
-    const token = sessionToken;
-    const timer = setInterval(() => {
-      if (token !== sessionToken || !updateWorkingMessage(ctx)) stopMessageTimer(timer);
-    }, MESSAGE_REFRESH_MS);
-    messageTimer = timer;
-    if (typeof timer.unref === "function") timer.unref();
+    scheduleMessageFrame(ctx, sessionToken);
   });
 
-  pi.on("agent_end", (_event, ctx) => {
+  // A low-level run may be followed by retry, compaction, or queued messages.
+  // Pause the animation while Pi shows those status rows; finalize only after
+  // agent_settled confirms no automatic continuation remains.
+  pi.on("agent_end", () => {
+    stopMessageTimer();
+  });
+
+  pi.on("agent_settled", (_event, ctx) => {
     stopMessageTimer();
     endPromptTimer(ctx);
   });
 
-  pi.on("session_before_switch", () => {
+  pi.on("session_tree", (_event, ctx) => {
     invalidateSession();
+    lastSummary = undefined;
+    clearSummaryWidget(ctx);
   });
 
   pi.on("session_shutdown", (_event, ctx) => {

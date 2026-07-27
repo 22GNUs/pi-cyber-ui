@@ -4,7 +4,7 @@ import { loadConfig } from "./config.js";
 import editor from "./editor.js";
 import footer from "./footer.js";
 import toolGutter from "./tool-gutter.js";
-import { applyUserMessagePatch } from "./user-message-patch.js";
+import { applyUserMessagePatch, removeUserMessagePatch } from "./user-message-patch.js";
 import working from "./working.js";
 
 export default async function piCyberUi(pi: ExtensionAPI) {
@@ -21,7 +21,9 @@ export default async function piCyberUi(pi: ExtensionAPI) {
 
   // Prompt-style user messages (defensive render patch; falls back to the
   // theme's block style when pi internals change).
-  if (config.userMessageStyle === "prompt") {
-    await applyUserMessagePatch();
+  if (config.userMessageStyle === "prompt" && await applyUserMessagePatch()) {
+    pi.on("session_shutdown", async () => {
+      await removeUserMessagePatch();
+    });
   }
 }
