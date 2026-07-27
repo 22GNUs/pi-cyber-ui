@@ -1,86 +1,34 @@
 /**
- * Tool gutter — neon status bar + uniform slate panel for built-in tools.
+ * Tool gutter — neon status bar + uniform slate panel for every registered tool.
+ *
+ * A defensive renderer bridge wraps the exact ToolExecutionComponent loaded by
+ * the running Pi process. It changes only shell composition: execute, schemas,
+ * active tools, renderer ownership, streaming, and result details stay intact.
+ * Tools registered later are covered automatically because every tool row uses
+ * the same patched renderer-resolution methods.
  *
  * Design language (see design/DESIGN.html):
- *   - one neutral panel surface for every state (elevation by luminance);
- *     status lives entirely in the left bar
- *   - bar (static, no animation — deliberately timer-free):
- *       pending = blue · success = teal · error = red
- *   - call slot text follows the tokyonight fish shell palette: tool name /
- *     command = cyan, params = pink
- *
- * Official wrap pattern (pi docs "Overriding Built-in Tools"): register
- * same-name tools whose `execute` is the untouched built-in implementation
- * (loaded from the exact Pi package running this process), and only replace
- * the shell:
- *
- *   - `renderShell: "self"` bypasses the default background Box entirely
- *   - built-in `renderCall` / `renderResult` are reused as-is (syntax
- *     highlighting, diffs, expand/collapse all inherited)
- *   - vertical padding is normalized at the shell level: inner blank lines
- *     are trimmed and every panel gets exactly one padded line top/bottom
- *     plus one separator line between call and result, so bash/read/edit
- *     all share the same silhouette
- *
- * Same-name extension / SDK tools are never overridden. Active extension
- * tools keep their original rendering and produce one startup/reload warning
- * that the gutter was skipped; default block shells still inherit the theme's
- * tool*Bg tokens.
+ *   - one neutral panel surface for every state; status lives in the left bar
+ *   - pending = blue · success = teal · error = red (static, timer-free)
+ *   - built-in call text follows the tokyonight fish palette
+ *   - extension / SDK renderer colors remain owned by their original tool
  */
 import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import type { CyberUiConfig } from "./config.js";
 import { bgRgb, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
-import { importRunningPiModule } from "./runtime-pi.js";
+import {
+  installToolRendererBridge,
+  type ToolRendererBridgeDependencies,
+} from "./tool-renderer-bridge.js";
 
 type AnyToolDefinition = ToolDefinition<any, any, any>;
 type RenderCall = NonNullable<AnyToolDefinition["renderCall"]>;
 type RenderResult = NonNullable<AnyToolDefinition["renderResult"]>;
 type RenderContext = Parameters<RenderCall>[2];
 
-type BuiltinToolName = "read" | "bash" | "edit" | "write" | "grep" | "find" | "ls";
-type ToolFactory = (cwd: string) => AnyToolDefinition;
-
-const BUILTIN_TOOL_SPECS = [
-  ["read", "createReadToolDefinition"],
-  ["bash", "createBashToolDefinition"],
-  ["edit", "createEditToolDefinition"],
-  ["write", "createWriteToolDefinition"],
-  ["grep", "createGrepToolDefinition"],
-  ["find", "createFindToolDefinition"],
-  ["ls", "createLsToolDefinition"],
-] as const satisfies readonly (readonly [BuiltinToolName, string])[];
-
-export interface ToolGutterDependencies {
-  loadBuiltinDefinitions(cwd: string): Promise<ReadonlyMap<BuiltinToolName, AnyToolDefinition> | undefined>;
-}
-
-export async function loadRunningBuiltinDefinitions(
-  cwd: string,
-): Promise<ReadonlyMap<BuiltinToolName, AnyToolDefinition> | undefined> {
-  const mod = await importRunningPiModule();
-  if (!mod) return undefined;
-
-  const definitions = new Map<BuiltinToolName, AnyToolDefinition>();
-  for (const [name, exportName] of BUILTIN_TOOL_SPECS) {
-    try {
-      const factory = mod[exportName];
-      if (typeof factory !== "function") continue;
-      const definition = (factory as ToolFactory)(cwd);
-      if (definition.name === name && typeof definition.execute === "function") {
-        definitions.set(name, definition);
-      }
-    } catch {
-      // A missing or incompatible factory must degrade to Pi's original tool.
-    }
-  }
-  return definitions;
-}
-
-const DEFAULT_DEPENDENCIES: ToolGutterDependencies = {
-  loadBuiltinDefinitions: loadRunningBuiltinDefinitions,
-};
+export type ToolGutterDependencies = ToolRendererBridgeDependencies;
 
 const BAR = "▍"; // 3/8 block — between the thin ▎ and the heavy ▌
 const BAR_WIDTH = 2; // bar + space
@@ -195,6 +143,7 @@ class GutterComponent implements Component {
     private readonly role: "call" | "result",
     private readonly shell: GutterShell,
     private readonly recolorParams: boolean,
+    private readonly normalizeInnerShell: boolean,
   ) {}
 
   render(width: number): string[] {
@@ -211,6 +160,9 @@ class GutterComponent implements Component {
       colorsEqual(cached.barColor, this.shell.barColor) &&
       (cached.innerLinesRef === innerLines || linesEqual(cached.innerLines, innerLines))
     ) {
+      // Some components return a fresh but equal array on every render. Adopt
+      // that reference so the next frame can take the O(1) identity path.
+      cached.innerLinesRef = innerLines;
       return cached.lines;
     }
 
@@ -230,18 +182,30 @@ class GutterComponent implements Component {
         // Inner renderers may emit full SGR resets; re-arm the panel bg after
         // each so the surface stays continuous. Shell-state backgrounds painted
         // by inner Boxes (edit) are rewritten to the panel tone.
-        const restored = normalizeShellBg(line, bg)
+        const normalized = this.normalizeInnerShell ? normalizeShellBg(line, bg) : line;
+        const restored = normalized
           .replaceAll(FULL_RESET, FULL_RESET + bg)
           .replaceAll(RESET_BG, bg);
-        const pad = Math.max(0, innerWidth - visibleWidth(line));
-        rows.push(prefix + restored + " ".repeat(pad) + RESET_BG);
+        const lineWidth = visibleWidth(line);
+        if (lineWidth <= innerWidth) {
+          rows.push(prefix + restored + " ".repeat(innerWidth - lineWidth) + RESET_BG);
+        } else {
+          const truncated = truncateToWidth(restored, innerWidth, "");
+          const truncatedWidth = visibleWidth(truncated);
+          rows.push(
+            prefix + truncated + " ".repeat(Math.max(0, innerWidth - truncatedWidth)) + RESET_BG,
+          );
+        }
       }
       if (this.role === "result" || !this.shell.hasResult) rows.push(blank); // bottom padding
     }
 
-    const fitted = rows.map((line) =>
-      visibleWidth(line) > width ? truncateToWidth(line, width, "") : line,
-    );
+    // At normal widths every row is constructed to exactly `width` cells.
+    // Width 1–2 cannot contain both gutter cells and one inner cell, so keep a
+    // tiny defensive truncation path only for those pathological terminals.
+    const fitted = width <= BAR_WIDTH
+      ? rows.map((line) => truncateToWidth(line, width, ""))
+      : rows;
     this.cache = {
       width,
       inner: this.inner,
@@ -445,117 +409,118 @@ function renderIntoGutter(
   buildInner: (innerContext: RenderContext) => Component,
   isPartial: boolean,
   recolorParams: boolean,
+  normalizeInnerShell: boolean,
 ): Component {
   const shell = getShell(context);
   if (role === "result") shell.hasResult = true;
+  // Set status before invoking the owner renderer so a renderer exception can
+  // still fall back inside the correctly colored gutter.
+  shell.barColor = context.isError ? BAR_ERROR : isPartial ? BAR_PENDING : BAR_SUCCESS;
   const outer =
     context.lastComponent instanceof GutterComponent
       ? context.lastComponent
-      : new GutterComponent(role, shell, recolorParams);
-  // Built-in renderers cache via context.lastComponent; hand them their own
-  // inner component instead of our wrapper.
+      : new GutterComponent(role, shell, recolorParams, normalizeInnerShell);
+  // Original renderers still receive their own previous component rather than
+  // our outer shell, preserving their slot-local caches and state.
   outer.inner = buildInner({ ...context, lastComponent: outer.inner });
-
-  shell.barColor = context.isError ? BAR_ERROR : isPartial ? BAR_PENDING : BAR_SUCCESS;
   return outer;
 }
 
-function wrapDefinition(def: AnyToolDefinition): AnyToolDefinition {
-  const innerCall: RenderCall = (args, theme, context) => {
-    const component = def.renderCall
-      ? def.renderCall(args, theme, context)
-      : new Text(theme.fg("toolTitle", theme.bold(def.name)), 0, 0);
-    if (def.name === "bash") {
-      // Built-in renderCall already updated its timing state; only the text
-      // styling is replaced. Duck-typed: Text instances may come from pi's
-      // own pi-tui copy.
-      const text = component as { setText?: (content: string) => void };
-      text.setText?.(formatCyberBashCall(args, theme));
+function createToolSourceResolver(pi: ExtensionAPI): (toolName: string) => string | undefined {
+  const sourceByName = new Map<string, string>();
+  return (toolName) => {
+    const cached = sourceByName.get(toolName);
+    if (cached) return cached;
+    try {
+      for (const tool of pi.getAllTools()) {
+        sourceByName.set(tool.name, tool.sourceInfo.source);
+      }
+    } catch {
+      // The factory may be loaded before Pi binds runtime actions. Rendering
+      // happens later; an unknown source simply keeps the original colors.
     }
-    return component;
-  };
-  const innerResult: RenderResult = (result, options, theme, context) =>
-    def.renderResult
-      ? def.renderResult(result, options, theme, context)
-      : new Text(theme.fg("toolOutput", getTextContent(result)), 0, 0);
-
-  return {
-    ...def,
-    renderShell: "self",
-    renderCall(args, theme, context) {
-      return renderIntoGutter(
-        "call",
-        context,
-        (inner) => innerCall(args, theme, inner),
-        context.isPartial,
-        def.name !== "bash", // bash styles itself via the fish tokenizer
-      );
-    },
-    renderResult(result, options, theme, context) {
-      return renderIntoGutter(
-        "result",
-        context,
-        (inner) => innerResult(result, options, theme, inner),
-        options.isPartial ?? false,
-        false,
-      );
-    },
+    return sourceByName.get(toolName);
   };
 }
 
-function summarizeToolNames(names: readonly string[], limit = 2): string {
-  const shown = names.slice(0, limit);
-  const remaining = names.length - shown.length;
-  return remaining > 0 ? `${shown.join(", ")} +${remaining}` : shown.join(", ");
-}
-
-function getActiveExtensionToolNames(
-  pi: ExtensionAPI,
-  sourceByName: ReadonlyMap<string, string>,
-): string[] {
-  return pi.getActiveTools().filter((name) => {
-    const source = sourceByName.get(name);
-    return source !== undefined && source !== "builtin";
-  });
-}
-
-export default function toolGutter(
+export default async function toolGutter(
   pi: ExtensionAPI,
   config: CyberUiConfig,
-  dependencies: ToolGutterDependencies = DEFAULT_DEPENDENCIES,
-): void {
+  dependencies?: ToolGutterDependencies,
+): Promise<void> {
   if (config.toolHighlight !== "gutter") return;
 
-  let registered = false;
-  pi.on("session_start", async (event, ctx) => {
-    const mode = (ctx as { mode?: string }).mode;
-    if (registered || !ctx.hasUI || (mode !== undefined && mode !== "tui")) return;
-    registered = true;
+  const getToolSource = createToolSourceResolver(pi);
+  const decorators = {
+    wrapCall(toolName: string, renderer: RenderCall | undefined): RenderCall {
+      return (args, theme, context) => {
+        const isBuiltin = getToolSource(toolName) === "builtin";
+        return renderIntoGutter(
+          "call",
+          context,
+          (inner) => {
+            let component: Component;
+            try {
+              component = renderer
+                ? renderer(args, theme, inner)
+                : new Text(theme.fg("toolTitle", theme.bold(toolName)), 0, 0);
+            } catch {
+              component = new Text(theme.fg("toolTitle", theme.bold(toolName)), 0, 0);
+            }
+            if (isBuiltin && toolName === "bash") {
+              // Built-in bash keeps its timing state but adopts the fish call
+              // styling. Same-name extension/SDK renderers remain untouched.
+              const text = component as { setText?: (content: string) => void };
+              text.setText?.(formatCyberBashCall(args, theme));
+            }
+            return component;
+          },
+          context.isPartial,
+          isBuiltin && toolName !== "bash",
+          isBuiltin,
+        );
+      };
+    },
+    wrapResult(toolName: string, renderer: RenderResult | undefined): RenderResult {
+      return (result, options, theme, context) => {
+        const isBuiltin = getToolSource(toolName) === "builtin";
+        return renderIntoGutter(
+          "result",
+          context,
+          (inner) => {
+            try {
+              return renderer
+                ? renderer(result, options, theme, inner)
+                : new Text(theme.fg("toolOutput", getTextContent(result)), 0, 0);
+            } catch {
+              return new Text(theme.fg("toolOutput", getTextContent(result)), 0, 0);
+            }
+          },
+          options.isPartial ?? false,
+          false,
+          isBuiltin,
+        );
+      };
+    },
+  };
 
-    const sourceByName = new Map(
-      pi.getAllTools().map((tool) => [tool.name, tool.sourceInfo.source] as const),
+  const dispose = dependencies
+    ? await installToolRendererBridge(decorators, dependencies)
+    : await installToolRendererBridge(decorators);
+  if (dispose) {
+    pi.on("session_shutdown", () => {
+      dispose();
+    });
+    return;
+  }
+
+  let warned = false;
+  pi.on("session_start", (_event, ctx) => {
+    if (warned || !ctx.hasUI || ctx.mode !== "tui") return;
+    warned = true;
+    ctx.ui.notify(
+      "pi-cyber-ui dynamic gutter unavailable · all tools use themed block fallback",
+      "warning",
     );
-    const skippedExtensionTools = getActiveExtensionToolNames(pi, sourceByName);
-    const definitions = await dependencies.loadBuiltinDefinitions(ctx.cwd);
-
-    if (definitions) {
-      for (const [name] of BUILTIN_TOOL_SPECS) {
-        // A same-name extension/SDK tool owns its behavior and rendering. Only
-        // replace tools that are still Pi's untouched built-ins.
-        if (sourceByName.get(name) !== "builtin") continue;
-        const definition = definitions.get(name);
-        if (definition) pi.registerTool(wrapDefinition(definition));
-      }
-    }
-
-    if (
-      skippedExtensionTools.length > 0 &&
-      (event.reason === "startup" || event.reason === "reload")
-    ) {
-      ctx.ui.notify(
-        `pi-cyber-ui gutter wrap skipped for extension tools: ${summarizeToolNames(skippedExtensionTools)} · using themed block fallback`,
-        "warning",
-      );
-    }
   });
 }

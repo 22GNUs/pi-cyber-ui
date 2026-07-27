@@ -343,19 +343,19 @@
       <span class="cyan bold">edit</span> <span style="color:#fca7ea">themes/cyber-ui-dark.json</span>
       <span class="out red">✗ oldText not found</span>
     </div>
-    <div class="tool-block" style="background:#121218">
+    <div class="tool-gutter gutter-success" style="background:#121218">
       <span class="cyan bold">ask_user</span> <span style="color:#fca7ea">成功色条? → teal 霓虹</span>
-      <span class="out dim">↑ 第三方工具 · 同面板色块兑底（pending=bgAlt · error=#281e20）</span>
+      <span class="out dim">↑ 运行时注册工具 · 保留原 renderer，动态套用同一 gutter shell</span>
     </div>
   </div>
 </div>
 <div class="term" style="margin-top:10px">
   <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">startup · gutter wrap diagnostic</div></div>
   <div class="body" style="padding-top:12px;padding-bottom:12px">
-    <span class="orange">Warning: pi-cyber-ui gutter wrap skipped for extension tools: bash, ask_user +2 · using themed block fallback</span>
+    <span class="orange">Warning: pi-cyber-ui dynamic gutter unavailable · all tools use themed block fallback</span>
   </div>
 </div>
-<p class="note">仅存在跳过项时显示一次；startup / reload 各最多一条，无跳过项保持静默。</p>
+<p class="note">正常动态 wrap 全程静默；仅运行中 Pi 的 renderer bridge 结构不兼容时显示一次，随后所有工具安全回退原生 themed block。单个第三方 renderer 抛错时仍保留 gutter，并在内部显示 Pi 同语义 raw fallback。</p>
 <div class="grid2" style="margin-top:10px">
   <div class="card">
     <h4>信号层 · 灯条</h4>
@@ -372,7 +372,7 @@
     色条 ▍ 3/8 格 · 上下各 1 行 padding · call/result 间 1 行分隔</p>
   </div>
 </div>
-<p class="note">内置工具显示 gutter；第三方工具保持原生色块，并在 startup / reload 时以单条 warning 提示未套用 gutter。用户输入行结构检测失败时静默回退 theme 色块。</p>
+<p class="note">内置、extension 与 SDK 工具统一显示 gutter；运行时新增工具无需 reload，执行、schema、active set 与原 renderer 所有权保持不变。renderer bridge 失配时整组安全回退原生 themed block；用户输入行结构检测失败时静默回退 theme 色块。</p>
 
 <h3>Bash · fish 同构高亮</h3>
 <div class="term">

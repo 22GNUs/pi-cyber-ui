@@ -15,9 +15,9 @@ export default async function piCyberUi(pi: ExtensionAPI) {
   footer(pi);
   working(pi);
 
-  // Built-in tool gutter (official wrap pattern; third-party tools keep the
-  // theme's block style).
-  toolGutter(pi, config);
+  // Renderer-only gutter bridge: covers built-in and dynamically registered
+  // tools without replacing execution, schemas, or the active tool set.
+  await toolGutter(pi, config);
 
   // Prompt-style user messages (defensive render patch; falls back to the
   // theme's block style when pi internals change).

@@ -13,7 +13,8 @@ Concise working notes for this repository.
 - Token/streaming logic lives in `extensions/pi-cyber-ui/token-usage.ts`
 - Editor state lives in `extensions/pi-cyber-ui/editor-state.ts`
 - Working/HUD rendering lives in `extensions/pi-cyber-ui/working.ts`
-- Tool gutter (built-in wrap + fish highlighting) lives in `extensions/pi-cyber-ui/tool-gutter.ts`
+- Tool gutter composition + fish highlighting lives in `extensions/pi-cyber-ui/tool-gutter.ts`
+- Running Pi tool renderer middleware lives in `extensions/pi-cyber-ui/tool-renderer-bridge.ts`
 - User message prompt style (defensive patch) lives in `extensions/pi-cyber-ui/user-message-patch.ts`
 - Config loader lives in `extensions/pi-cyber-ui/config.ts`
 - Running Pi module resolution lives in `extensions/pi-cyber-ui/runtime-pi.ts`
