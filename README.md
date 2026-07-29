@@ -17,12 +17,11 @@ No bar animation by design: bars are pure functions of tool state (zero timers, 
 
 | Token | Color | Used for |
 |-------|-------|----------|
-| tool name / `$` | cyan | component identity and shell prompt |
-| shell command | dim cyan | command words |
+| tool name / `$` / shell command | cyan | component identity, shell prompt, command words |
 | option / param | fgMuted | flags, paths, args, assignments |
 | quote | silverDim | quoted strings and heredoc bodies |
 | end | fgDim | `\|` `&&` `;` `&` |
-| `$VAR` | tealDark | expansions |
+| `$VAR` | green | expansions |
 | comment | fgDim | `# …` |
 
 **Cold neon syntax.** Theme-wide: string → teal, number → pink, diff added → teal, code fence → fgDim. Orange is reserved for warnings and bash mode.
@@ -32,7 +31,7 @@ No bar animation by design: bars are pure functions of tool state (zero timers, 
 | File | Role |
 |------|------|
 | `editor.ts` / `cyber-editor.ts` / `editor-state.ts` | Editor shell, prompt glyph, session label, token accounting |
-| `working.ts` | Running HUD + idle summary (shared 60fps visual clock, color-gated) |
+| `working.ts` | Running HUD + idle summary (shared 30fps visual clock, color-gated) |
 | `footer.ts` | Model · thinking · context · path · event-driven git dirty state |
 | `tool-gutter.ts` | Static status bar + panel + built-in fish highlighting for every tool |
 | `tool-renderer-bridge.ts` | Idempotent renderer middleware on the exact running Pi component |
@@ -124,7 +123,7 @@ Select theme `cyber-ui-dark` via `/settings`.
 - Package / theme / entrypoint: `pi-cyber-ui` · `cyber-ui-dark` · `extensions/pi-cyber-ui/index.ts`
 - Telemetry is prompt-scoped across text / thinking / tool-call deltas
 - `~` marks provisional output/rate; trusted final usage clears it
-- Working HUD: one non-overlapping 16ms visual clock, letter-wave verb, dual-breath spinner, odometer/glow, freeze-fade during tools
+- Working HUD: one non-overlapping 33ms / 30fps visual clock, letter-wave verb, dual-breath spinner, odometer/glow, freeze-fade during tools
 - Idle summary: mounted once, then color-interpolated for its 600ms fade without rebuilding the widget tree
 - Git dirty state: tool-event refresh plus a 60s external-change fallback (no shell process)
 - Theme format follows the official Pi theme schema; all package colors derive from its `vars` via `palette.ts`

@@ -17,7 +17,7 @@ import type { ExtensionAPI, ToolDefinition } from "@earendil-works/pi-coding-age
 import { Text, truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 
 import type { CyberUiConfig } from "./config.js";
-import { bgRgb, mix, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
+import { bgRgb, paint, palette, RESET_BG, rgb, type RGB } from "./palette.js";
 import {
   installToolRendererBridge,
   type ToolRendererBridgeDependencies,
@@ -74,7 +74,7 @@ const PARAM_FG = rgb(palette.fgMuted);
 /**
  * Built-in call renderers paint paths/args with the accent color (cyan),
  * which now equals toolTitle. Rewrite non-bold accent runs to the fish
- * param color (pink): tool names are `fg(toolTitle, bold(...))`, so
+ * param color (fgMuted): tool names are `fg(toolTitle, bold(...))`, so
  * their accent sequence is immediately followed by bold-on — params are not.
  */
 function recolorCallParams(line: string): string {
@@ -233,10 +233,10 @@ function getTextContent(result: { content?: Array<{ type: string; text?: string 
 
 /**
  * Bash is the one built-in whose renderCall paints the whole `$ command` in
- * bold toolTitle. Restyle it with the low-chroma Cool Minimal fish palette:
+ * bold toolTitle. Restyle it with the Cool Minimal fish palette:
  *
- *   `$` → cyan · command → dim cyan · option/param → fgMuted
- *   quote → silverDim · end (| ; &&) → fgDim · $expansion → tealDark
+ *   `$` → cyan · command → cyan (fish native) · option/param → fgMuted
+ *   quote → silverDim · end (| ; &&) → fgDim · $expansion → green
  *   comment → fgDim · redirection → fg (unpainted)
  */
 const SHELL_OPERATOR = /^(\|\||&&|>{1,2}&?\d*|<{1,2}|;|\||&)/;
@@ -265,11 +265,11 @@ const COMMAND_SEPARATORS = new Set(["||", "&&", "|", ";", "&"]);
 
 type ShellTheme = Parameters<RenderCall>[1];
 
-const SHELL_COMMAND_COLOR = mix(palette.fgDim, palette.cyan, 0.65);
+const SHELL_COMMAND_COLOR = palette.cyan;
 const SHELL_PARAM_COLOR = palette.fgMuted;
 const SHELL_QUOTE_COLOR = palette.silverDim;
 const SHELL_END_COLOR = palette.fgDim;
-const SHELL_EXPANSION_COLOR = palette.tealDark;
+const SHELL_EXPANSION_COLOR = palette.green;
 
 function isEscaped(text: string, index: number): boolean {
   let slashes = 0;

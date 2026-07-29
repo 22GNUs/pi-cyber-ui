@@ -4,7 +4,7 @@ import test from "node:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { parseGitStatus, sanitizeStatusText } from "../.test-dist/pi-cyber-ui/footer.js";
-import { mix, palette, rgb } from "../.test-dist/pi-cyber-ui/palette.js";
+import { palette, rgb } from "../.test-dist/pi-cyber-ui/palette.js";
 import { shortenPathToWidth } from "../.test-dist/pi-cyber-ui/path-utils.js";
 import { StreamingTokenEstimator } from "../.test-dist/pi-cyber-ui/token-usage.js";
 import { highlightShellCommand } from "../.test-dist/pi-cyber-ui/tool-gutter.js";
@@ -44,14 +44,14 @@ test("path shortening honors terminal cell width for Unicode paths", () => {
 });
 
 test("fish highlighting stays low-chroma while preserving lexical roles", () => {
-  const commandColor = rgb(mix(palette.fgDim, palette.cyan, 0.65));
+  const commandColor = rgb(palette.cyan);
   const highlighted = highlightShellCommand("echo foo#bar | cat $HOME");
   assert.ok(highlighted.includes(`${commandColor}echo`));
   assert.ok(highlighted.includes(`${rgb(palette.fgMuted)}foo#bar`));
   assert.ok(!highlighted.includes(`${rgb(palette.fgDim)}#bar`));
   assert.ok(highlighted.includes(`${rgb(palette.fgDim)}|`));
   assert.ok(highlighted.includes(`${commandColor}cat`));
-  assert.ok(highlighted.includes(`${rgb(palette.tealDark)}$HOME`));
+  assert.ok(highlighted.includes(`${rgb(palette.green)}$HOME`));
 
   const wrapped = highlightShellCommand("sudo -u root env CI=1 bash -lc 'echo ok'");
   assert.ok(wrapped.includes(`${commandColor}sudo`));
@@ -64,7 +64,7 @@ test("fish highlighting stays low-chroma while preserving lexical roles", () => 
 
 test("heredoc detection ignores quoted lookalikes", () => {
   const quoted = highlightShellCommand("echo '<<EOF'\nnext");
-  const commandColor = rgb(mix(palette.fgDim, palette.cyan, 0.65));
+  const commandColor = rgb(palette.cyan);
   assert.ok(quoted.includes(`${commandColor}next`));
 
   const heredoc = highlightShellCommand("cat <<'EOF'\nbody\nEOF");

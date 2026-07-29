@@ -44,8 +44,11 @@ test("working HUD uses one visual clock and mounts the fading summary once", asy
 
   cyberState.onAgentStart();
   await handlers.get("agent_start")({}, ctx);
-  await wait(90);
-  assert.ok(messages.some((message) => typeof message === "string" && message.includes("●")));
+  await wait(260);
+  const activeFrames = messages.filter((message) => typeof message === "string");
+  assert.ok(activeFrames.some((message) => message.includes("●")));
+  assert.ok(activeFrames.length >= 4, `expected animated HUD frames, got ${activeFrames.length}`);
+  assert.ok(activeFrames.length <= 12, `expected a 30fps frame cap, got ${activeFrames.length} frames in 260ms`);
 
   cyberState.onAgentEnd();
   await handlers.get("agent_end")({}, ctx);
