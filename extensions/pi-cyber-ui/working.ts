@@ -238,7 +238,7 @@ function formatTps(value: number | undefined): string {
 // Display smoothing — odometer / glow / freeze-fade / fixed-width slots.
 //
 // Pure display layer: cyberState stays the source of truth; this only shapes
-// how its snapshot reaches the eye at the 16ms refresh cadence.
+// how its snapshot reaches the eye at the 33ms refresh cadence.
 //
 //   odometer  — shown output eases toward the true value (τ 80ms ≈ 95% in
 //               250ms), so token counts roll instead of jumping.
@@ -269,7 +269,7 @@ const GLOW_HOLD_MS = 600;
 const GLOW_ATTACK_TAU_MS = 120;
 const GLOW_RELEASE_TAU_MS = 350;
 const GLOW_PEAK = 0.7;
-// Event-loop stalls (tool output flooding the TUI) can starve the 16ms
+// Event-loop stalls (tool output flooding the TUI) can starve the 33ms
 // timer; an unclamped dt would make every time-based smoother jump through
 // its curve in a single frame. Clamp dt so recovery is still eased.
 const MAX_FRAME_DT_MS = 64;
@@ -697,11 +697,10 @@ interface PromptState {
 }
 
 const VERB_ROTATE_MS = 8_000;
-// ~60fps sampling for animation phase accuracy. Terminal writes are NOT
-// 60/s: the 16-step intensity quantization collapses most neighbouring
-// ticks into byte-identical strings and the render memo below skips them,
-// so write volume is governed by actual visual change, not tick rate.
-const MESSAGE_REFRESH_MS = 16;
+// 30fps frame cap. All motion is wall-clock based, so this halves global TUI
+// render pressure versus the former 16ms clock without changing animation
+// periods. Thirty samples per second remain visually continuous in a terminal.
+const MESSAGE_REFRESH_MS = 33;
 
 let prompt: PromptState | undefined;
 /** Last string sent to setWorkingMessage — skip identical rewrites. */
