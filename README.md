@@ -21,7 +21,7 @@ Tokyo Night–derived theme + UI for [Pi](https://pi.dev). Status lives in the b
 
 Built-in calls use [tokyonight fish](https://github.com/folke/tokyonight.nvim/blob/main/extras/fish_themes/tokyonight_night.theme) roles: command cyan · param muted · quote silver · `$VAR` green.
 
-Live reference: [`design/DESIGN.html`](design/DESIGN.html)
+Live reference: [`design/DESIGN.html`](https://22gnus.github.io/pi-cyber-ui/design/DESIGN.html)
 
 ## Install
 
@@ -58,3 +58,7 @@ npm install && npm test && npm run typecheck
 ## Release
 
 Bump `version`, push a matching `vX.Y.Z` tag. GitHub Actions publishes to npm.
+
+## License
+
+MIT
