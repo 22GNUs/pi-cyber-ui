@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Cyber UI · Design Reference</title>
@@ -205,63 +205,62 @@
 <header class="hero">
   <div class="kicker">Design Reference</div>
   <h1>Cyber <span class="accent">UI</span></h1>
-  <p class="lede">Tokyo Night cyber 派生的终端 TUI 设计语言：一色一职的调色板、信号克制的工具行、呼吸式动效、与 fish shell 同构的命令高亮。</p>
+  <p class="lede">A Tokyo Night–derived terminal TUI language: one job per color, restrained tool-row signal, breathing motion, and fish-isomorphic command highlighting.</p>
   <div class="meta">
     <span>theme · <b>cyber-ui-dark</b></span>
-    <span>font · <b>JetBrainsMono Nerd Font</b></span>
     <span>mode · <b>truecolor</b></span>
   </div>
 </header>
 
-<h2><span class="num">01</span> 调色板 <span class="rule"></span></h2>
+<h2><span class="num">01</span> Palette <span class="rule"></span></h2>
 
 <h3>Base</h3>
 <div class="chips">
-  <div class="chip"><div class="sw" style="background:#0a0a0d"></div><div class="meta"><div class="name">bg</div><div class="hx">#0a0a0d</div><div class="role">主背景</div></div></div>
-  <div class="chip"><div class="sw" style="background:#121218"></div><div class="meta"><div class="name">toolSurface</div><div class="hx">#121218</div><div class="role">工具 / 输入面板</div></div></div>
-  <div class="chip"><div class="sw" style="background:#1f2335"></div><div class="meta"><div class="name">bgAlt</div><div class="hx">#1f2335</div><div class="role">选区旁板 · 第三方 pending</div></div></div>
-  <div class="chip"><div class="sw" style="background:#33467c"></div><div class="meta"><div class="name">bgSelection</div><div class="hx">#33467c</div><div class="role">选区</div></div></div>
-  <div class="chip"><div class="sw" style="background:#c0caf5"></div><div class="meta"><div class="name">fg</div><div class="hx">#c0caf5</div><div class="role">主文本</div></div></div>
-  <div class="chip"><div class="sw" style="background:#a9b1d6"></div><div class="meta"><div class="name">fgMuted</div><div class="hx">#a9b1d6</div><div class="role">次文本</div></div></div>
-  <div class="chip"><div class="sw" style="background:#565f89"></div><div class="meta"><div class="name">fgDim</div><div class="hx">#565f89</div><div class="role">边框 / 弱信息</div></div></div>
+  <div class="chip"><div class="sw" style="background:#0a0a0d"></div><div class="meta"><div class="name">bg</div><div class="hx">#0a0a0d</div><div class="role">page background</div></div></div>
+  <div class="chip"><div class="sw" style="background:#121218"></div><div class="meta"><div class="name">toolSurface</div><div class="hx">#121218</div><div class="role">tool / input panel</div></div></div>
+  <div class="chip"><div class="sw" style="background:#1f2335"></div><div class="meta"><div class="name">bgAlt</div><div class="hx">#1f2335</div><div class="role">side panels · third-party pending</div></div></div>
+  <div class="chip"><div class="sw" style="background:#33467c"></div><div class="meta"><div class="name">bgSelection</div><div class="hx">#33467c</div><div class="role">selection</div></div></div>
+  <div class="chip"><div class="sw" style="background:#c0caf5"></div><div class="meta"><div class="name">fg</div><div class="hx">#c0caf5</div><div class="role">primary text</div></div></div>
+  <div class="chip"><div class="sw" style="background:#a9b1d6"></div><div class="meta"><div class="name">fgMuted</div><div class="hx">#a9b1d6</div><div class="role">secondary text</div></div></div>
+  <div class="chip"><div class="sw" style="background:#565f89"></div><div class="meta"><div class="name">fgDim</div><div class="hx">#565f89</div><div class="role">borders / quiet info</div></div></div>
 </div>
 
-<h3>Accent — 一色一职</h3>
+<h3>Accent — one job per color</h3>
 <div class="chips">
-  <div class="chip"><div class="sw" style="background:#7dcfff"></div><div class="meta"><div class="name">cyan</div><div class="hx">#7dcfff</div><div class="role">品牌 / 焦点 / tool name / $ / shell command</div></div></div>
-  <div class="chip"><div class="sw" style="background:#b4f9f8"></div><div class="meta"><div class="name">cyanBright</div><div class="hx">#b4f9f8</div><div class="role">强调（少用）</div></div></div>
-  <div class="chip"><div class="sw" style="background:#7aa2f7"></div><div class="meta"><div class="name">blue</div><div class="hx">#7aa2f7</div><div class="role">链接 · function</div></div></div>
-  <div class="chip"><div class="sw" style="background:#41a6b5"></div><div class="meta"><div class="name">tealDark</div><div class="hx">#41a6b5</div><div class="role">引用边 · operator</div></div></div>
-  <div class="chip"><div class="sw" style="background:#4fd6be"></div><div class="meta"><div class="name">teal</div><div class="hx">#4fd6be</div><div class="role">内联 code · context</div></div></div>
+  <div class="chip"><div class="sw" style="background:#7dcfff"></div><div class="meta"><div class="name">cyan</div><div class="hx">#7dcfff</div><div class="role">brand / focus / tool name / $ / shell command</div></div></div>
+  <div class="chip"><div class="sw" style="background:#b4f9f8"></div><div class="meta"><div class="name">cyanBright</div><div class="hx">#b4f9f8</div><div class="role">emphasis (rare)</div></div></div>
+  <div class="chip"><div class="sw" style="background:#7aa2f7"></div><div class="meta"><div class="name">blue</div><div class="hx">#7aa2f7</div><div class="role">links · function</div></div></div>
+  <div class="chip"><div class="sw" style="background:#41a6b5"></div><div class="meta"><div class="name">tealDark</div><div class="hx">#41a6b5</div><div class="role">quote border · operator</div></div></div>
+  <div class="chip"><div class="sw" style="background:#4fd6be"></div><div class="meta"><div class="name">teal</div><div class="hx">#4fd6be</div><div class="role">inline code · context</div></div></div>
   <div class="chip"><div class="sw" style="background:#bb9af7"></div><div class="meta"><div class="name">purple</div><div class="hx">#bb9af7</div><div class="role">keyword · thinking high</div></div></div>
-  <div class="chip"><div class="sw" style="background:#9ece6a"></div><div class="meta"><div class="name">green</div><div class="hx">#9ece6a</div><div class="role">diff added · 字符串 · $VAR</div></div></div>
+  <div class="chip"><div class="sw" style="background:#9ece6a"></div><div class="meta"><div class="name">green</div><div class="hx">#9ece6a</div><div class="role">diff added · strings · $VAR</div></div></div>
   <div class="chip"><div class="sw" style="background:#e0af68"></div><div class="meta"><div class="name">orange</div><div class="hx">#e0af68</div><div class="role">number · warning · bash mode</div></div></div>
   <div class="chip"><div class="sw" style="background:#f7768e"></div><div class="meta"><div class="name">red</div><div class="hx">#f7768e</div><div class="role">error · max thinking</div></div></div>
-  <div class="chip"><div class="sw" style="background:#fca7ea"></div><div class="meta"><div class="name">pink</div><div class="hx">#fca7ea</div><div class="role">用户灯条 · 心跳呼吸峰 · path <code>~</code> · xhigh</div></div></div>
+  <div class="chip"><div class="sw" style="background:#fca7ea"></div><div class="meta"><div class="name">pink</div><div class="hx">#fca7ea</div><div class="role">user bar · pulse peak · path <code>~</code> · xhigh</div></div></div>
 </div>
 
 <h3>Silver / Path / Prompt</h3>
-<p class="note">并入 <code>themes/cyber-ui-dark.json</code> 的 <code>vars</code>，经 <code>palette.ts</code> 单一来源读取；限 working 呼吸 / path / prompt glyph，不下放普通文本。pink 已归入 Accent（tokyonight moon magenta）。</p>
+<p class="note">Live in <code>themes/cyber-ui-dark.json</code> <code>vars</code>, read through <code>palette.ts</code> as the single source. Reserved for the working breath, path, and prompt glyph — not body text. Pink already sits in Accent (tokyonight moon magenta).</p>
 <div class="chips">
-  <div class="chip"><div class="sw" style="background:#6f7794"></div><div class="meta"><div class="name">silverDim</div><div class="hx">#6f7794</div><div class="role">呼吸谷 · path 分隔符</div></div></div>
-  <div class="chip"><div class="sw" style="background:#c8d3ea"></div><div class="meta"><div class="name">silver</div><div class="hx">#c8d3ea</div><div class="role">呼吸中位（参考）</div></div></div>
-  <div class="chip"><div class="sw" style="background:#e6ecfa"></div><div class="meta"><div class="name">silverHi</div><div class="hx">#e6ecfa</div><div class="role">呼吸峰 · 字符波高亮</div></div></div>
+  <div class="chip"><div class="sw" style="background:#6f7794"></div><div class="meta"><div class="name">silverDim</div><div class="hx">#6f7794</div><div class="role">breath trough · path separators</div></div></div>
+  <div class="chip"><div class="sw" style="background:#c8d3ea"></div><div class="meta"><div class="name">silver</div><div class="hx">#c8d3ea</div><div class="role">breath midpoint (reference)</div></div></div>
+  <div class="chip"><div class="sw" style="background:#e6ecfa"></div><div class="meta"><div class="name">silverHi</div><div class="hx">#e6ecfa</div><div class="role">breath peak · letter-wave highlight</div></div></div>
   <div class="chip"><div class="sw" style="background:#aab8ca"></div><div class="meta"><div class="name">promptSilver</div><div class="hx">#aab8ca</div><div class="role">prompt glyph <code>❯</code></div></div></div>
 </div>
 
-<h2><span class="num">02</span> 组件 <span class="rule"></span></h2>
+<h2><span class="num">02</span> Surfaces <span class="rule"></span></h2>
 
 <h3>Editor</h3>
 <div class="term">
   <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">editor</div></div>
   <div class="body">
     <span class="cyan">──────────────────────────────────────────</span><span class="cyan">⟦ refactor-ui ⟧</span><span class="cyan">────</span><br>
-    <span class="silver">❯</span> <span class="fg">让 working line 的 tps 在 idle 时也保留</span>
+    <span class="silver">❯</span> <span class="fg">keep tps on the working line after idle</span>
   </div>
 </div>
-<p class="note">prompt glyph <code>❯</code> = promptSilver · border 跟随 thinking / bash 动态色 · 右上角静态 session label · 长文本按 prompt 后的可用宽度完整换行，字符与光标不截断</p>
+<p class="note">prompt glyph <code>❯</code> = promptSilver · border tracks thinking / bash · static session label at top-right · long text wraps to the width after the prompt, no clipped glyphs or caret</p>
 
-<h3>Working line · 运行中</h3>
+<h3>Working line · running</h3>
 <div class="term">
   <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">working · 30fps frame cap</div></div>
   <div class="body">
@@ -273,7 +272,7 @@
     <span class="dim">·</span> <span class="dim">󰄉 3</span><span class="dim">)</span>
   </div>
 </div>
-<p class="note">spinner 64 帧双呼吸交替（fgDim ↔ pink / fgDim ↔ cyan，峰色逐次轮替）· verb 字符波（fgMuted ↔ silverHi）· ambient motion 统一 33ms / 30fps 帧帽 · 括号内 elapsed · tokens · tps · turn · 10s 后淡入 <code>esc to cancel</code></p>
+<p class="note">64-frame dual breath (fgDim ↔ pink / fgDim ↔ cyan, peaks alternate) · verb letter-wave (fgMuted ↔ silverHi) · ambient motion capped at 33ms / 30fps · elapsed · tokens · tps · turn inside the parens · fades in after 10s <code>esc to cancel</code></p>
 
 <h3>Idle summary</h3>
 <div class="term">
@@ -286,7 +285,7 @@
     <span class="dim">·</span> <span class="muted">156 tps</span>
   </div>
 </div>
-<p class="note">全部自动重试、压缩与 follow-up 真正完成后展示至下个 prompt · 仅 <code>✓</code> green，其余 muted</p>
+<p class="note">Shown after retries, compaction, and follow-ups actually settle, until the next prompt · only <code>✓</code> is green; the rest stays muted</p>
 
 <h3>Footer</h3>
 <div class="term">
@@ -300,7 +299,7 @@
     </span>
   </div>
 </div>
-<h3>Thinking ladder · 冷→暖七阶</h3>
+<h3>Thinking ladder · cold → warm, seven steps</h3>
 <div class="term">
   <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">thinking</div></div>
   <div class="body" style="line-height:2.1">
@@ -313,17 +312,17 @@
     <span class="red bold">max</span>
   </div>
 </div>
-<p class="note">单色相沿暖度递增 · <code>xhigh</code> 用 pink（tokyonight moon magenta，紫→粉→红 连续）让出红色给 <code>max</code> · <code>max</code> 收尾于红 + 加粗 · 不再用逐字符彩虹</p>
+<p class="note">One hue, warming as the level rises · <code>xhigh</code> takes pink (tokyonight moon magenta, purple → pink → red) so red stays free for <code>max</code> · <code>max</code> lands on red + bold · no per-character rainbow</p>
 
-<p class="note">左 model · thinking（max 为红色加粗）· context · cache ｜ 右 path · git · 扩展 statuses · 窄时折叠 <code>+N</code></p>
+<p class="note">Left: model · thinking (<code>max</code> is red/bold) · context · cache &nbsp;|&nbsp; Right: path · git · extension statuses · folds to <code>+N</code> when narrow</p>
 
-<h3>Tool row · 信号克制</h3>
-<p class="note" style="margin-bottom:10px">设计原则（Grok 克制 × sci-fi HUD × 高端暗色系统交集）：状态层高饱和、内容层低色相。灯条 —— <span class="blue">blue</span> = 运行中、<span style="color:#4fd6be">teal</span> = 成功、<span class="red">red</span> = 失败、<span class="pink">pink</span> = 用户输入；面板统一 <code>#121218</code>。tool name / <code>$</code> / shell command = cyan（fish 原生），其余语法主要依靠 muted / dim 明度区分。</p>
+<h3>Tool row · signal restraint</h3>
+<p class="note" style="margin-bottom:10px">Principle (Grok restraint × sci-fi HUD × high-end dark UI): saturate the status layer, keep content low-chroma. Bars — <span class="blue">blue</span> = running, <span style="color:#4fd6be">teal</span> = success, <span class="red">red</span> = failure, <span class="pink">pink</span> = user input; one panel <code>#121218</code>. Tool name / <code>$</code> / shell command = cyan (native fish); everything else mostly splits on muted / dim luminance.</p>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">gutter · panel #121218 · bar ▍ 静态三色 · fish palette</div></div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">gutter · panel #121218 · bar ▍ static triad · fish palette</div></div>
   <div class="body tools">
     <div class="tool-gutter" style="background:#121218;border-left-color:#fca7ea">
-      <span class="silver">❯</span> <span style="color:#c8d3ea">把工具行做成 fish 同构的霓虹灯条</span>
+      <span class="silver">❯</span> <span style="color:#c8d3ea">make the tool row a neon fish gutter</span>
     </div>
     <div class="tool-gutter gutter-pending" style="background:#121218">
       <span class="cyan bold">$</span> <span class="cyan">npm</span> <span class="muted">run typecheck</span>
@@ -344,8 +343,8 @@
       <span class="out red">✗ oldText not found</span>
     </div>
     <div class="tool-gutter gutter-success" style="background:#121218">
-      <span class="cyan bold">ask_user</span> <span class="muted">成功色条? → teal 霓虹</span>
-      <span class="out dim">↑ 运行时注册工具 · 保留原 renderer，动态套用同一 gutter shell</span>
+      <span class="cyan bold">ask_user</span> <span class="muted">success bar? → teal neon</span>
+      <span class="out dim">↑ late-registered tool · original renderer kept, same gutter shell</span>
     </div>
   </div>
 </div>
@@ -355,28 +354,28 @@
     <span class="orange">Warning: pi-cyber-ui dynamic gutter unavailable · all tools use themed block fallback</span>
   </div>
 </div>
-<p class="note">正常动态 wrap 全程静默；仅运行中 Pi 的 renderer bridge 结构不兼容时显示一次，随后所有工具安全回退原生 themed block。单个第三方 renderer 抛错时仍保留 gutter，并在内部显示 Pi 同语义 raw fallback。</p>
+<p class="note">A healthy dynamic wrap stays silent. One warning if the running Pi renderer bridge is incompatible; every tool then falls back to the native themed block. A single third-party renderer exception keeps the gutter and shows Pi-equivalent raw fallback inside it.</p>
 <div class="grid2" style="margin-top:10px">
   <div class="card">
-    <h4>信号层 · 灯条</h4>
-    <p><span class="blue">▍ blue</span> 运行中 · 静态（动感由 working HUD 承担）<br>
-    <span style="color:#4fd6be">▍ teal</span> 完成 · 静态<br>
-    <span class="red">▍ red</span> 失败 · 唯一警示<br>
-    <span class="pink">▍ pink</span> 用户输入 · 高饱和身份信号；<span class="silver">❯ promptSilver</span> 保持克制</p>
+    <h4>Signal · bar</h4>
+    <p><span class="blue">▍ blue</span> running · static (motion lives in the working HUD)<br>
+    <span style="color:#4fd6be">▍ teal</span> done · static<br>
+    <span class="red">▍ red</span> failure · the only alarm<br>
+    <span class="pink">▍ pink</span> user input · high-chroma identity; <span class="silver">❯ promptSilver</span> stays quiet</p>
   </div>
   <div class="card">
-    <h4>结构层 · 面板 + 文本</h4>
-    <p>bg #0a0a0d → 面板 #121218（工具与输入共用）<br>
-    工具名 / <code>$</code> / shell command = cyan · 路径 / 参数 / flags = fgMuted<br>
-    bash 引号 = silverDim · $VAR = green · 管道 / 分隔 = fgDim · 重定向 = fg<br>
-    色条 ▍ 3/8 格 · 上下各 1 行 padding · call/result 间 1 行分隔</p>
+    <h4>Structure · panel + text</h4>
+    <p>bg #0a0a0d → panel #121218 (shared by tools and input)<br>
+    tool name / <code>$</code> / shell command = cyan · path / args / flags = fgMuted<br>
+    bash quotes = silverDim · $VAR = green · pipes / separators = fgDim · redirects = fg<br>
+    bar ▍ is 3/8 cell · 1-line pad top and bottom · 1-line gap between call and result</p>
   </div>
 </div>
-<p class="note">内置、extension 与 SDK 工具统一显示 gutter；运行时新增工具无需 reload，执行、schema、active set 与原 renderer 所有权保持不变。renderer bridge 失配时整组安全回退原生 themed block；用户输入行结构检测失败时静默回退 theme 色块。</p>
+<p class="note">Built-in, extension, and SDK tools all get the same gutter. Tools registered later need no reload. Execute, schema, active set, and original renderer ownership stay untouched. A mismatched renderer bridge falls the whole set back to the native themed block. A failed user-message structure check silently keeps the theme box.</p>
 
-<h3>Bash · fish 同构高亮</h3>
+<h3>Bash · fish-isomorphic highlight</h3>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">tokyonight fish palette · 轻量 shell tokenizer</div></div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">tokyonight fish palette · lightweight shell tokenizer</div></div>
   <div class="body" style="line-height:2.1;font-family:'JetBrainsMono Nerd Font',ui-monospace,monospace">
     <span class="cyan bold">$</span> <span class="cyan">grep</span> <span class="muted">-n -B2 -A10</span> <span style="color:#6f7794">"function formatBashCall"</span> <span class="muted">bash.js</span><br>
     <span class="cyan bold">$</span> <span class="cyan">npm</span> <span class="muted">run typecheck</span> <span class="fg">2&gt;&amp;1</span> <span class="dim">|</span> <span class="cyan">tail</span> <span class="muted">-3</span><br>
@@ -385,7 +384,7 @@
     <span class="dim"># $ / tool name / command cyan · param fgMuted · quote silverDim · end fgDim · $VAR green</span>
   </div>
 </div>
-<p class="note">Cool Minimal × fish 原生：tool name / <code>$</code> / shell command 统一 full cyan（与 tokyonight fish 主题一致，取消派生 dim 色），param/path 回落 fgMuted，quote = silverDim，end = fgDim，expansion = green（回归 fish 原生绿）。移除显眼紫黄，命令以下主要靠明度区分词法。</p>
+<p class="note">Cool Minimal × native fish: tool name / <code>$</code> / shell command share full cyan (same as the tokyonight fish theme — no derived dim). Param/path fall to fgMuted, quote = silverDim, end = fgDim, expansion = green (native fish green). No loud purple/yellow; below the command, lexicon is mostly luminance.</p>
 
 <h3>Diff · Syntax · Markdown</h3>
 <div class="grid2">
@@ -412,11 +411,11 @@
     </div>
   </div>
 </div>
-<p class="note">diff added = teal · context = fgDim；syntax string = teal · number = pink；Markdown fence = fgDim，作为低权重结构边界。</p>
+<p class="note">diff added = teal · context = fgDim; syntax string = teal · number = pink; Markdown fence = fgDim, a low-weight structural edge.</p>
 
-<h2><span class="num">03</span> 语义色阶 <span class="rule"></span></h2>
+<h2><span class="num">03</span> Semantic scales <span class="rule"></span></h2>
 
-<h3>TPS · 高 = 佳</h3>
+<h3>TPS · higher is better</h3>
 <div class="scale-row">
   <div class="scale-bar">
     <span style="background:rgba(247,118,142,0.18);color:#f7768e">&lt;30</span>
@@ -427,7 +426,7 @@
   <div class="scale-cap"><span>bad</span><span>exceptional</span></div>
 </div>
 
-<h3>Context · 低 = 佳</h3>
+<h3>Context · lower is better</h3>
 <div class="scale-row">
   <div class="scale-bar">
     <span style="background:rgba(158,206,106,0.18);color:#9ece6a">&lt;30%</span>
@@ -439,7 +438,7 @@
   <div class="scale-cap"><span>fresh</span><span>crowded</span></div>
 </div>
 
-<h3>Cache · 高 = 佳</h3>
+<h3>Cache · higher is better</h3>
 <div class="scale-row">
   <div class="scale-bar">
     <span style="background:rgba(247,118,142,0.18);color:#f7768e">&lt;30%</span>
@@ -451,63 +450,63 @@
   <div class="scale-cap"><span>cold</span><span>hot</span></div>
 </div>
 
-<h2><span class="num">04</span> 动效 <span class="rule"></span></h2>
+<h2><span class="num">04</span> Motion <span class="rule"></span></h2>
 <table>
-  <thead><tr><th>元素</th><th>周期</th><th>说明</th></tr></thead>
+  <thead><tr><th>Element</th><th>Period</th><th>Notes</th></tr></thead>
   <tbody>
-    <tr><td>spinner pulse</td><td><span class="ms">4800ms</span></td><td>64 帧双呼吸 · 峰色 pink/cyan 交替 · 谷 fgDim · 75ms/帧</td></tr>
-    <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 错相 spinner</td></tr>
-    <tr><td>message motion</td><td><span class="ms">30fps · 33ms</span></td><td>字符波、odometer、glow、freeze fade 保持时间连续；终端帧帽减少无意义全局重绘，不改变动画周期</td></tr>
-    <tr><td>verb 轮换</td><td><span class="ms">8000ms</span></td><td>多语 20 词</td></tr>
-    <tr><td>tps smoothing</td><td><span class="ms">τ 500ms</span></td><td>基于时间的 EMA + 分母下限 0.5s · 消除首帧尖峰与阶梯锯齿</td></tr>
-    <tr><td>value odometer</td><td><span class="ms">≈250ms</span></td><td>显示值 ease-out 追赶真实值 · token 数连续滚动不跳变</td></tr>
-    <tr><td>value glow</td><td><span class="ms">hold 600 · attack 120 / release 350ms</span></td><td>数据到达续期 600ms 滞回：流内目标恒亮不翻转，仅流启/停各过渡一次 · 峰値封顶 70% · dt 钗制 64ms</td></tr>
-    <tr><td>freeze fade</td><td><span class="ms">250ms</span></td><td>工具运行时 token / tps 渐暗，结束后恢复</td></tr>
-    <tr><td>hint / summary fade</td><td><span class="ms">600ms</span></td><td><code>esc to cancel</code> 与 <code>✓ done</code> 总结行透明渐显</td></tr>
+    <tr><td>spinner pulse</td><td><span class="ms">4800ms</span></td><td>64-frame dual breath · peak pink/cyan alternate · trough fgDim · 75ms/frame</td></tr>
+    <tr><td>verb wave</td><td><span class="ms">1800ms</span></td><td>120ms/char · 4:3 out of phase with the spinner</td></tr>
+    <tr><td>message motion</td><td><span class="ms">30fps · 33ms</span></td><td>letter-wave, odometer, glow, freeze-fade stay time-continuous; the terminal frame cap drops useless full redraws without changing animation periods</td></tr>
+    <tr><td>verb rotate</td><td><span class="ms">8000ms</span></td><td>20 verbs, several languages</td></tr>
+    <tr><td>tps smoothing</td><td><span class="ms">τ 500ms</span></td><td>time-based EMA + 0.5s denominator floor · kills first-frame spikes and stair-step jitter</td></tr>
+    <tr><td>value odometer</td><td><span class="ms">≈250ms</span></td><td>displayed value ease-out chases the real count · tokens roll instead of jumping</td></tr>
+    <tr><td>value glow</td><td><span class="ms">hold 600 · attack 120 / release 350ms</span></td><td>each data arrival re-arms a 600ms hold: stay lit while the stream is live, transition only on start/stop · peak capped at 70% · dt clamped to 64ms</td></tr>
+    <tr><td>freeze fade</td><td><span class="ms">250ms</span></td><td>token / tps dim while a tool runs, restore when it ends</td></tr>
+    <tr><td>hint / summary fade</td><td><span class="ms">600ms</span></td><td><code>esc to cancel</code> and the <code>✓ done</code> summary fade in</td></tr>
   </tbody>
 </table>
 
-<h3>TPS 平滑 · raw vs EMA</h3>
+<h3>TPS smoothing · raw vs EMA</h3>
 <div class="grid2">
   <div class="card">
-    <h4>raw · 未平滑</h4>
+    <h4>raw · unsmoothed</h4>
     <p style="font-size:18px;line-height:1.4">
       <span id="tpsRaw" class="bold">— tps</span>
     </p>
-    <p class="note" style="margin-top:6px">token 阶梯到达 + 每帧直接重算 → 数值与颜色锯齿抖动</p>
+    <p class="note" style="margin-top:6px">tokens arrive in steps + per-frame recompute → number and color chatter</p>
   </div>
   <div class="card">
-    <h4>ema α=0.2 · 平滑</h4>
+    <h4>ema α=0.2 · smoothed</h4>
     <p style="font-size:18px;line-height:1.4">
       <span id="tpsEma" class="bold">— tps</span>
     </p>
-    <p class="note" style="margin-top:6px">低通滤波 · 平滑收敛 · 颜色稳定不闪</p>
+    <p class="note" style="margin-top:6px">low-pass · converges smoothly · color stays still</p>
   </div>
 </div>
-<p class="note">模拟实时 tps：基础漂移 + token 到达噪声 · 左侧跳变，右侧 EMA 追赶</p>
+<p class="note">Live tps sim: base drift + arrival noise · left jumps, right EMA chases</p>
 
-<h3>数值里程表 + 微光 · raw vs smooth</h3>
+<h3>Value odometer + glow · raw vs smooth</h3>
 <div class="grid2">
   <div class="card">
-    <h4>raw · 瞬间跳变</h4>
+    <h4>raw · instant jump</h4>
     <p style="font-size:16px;line-height:1.6;font-family:'JetBrainsMono Nerd Font',ui-monospace,monospace">
       <span class="dim">↑128k</span> <span id="odoRaw" class="muted">↓0</span>
     </p>
-    <p class="note" style="margin-top:6px">token 每批到达直接跳 · 宽度变化时整行晃动</p>
+    <p class="note" style="margin-top:6px">each token batch jumps the number · the whole line shimmies when width changes</p>
   </div>
   <div class="card">
-    <h4>odometer + glow · 平滑递增</h4>
+    <h4>odometer + glow · smooth climb</h4>
     <p style="font-size:16px;line-height:1.6;font-family:'JetBrainsMono Nerd Font',ui-monospace,monospace">
       <span class="dim">↑128k</span> <span id="odoSmooth" class="muted" style="display:inline-block;min-width:7ch">↓0</span>
     </p>
-    <p class="note" style="margin-top:6px">显示值 ease-out 追赶(≈250ms) · 文本变化瞬间微光衰减 · 固定宽度槽位不晃动</p>
+    <p class="note" style="margin-top:6px">display ease-out chases (~250ms) · a brief glow on text change · fixed-width slot so the line does not shake</p>
   </div>
 </div>
-<p class="note">跨 <code>999 → 1.02k</code> 边界演示：左侧整行左右抖，右侧槽位稳定 · 微光仅作用于变化的数值段，不波及整行</p>
+<p class="note">Crossing <code>999 → 1.02k</code>: left line jitters sideways, right slot stays put · glow hits only the changing number, not the whole row</p>
 
-<h3>工具执行时 · HUD 暂停动效</h3>
+<h3>While a tool runs · HUD motion pauses</h3>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">streaming ⇄ tool running · 循环演示</div></div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">streaming ⇄ tool running · loop</div></div>
   <div class="body">
     <span class="pulse">●</span>
     <span class="verb">Reasoning...</span>
@@ -518,11 +517,11 @@
     <span id="frzState" class="dim" style="margin-left:14px;font-size:11px"></span>
   </div>
 </div>
-<p class="note">工具运行时保留最后的 token / tps 并平滑变暗 · 工具结束后恢复实时强调</p>
+<p class="note">While a tool runs, keep the last token / tps and fade them dim · restore live emphasis when it ends</p>
 
-<h3>淡入 · esc hint / idle summary</h3>
+<h3>Fade-in · esc hint / idle summary</h3>
 <div class="term">
-  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">压缩时间线 · 循环演示</div></div>
+  <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><div class="ttitle">compressed timeline · loop</div></div>
   <div class="body">
     <div id="fadeWorking">
       <span class="pulse">●</span>
@@ -539,7 +538,7 @@
     </div>
   </div>
 </div>
-<p class="note">10s 后 <code>esc to cancel</code> 透明渐显(600ms)不再突兀弹出 · 任务真正完成后总结行同样淡入 · 终端表现保持颜色 bg→目标色连续插值</p>
+<p class="note">After 10s, <code>esc to cancel</code> fades in (600ms) instead of popping · the summary line fades the same way when the task actually finishes · the terminal interpolates color from bg → target</p>
 <script>
   (function(){
     const rawEl = document.getElementById('tpsRaw');
@@ -565,7 +564,7 @@
     }, 200);
   })();
 
-  // —— 数值里程表 + 微光 ——
+  // —— value odometer + glow ——
   (function(){
     const rawEl = document.getElementById('odoRaw');
     const smoothEl = document.getElementById('odoSmooth');
@@ -576,13 +575,13 @@
       if (v < 1000) return '↓' + Math.round(v);
       return '↓' + (v/1000).toFixed(2) + 'k';
     }
-    // token 批次到达（真实值跳升）
+    // token batches arrive (true value jumps)
     setInterval(() => {
       target += 40 + Math.random() * 260;
       if (target > 9000) { target = 0; shown = 0; }
       rawEl.textContent = fmt(target);
     }, 700);
-    // 显示值 30fps ease-out 追赶 + 变化微光
+    // displayed value 30fps ease-out chase + change glow
     setInterval(() => {
       shown += (target - shown) * 0.12;
       const text = fmt(shown);
@@ -597,7 +596,7 @@
     }, 33);
   })();
 
-  // —— 工具执行时 HUD 暂停动效 ——
+  // —— HUD motion pause while a tool runs ——
   (function(){
     const tok = document.getElementById('frzTokens');
     const tps = document.getElementById('frzTps');
@@ -608,11 +607,11 @@
       frozen = !frozen;
       tok.style.color = frozen ? 'var(--fgDim)' : 'var(--fgMuted)';
       tps.style.color = frozen ? 'var(--fgDim)' : '#9ece6a';
-      state.textContent = frozen ? '▸ tool running · HUD 暂停' : '▸ streaming';
+      state.textContent = frozen ? '▸ tool running · HUD paused' : '▸ streaming';
     }, 2500);
   })();
 
-  // —— esc hint / idle summary 淡入 ——
+  // —— esc hint / idle summary fade-in ——
   (function(){
     const working = document.getElementById('fadeWorking');
     const hint = document.getElementById('fadeHint');
@@ -628,7 +627,7 @@
       const tick = setInterval(() => {
         t += 1;
         elapsed.textContent = t + 's';
-        if (t === 4) hint.style.opacity = '1'; // 模拟 10s 后淡入
+        if (t === 4) hint.style.opacity = '1'; // stand-in for the 10s fade-in
         if (t >= 7) {
           clearInterval(tick);
           working.style.display = 'none';

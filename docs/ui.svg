@@ -105,27 +105,44 @@
   <text class="sans" x="20" y="482" fill="#7dcfff" font-size="10" letter-spacing="1.8">EDITOR + FOOTER</text>
   <g transform="translate(20,492)">
     <rect width="780" height="122" rx="9" fill="#0a0a0d" stroke="#565f89"/>
-    <text class="mono" x="16" y="28" font-size="13">
-      <tspan fill="#7dcfff">────────────────────────────── </tspan>
-      <tspan fill="#7dcfff">⟦ refactor-ui ⟧</tspan>
-      <tspan fill="#7dcfff"> ────</tspan>
-    </text>
+
+    <!-- top rule: full width, session label docked right -->
+    <line x1="16" y1="22" x2="608" y2="22" stroke="#7dcfff" stroke-width="1.25" stroke-linecap="square"/>
+    <text class="mono" x="728" y="26" text-anchor="end" fill="#7dcfff" font-size="13">⟦ refactor-ui ⟧</text>
+    <line x1="736" y1="22" x2="764" y2="22" stroke="#7dcfff" stroke-width="1.25" stroke-linecap="square"/>
+
     <text class="mono" x="16" y="54" font-size="13">
       <tspan fill="#aab8ca">❯</tspan>
       <tspan fill="#c0caf5">  keep tps on the working line after idle</tspan>
     </text>
-    <text class="mono" x="16" y="76" font-size="13" fill="#7dcfff">────────────────────────────────────────────────────────</text>
-    <text class="mono" x="16" y="104" font-size="12">
+
+    <line x1="16" y1="72" x2="764" y2="72" stroke="#7dcfff" stroke-width="1.25" stroke-linecap="square"/>
+
+    <!-- footer: left status · right path/git -->
+    <text class="mono" x="16" y="102" font-size="12">
       <tspan fill="#a9b1d6">gpt-5</tspan>
       <tspan fill="#565f89"> · </tspan>
       <tspan fill="#f7768e" font-weight="700">thinking max</tspan>
       <tspan fill="#565f89"> · </tspan>
-      <tspan fill="#41a6b5">▓▓▓▓</tspan>
-      <tspan fill="#565f89">░░░░░░</tspan>
-      <tspan fill="#a9b1d6"> 42%</tspan>
+    </text>
+    <g transform="translate(214,94)">
+      <rect x="0" y="0" width="6" height="8" fill="#41a6b5"/>
+      <rect x="8" y="0" width="6" height="8" fill="#41a6b5"/>
+      <rect x="16" y="0" width="6" height="8" fill="#41a6b5"/>
+      <rect x="24" y="0" width="6" height="8" fill="#41a6b5"/>
+      <rect x="32" y="0" width="6" height="8" fill="#565f89"/>
+      <rect x="40" y="0" width="6" height="8" fill="#565f89"/>
+      <rect x="48" y="0" width="6" height="8" fill="#565f89"/>
+      <rect x="56" y="0" width="6" height="8" fill="#565f89"/>
+      <rect x="64" y="0" width="6" height="8" fill="#565f89"/>
+      <rect x="72" y="0" width="6" height="8" fill="#565f89"/>
+    </g>
+    <text class="mono" x="302" y="102" font-size="12">
+      <tspan fill="#a9b1d6">42%</tspan>
       <tspan fill="#565f89"> · </tspan>
       <tspan fill="#9ece6a">⚡ 87%</tspan>
-      <tspan fill="#565f89">   </tspan>
+    </text>
+    <text class="mono" x="764" y="102" text-anchor="end" font-size="12">
       <tspan fill="#fca7ea">~</tspan>
       <tspan fill="#565f89">/dev/</tspan>
       <tspan fill="#c0caf5" font-weight="700">pi-cyber-ui</tspan>
