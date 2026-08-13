@@ -26,9 +26,9 @@ Live reference: [`design/DESIGN.html`](design/DESIGN.html)
 ## Install
 
 ```bash
+pi install npm:pi-cyber-ui
+# or from git:
 pi install git:github.com/22GNUs/pi-cyber-ui.git
-# local checkout:
-pi install /path/to/pi-cyber-ui
 ```
 
 `/settings` → theme `cyber-ui-dark`. Requires Pi `>=0.82.1`.
@@ -54,3 +54,7 @@ Optional `~/.pi/agent/pi-cyber-ui.json`. Missing file/fields use defaults; `/rel
 ```bash
 npm install && npm test && npm run typecheck
 ```
+
+## Release
+
+Bump `version`, push a matching `vX.Y.Z` tag. GitHub Actions publishes to npm.

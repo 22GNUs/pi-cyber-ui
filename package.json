@@ -1,11 +1,19 @@
 {
   "name": "pi-cyber-ui",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "description": "Cyber-inspired Pi theme + UI: silver prompt, neon tool gutter, compact footer, working HUD.",
   "type": "module",
   "keywords": [
     "pi-package"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/22GNUs/pi-cyber-ui.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "files": [
     "themes",
     "extensions",
